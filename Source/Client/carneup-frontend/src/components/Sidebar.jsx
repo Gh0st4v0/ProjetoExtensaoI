@@ -169,10 +169,15 @@ export const Sidebar = ({ navigate, activeView }) => {
 		navigate('login')
 	}
 
+
+
 	const navItems = [
 		{ id: 'dashboard', label: 'Tela Inicial', icon: 'dashboard' },
 		{ id: 'estoque', label: 'Gerenciamento de Estoque', icon: 'inventory_2' },
 		{ id: 'vendas', label: 'Vendas', icon: 'point_of_sale' },
+		{ id: 'purchases', label: 'Compras', icon: 'shopping_cart' },
+		{ id: 'discard', label: 'Descarte', icon: 'delete' },
+		{ id: 'attributes', label: 'Atributos', icon: 'inventory_2' },
 		{ id: 'relatorios', label: 'Relatórios', icon: 'analytics' },
 		{ id: 'configuracoes', label: 'Configurações', icon: 'settings' }
 	]
@@ -181,6 +186,8 @@ export const Sidebar = ({ navigate, activeView }) => {
 		dashboard: 'dashboard',
 		estoque: 'stock',
 		vendas: 'sales',
+		purchases: 'purchases',
+		discard: 'discard',
 		relatorios: 'dashboard',
 		configuracoes: 'configuracoes',
 	}
@@ -194,17 +201,17 @@ export const Sidebar = ({ navigate, activeView }) => {
 
 			<Nav>
 				<ul>
-					{navItems.map(item => (
-						<li key={item.id}>
-							<NavItem
-								$active={activeView === item.id}
-								onClick={() => navigate(routeMap[item.id] ?? item.id)}
-							>
-								<span className='material-symbols-outlined icon'>{item.icon}</span>
-								<span className='text'>{item.label}</span>
-							</NavItem>
-						</li>
-					))}
+					{navItems.map(item => {
+						const target = routeMap[item.id] ?? item.id
+						return (
+							<li key={item.id}>
+								<NavItem $active={activeView === target} onClick={() => navigate(target)}>
+									<span className='material-symbols-outlined icon'>{item.icon}</span>
+									<span className='text'>{item.label}</span>
+								</NavItem>
+							</li>
+						)
+					})}
 				</ul>
 			</Nav>
 

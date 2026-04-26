@@ -533,7 +533,7 @@ export const DashboardView = ({ navigate }) => {
 								<p>Inicie um novo pedido rapidamente</p>
 							</div>
 						</MainCard>
-						<ActionCard>
+						<ActionCard onClick={() => navigate('stock')}>
 							<div className='icon-wrapper'>
 								<span className='material-symbols-outlined'>
 									add_shopping_cart
@@ -544,7 +544,7 @@ export const DashboardView = ({ navigate }) => {
 								<p>Lançar novas peças</p>
 							</div>
 						</ActionCard>
-						<ActionCard>
+						<ActionCard onClick={() => navigate('stock')}>
 							<div className='icon-wrapper'>
 								<span className='material-symbols-outlined'>
 									restaurant_menu
@@ -708,6 +708,7 @@ export const DashboardView = ({ navigate }) => {
 									color: '#610005',
 									cursor: 'pointer',
 								}}
+								onClick={() => navigate('stock')}
 							>
 								Ver reposição pendente
 							</button>
@@ -718,7 +719,7 @@ export const DashboardView = ({ navigate }) => {
 						<RecentSales>
 							<div className='header-row'>
 								<h3>Últimas Vendas</h3>
-								<button>Ver Tudo</button>
+								<button onClick={() => navigate('sales')}>Ver Tudo</button>
 							</div>
 							<div className='list'>
 								<SaleRow $status='pago'>

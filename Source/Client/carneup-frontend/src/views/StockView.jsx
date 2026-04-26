@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { Sidebar } from '../components/Sidebar'
 import { Topbar } from '../components/Topbar'
 import { StatsCard } from '../components/StatsCard'
-import { DataTable } from '../components/DataTable'
+import DataTable from '../components/DataTable'
 import { ProductForm } from '../components/ProductForm'
 import { StockForm } from '../components/StockForm'
 import { Footer } from '../components/Footer'
@@ -274,8 +274,8 @@ export const StockView = ({ navigate }) => {
 	)
 
 	return (
-		<Wrapper>
-			<Sidebar navigate={navigate} activeView='estoque' />
+		    <Wrapper>
+			    <Sidebar navigate={navigate} activeView='stock' />
 
 			<MainArea>
 				<Topbar searchQuery={searchQuery} onSearchChange={setSearchQuery} />
@@ -286,15 +286,15 @@ export const StockView = ({ navigate }) => {
 							<h2>Gerenciamento de Estoque</h2>
 							<p>
 								Gerenciar cortes de primeira qualidade, níveis de estoque e
-								compras.
+								purchases.
 							</p>
 						</div>
 						<div className='button-group'>
-							<Button variant='secondary' full={false} small>
+							<Button variant='secondary' full={false} small onClick={() => navigate('purchases')}>
 								<span className='material-symbols-outlined' style={{ marginRight: 8 }}>inventory</span>
 								Adicionar ao Estoque
 							</Button>
-							<Button full={false} small>
+							<Button full={false} small onClick={() => navigate('stock')}>
 								<span className='material-symbols-outlined' style={{ marginRight: 8 }}>add_box</span>
 								Registrar Novo Produto
 							</Button>
@@ -319,7 +319,7 @@ export const StockView = ({ navigate }) => {
 							borderColor='#55656d'
 						/>
 						<StatsCard
-							label='Itens para Descarte'
+							label='Items to Discard'
 							value='02 Unidades'
 							borderColor='#b32925'
 						/>

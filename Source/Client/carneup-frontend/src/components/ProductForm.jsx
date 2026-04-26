@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import styled from 'styled-components'
 import { Button } from './Button'
 import { Input } from './Input'
+import QuickCreateModal from './QuickCreateModal'
 
 const FormContainer = styled.div`
 	background-color: #ffffff;
@@ -67,21 +68,54 @@ export const ProductForm = ({ onSubmit }) => {
 		code: '',
 		brand: '',
 		category: '',
-		unit: 'Kg',
+		unit: 'KG',
 		price: ''
 	})
 
+	const [brands, setBrands] = useState(['Heritage Farms','PrimeCuts','Local Ranch'])
+	const [categories, setCategories] = useState(['Bovine','Porcine','Poultry','Lamb','Processed'])
+	const [quickOpen, setQuickOpen] = useState({ open: false, type: null })
+	const [errors, setErrors] = useState({})
+
 	const handleChange = (e) => {
 		const { name, value } = e.target
-		setFormData(prev => ({
-			...prev,
-			[name]: value
-		}))
+		setFormData(prev => ({ ...prev, [name]: value }))
+		setErrors(prev => ({ ...prev, [name]: null }))
+	}
+
+	const validate = () => {
+		const newErrors = {}
+		if (!formData.name || formData.name.trim().length < 2) newErrors.name = 'Nome é obrigatório.'
+		if (!formData.code || !/^[A-Za-z0-9]{6}$/.test(formData.code)) newErrors.code = 'Código deve ter 6 caracteres alfanuméricos.'
+		if (!formData.brand) newErrors.brand = 'Escolha uma marca ou crie uma nova.'
+		if (!formData.category) newErrors.category = 'Escolha uma categoria ou crie uma nova.'
+		if (!formData.unit) newErrors.unit = 'Unidade é obrigatória.'
+		setErrors(newErrors)
+		return Object.keys(newErrors).length === 0
 	}
 
 	const handleSubmit = (e) => {
 		e.preventDefault()
+		if (!validate()) return
 		onSubmit(formData)
+		setFormData({ name: '', code: '', brand: '', category: '', unit: 'KG', price: '' })
+	}
+
+	const handleQuickCreate = (type, value) => {
+		if (type === 'brand') {
+			setBrands(prev => {
+				const next = [...prev, value]
+				return next
+			})
+			setFormData(prev => ({ ...prev, brand: value }))
+		} else if (type === 'category') {
+			setCategories(prev => {
+				const next = [...prev, value]
+				return next
+			})
+			setFormData(prev => ({ ...prev, category: value }))
+		}
+		setQuickOpen({ open: false, type: null })
 	}
 
 	return (
@@ -94,68 +128,37 @@ export const ProductForm = ({ onSubmit }) => {
 			<form onSubmit={handleSubmit}>
 				<div className='form-grid'>
 					<div className='full-width'>
-						<Input
-							label='Nome do Produto'
-							name='name'
-							value={formData.name}
-							onChange={handleChange}
-							placeholder='e.g. T-Bone Steak Premium'
-							required
-						/>
+						<Input label='Nome do Produto' name='name' value={formData.name} onChange={handleChange} placeholder='e.g. T-Bone Steak Premium' required />
+						{errors.name && <div style={{color:'#bf2b2b',fontSize:13,marginTop:6}}>{errors.name}</div>}
 					</div>
 
-					<Input
-						label='Código'
-						name='code'
-						value={formData.code}
-						onChange={handleChange}
-						placeholder='CN-XXXX'
-						required
-					/>
-
-					<Input
-						label='Marca'
-						name='brand'
-						value={formData.brand}
-						onChange={handleChange}
-						placeholder='Heritage Farms'
-						required
-					/>
+					<Input label='Código (6 caracteres)' name='code' value={formData.code} onChange={handleChange} placeholder='EX: ANCHO1' required />
+					{errors.code && <div style={{color:'#bf2b2b',fontSize:13,marginTop:6}}>{errors.code}</div>}
 
 					<div>
-						<label style={{
-							fontSize: '10px',
-							fontWeight: '700',
-							textTransform: 'uppercase',
-							letterSpacing: '0.1em',
-							color: '#5a403c',
-							marginBottom: '8px',
-							display: 'block'
-						}}>
-							Categoria
-						</label>
-						<select
-							name='category'
-							value={formData.category}
-							onChange={handleChange}
-							style={{
-								width: '100%',
-								padding: '12px',
-								border: '1px solid #e7e5e4',
-								borderRadius: '4px',
-								fontFamily: 'Work Sans, sans-serif',
-								fontSize: '14px',
-								backgroundColor: '#ffffff'
-							}}
-							required
-						>
-							<option value=''>Selecionar Categoria</option>
-							<option value='Bovine'>Bovine</option>
-							<option value='Porcine'>Porcine</option>
-							<option value='Poultry'>Poultry</option>
-							<option value='Lamb'>Lamb</option>
-							<option value='Processed'>Processed</option>
-						</select>
+						<label style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'#5a403c',marginBottom:8,display:'block'}}>Marca</label>
+						<div style={{display:'flex',gap:8,alignItems:'center'}}>
+							<select name='brand' value={formData.brand} onChange={handleChange} style={{flex:1,padding:12,border:'1px solid #e7e5e4',borderRadius:8}} required>
+								<option value=''>Selecionar Marca</option>
+								{brands.map(b => <option key={b} value={b}>{b}</option>)}
+							</select>
+							<Button type='button' full={false} small onClick={() => setQuickOpen({ open: true, type: 'brand' })}>+</Button>
+						</div>
+						{errors.brand && <div style={{color:'#bf2b2b',fontSize:13,marginTop:6}}>{errors.brand}</div>}
+					</div>
+
+					<div>
+					<div>
+						<label style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'#5a403c',marginBottom:8,display:'block'}}>Categoria</label>
+						<div style={{display:'flex',gap:8,alignItems:'center'}}>
+							<select name='category' value={formData.category} onChange={handleChange} style={{flex:1,padding:12,border:'1px solid #e7e5e4',borderRadius:8}} required>
+								<option value=''>Selecionar Categoria</option>
+								{categories.map(c => <option key={c} value={c}>{c}</option>)}
+							</select>
+							<Button type='button' full={false} small onClick={() => setQuickOpen({ open: true, type: 'category' })}>+</Button>
+						</div>
+						{errors.category && <div style={{color:'#bf2b2b',fontSize:13,marginTop:6}}>{errors.category}</div>}
+					</div>
 					</div>
 
 					<div>
@@ -172,45 +175,29 @@ export const ProductForm = ({ onSubmit }) => {
 						</label>
 						<div className='radio-group'>
 							<label>
-								<input
-									type='radio'
-									name='unit'
-									value='Kg'
-									checked={formData.unit === 'Kg'}
-									onChange={handleChange}
-								/>
+								<input type='radio' name='unit' value='KG' checked={formData.unit === 'KG'} onChange={handleChange} />
 								Kg
 							</label>
 							<label>
-								<input
-									type='radio'
-									name='unit'
-									value='Un'
-									checked={formData.unit === 'Un'}
-									onChange={handleChange}
-								/>
+								<input type='radio' name='unit' value='UN' checked={formData.unit === 'UN'} onChange={handleChange} />
 								Un
+								{errors.unit && <div style={{color:'#bf2b2b',fontSize:13,marginTop:6}}>{errors.unit}</div>}
 							</label>
 						</div>
 					</div>
 
 					<div className='full-width'>
-						<Input
-							label='Preço Base de Venda (R$)'
-							name='price'
-							type='number'
-							value={formData.price}
-							onChange={handleChange}
-							placeholder='0.00'
-							step='0.01'
-							required
-						/>
+						<Input label='Preço Base de Venda (R$)' name='price' type='number' value={formData.price} onChange={handleChange} placeholder='0.00' step='0.01' />
 					</div>
 				</div>
 
 				<Button type='submit' style={{ width: '100%', marginTop: '24px' }}>
 					Salvar Produto
 				</Button>
+
+				{quickOpen.open && (
+					<QuickCreateModal open={quickOpen.open} type={quickOpen.type} onClose={() => setQuickOpen({ open: false, type: null })} onCreate={(value) => handleQuickCreate(quickOpen.type, value)} />
+				)}
 			</form>
 		</FormContainer>
 	)

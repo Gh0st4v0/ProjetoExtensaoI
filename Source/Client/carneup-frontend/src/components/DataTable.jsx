@@ -165,7 +165,7 @@ const TableContainer = styled.div`
 	}
 `
 
-export const DataTable = ({
+const DataTable = ({
 	data,
 	columns,
 	actions,
@@ -286,3 +286,5 @@ export const DataTable = ({
 		</TableContainer>
 	)
 }
+
+export default DataTable

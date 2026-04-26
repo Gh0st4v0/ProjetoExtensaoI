@@ -11,6 +11,9 @@ import { ForgotPasswordView } from './views/ForgotPasswordView'
 import { RecoveryCodeView } from './views/RecoveryCodeView'
 import { ResetPasswordView } from './views/ResetPasswordView'
 import { SuccessView } from './views/SuccessView'
+import { DiscardView } from './views/DiscardView'
+import { PurchaseView } from './views/PurchaseView'
+import AttributesView from './views/AttributesView'
 
 export default function App() {
 	const [currentView, setCurrentView] = useState('login')
@@ -59,6 +62,12 @@ export default function App() {
 				return <SuccessView navigate={setCurrentView} />
 			case 'stock':
 				return <StockView navigate={setCurrentView} />
+			case 'discard':
+				return <DiscardView navigate={setCurrentView} />
+			case 'purchases':
+				return <PurchaseView navigate={setCurrentView} />
+			case 'attributes':
+				return <AttributesView navigate={setCurrentView} />
 			case 'configuracoes':
 				return <SettingsView navigate={setCurrentView} />
 		case 'settings':

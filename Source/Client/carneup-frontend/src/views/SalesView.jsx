@@ -1,7 +1,6 @@
 import styled from 'styled-components'
 import { useState } from 'react'
 import { Sidebar } from '../components/Sidebar'
-import { Topbar } from '../components/Topbar'
 
 // ==========================================
 // ESTILOS
@@ -531,26 +530,34 @@ export const SalesView = ({ navigate }) => {
 	const [searchQuery, setSearchQuery] = useState('')
 
 	return (
-		<Wrapper>
-			<Sidebar navigate={navigate} activeView='vendas' />
+		    <Wrapper>
+			    <Sidebar navigate={navigate} activeView='sales' />
 
 			<MainArea>
-				<Topbar searchQuery={searchQuery} onSearchChange={setSearchQuery}>
-					<button className='caixa-btn'>
-						<span
-							className='material-symbols-outlined'
-							style={{ fontSize: '18px' }}
-						>
-							account_balance
-						</span>
-						Caixa
-					</button>
-					<div className='divider' />
-					<img
-						src='https://lh3.googleusercontent.com/aida-public/AB6AXuAbN4N9JVG2kPOiW0XGm82oEJ_M1ylsBPLvW4OnB_umj11o1FIThDhEP_2XNgGbM0X1Q6_ADrv7WkPvOM1ed5BfwfieqtqfBs124qHrV5mW9oayirHYRXTnpVysYDSBASL6jFjZiIjpiBj8YUN0owMk8D_3yUH1igJY4-ByxzSxJdszM6BzdBJAI8bbc3lH5yfaJLV8Ur7skT1vVHBbJWa1Ds2tzQjYhyFTHMP76pc4uOqB8SM2V8l9sB5Q1UqDeDbRD3jypmT8f5w'
-						alt='Avatar'
-					/>
-				</Topbar>
+				<Header>
+					<div className='search-container'>
+						<span className='material-symbols-outlined icon'>search</span>
+						<input
+							type='text'
+							placeholder='PESQUISAR POR NOME, CÓDIGO, MARCA OU CATEGORIA...'
+							value={searchQuery}
+							onChange={(e) => setSearchQuery(e.target.value)}
+						/>
+					</div>
+					<div className='actions'>
+						<button className='caixa-btn'>
+							<span className='material-symbols-outlined' style={{ fontSize: '18px' }}>
+								account_balance
+							</span>
+							Caixa
+						</button>
+						<div className='divider' />
+						<img
+							src='https://lh3.googleusercontent.com/aida-public/AB6AXuAbN4N9JVG2kPOiW0XGm82oEJ_M1ylsBPLvW4OnB_umj11o1FIThDhEP_2XNgGbM0X1Q6_ADrv7WkPvOM1ed5BfwfieqtqfBs124qHrV5mW9oayirHYRXTnpVysYDSBASL6jFjZiIjpiBj8YUN0owMk8D_3yUH1igJY4-ByxzSxJdszM6BzdBJAI8bbc3lH5yfaJLV8Ur7skT1vVHBbJWa1Ds2tzQjYhyFTHMP76pc4uOqB8SM2V8l9sB5Q1UqDeDbRD3jypmT8f5w'
+							alt='Avatar'
+						/>
+					</div>
+				</Header>
 
 				<ContentArea>
 					<ProductSection>
