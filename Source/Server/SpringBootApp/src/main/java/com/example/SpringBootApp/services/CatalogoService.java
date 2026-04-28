@@ -128,8 +128,9 @@ public class CatalogoService {
 			dto.setId(Produto.getId());
 			dto.setName(Produto.getNome());
 			dto.setCode(Produto.getCodigo());
-			dto.setBrandName(Produto.getMarca().getNome());
+			dto.setBrandName(Produto.getMarca() != null ? Produto.getMarca().getNome() : null);
 			dto.setUnitMeasurement(Produto.getUnidadeMedida() != null ? Produto.getUnidadeMedida().name() : null);
+			dto.setCategoryName(Produto.getCategoria() != null ? Produto.getCategoria().getNome() : null);
 			return dto;
 		}).collect(Collectors.toList());
 	}

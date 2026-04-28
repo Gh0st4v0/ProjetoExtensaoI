@@ -7,6 +7,7 @@ public record ProdutoQuantidadeEstoqueDTO(
         String name,
         String code,
         String brandName,
+        String categoryName,
         BigDecimal stockQuantity
 ) {
 }

@@ -1,6 +1,7 @@
 import styled from 'styled-components'
 import { useState } from 'react'
 import { Sidebar } from '../components/Sidebar'
+import { Topbar } from '../components/Topbar'
 
 // ==========================================
 // ESTILOS
@@ -22,80 +23,7 @@ const MainArea = styled.div`
 	min-width: 0;
 `
 
-const Header = styled.header`
-	height: 64px;
-	background-color: #ffffff;
-	border-bottom: 1px solid #e7e5e4;
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 0 24px;
-	flex-shrink: 0;
-	position: sticky;
-	top: 0;
-	z-index: 30;
 
-	.search-container {
-		display: flex;
-		align-items: center;
-		background-color: #f5f5f4;
-		border-radius: 999px;
-		padding: 8px 16px;
-		width: 320px;
-
-		input {
-			background: transparent;
-			border: none;
-			outline: none;
-			font-family: 'Epilogue', sans-serif;
-			font-size: 14px;
-			width: 100%;
-			margin-left: 8px;
-			&::placeholder {
-				color: #a8a29e;
-				letter-spacing: 0.05em;
-			}
-		}
-	}
-
-	.actions {
-		display: flex;
-		align-items: center;
-		gap: 16px;
-
-		.caixa-btn {
-			display: flex;
-			align-items: center;
-			gap: 8px;
-			padding: 8px 16px;
-			border: 2px solid rgba(97, 0, 5, 0.2);
-			color: #610005;
-			border-radius: 4px;
-			font-family: 'Epilogue', sans-serif;
-			font-weight: 700;
-			font-size: 12px;
-			text-transform: uppercase;
-			background: transparent;
-			cursor: pointer;
-			transition: background 0.2s;
-			&:hover {
-				background-color: rgba(97, 0, 5, 0.05);
-			}
-		}
-
-		.divider {
-			height: 32px;
-			width: 1px;
-			background-color: #e7e5e4;
-		}
-		img {
-			width: 32px;
-			height: 32px;
-			border-radius: 50%;
-			border: 1px solid #e7e5e4;
-		}
-	}
-`
 
 const ContentArea = styled.main`
 	flex: 1;
@@ -534,30 +462,7 @@ export const SalesView = ({ navigate }) => {
 			    <Sidebar navigate={navigate} activeView='sales' />
 
 			<MainArea>
-				<Header>
-					<div className='search-container'>
-						<span className='material-symbols-outlined icon'>search</span>
-						<input
-							type='text'
-							placeholder='PESQUISAR POR NOME, CÓDIGO, MARCA OU CATEGORIA...'
-							value={searchQuery}
-							onChange={(e) => setSearchQuery(e.target.value)}
-						/>
-					</div>
-					<div className='actions'>
-						<button className='caixa-btn'>
-							<span className='material-symbols-outlined' style={{ fontSize: '18px' }}>
-								account_balance
-							</span>
-							Caixa
-						</button>
-						<div className='divider' />
-						<img
-							src='https://lh3.googleusercontent.com/aida-public/AB6AXuAbN4N9JVG2kPOiW0XGm82oEJ_M1ylsBPLvW4OnB_umj11o1FIThDhEP_2XNgGbM0X1Q6_ADrv7WkPvOM1ed5BfwfieqtqfBs124qHrV5mW9oayirHYRXTnpVysYDSBASL6jFjZiIjpiBj8YUN0owMk8D_3yUH1igJY4-ByxzSxJdszM6BzdBJAI8bbc3lH5yfaJLV8Ur7skT1vVHBbJWa1Ds2tzQjYhyFTHMP76pc4uOqB8SM2V8l9sB5Q1UqDeDbRD3jypmT8f5w'
-							alt='Avatar'
-						/>
-					</div>
-				</Header>
+				<Topbar searchQuery={searchQuery} onSearchChange={setSearchQuery} />
 
 				<ContentArea>
 					<ProductSection>

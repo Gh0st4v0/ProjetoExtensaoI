@@ -9,5 +9,6 @@ public class ProdutoResponseDTO {
     private String code;
     private String brandName;
     private String unitMeasurement;
+    private String categoryName;
 }
 

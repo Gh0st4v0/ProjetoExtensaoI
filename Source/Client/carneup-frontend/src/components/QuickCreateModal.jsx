@@ -28,9 +28,7 @@ export default function QuickCreateModal({ open, type, onClose, onCreate }) {
 
   const label = type === 'brand' ? 'Nova Marca' : 'Nova Categoria'
   const placeholder = type === 'brand' ? 'Ex: PrimeCuts' : 'Ex: Seafood'
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
+n  const handleCreate = () => {
     if (!value || value.trim().length < 2) return
     onCreate(value.trim())
     setValue('')
@@ -40,13 +38,13 @@ export default function QuickCreateModal({ open, type, onClose, onCreate }) {
     <Backdrop onClick={onClose}>
       <Card onClick={(e) => e.stopPropagation()}>
         <h3 style={{fontFamily:"Epilogue, sans-serif",color:'#610005',fontWeight:900}}>{label}</h3>
-        <form onSubmit={handleSubmit} style={{marginTop:12}}>
+        <div style={{marginTop:12}}>
           <Input label={label} name='quick' value={value} onChange={(e) => setValue(e.target.value)} placeholder={placeholder} />
           <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:12}}>
             <Button variant='secondary' type='button' full={false} onClick={onClose}>Cancelar</Button>
-            <Button type='submit' full={false}>Criar</Button>
+            <Button type='button' full={false} onClick={handleCreate}>Criar</Button>
           </div>
-        </form>
+        </div>
       </Card>
     </Backdrop>
   )

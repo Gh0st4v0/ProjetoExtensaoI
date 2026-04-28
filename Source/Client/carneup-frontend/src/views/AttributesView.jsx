@@ -5,6 +5,7 @@ import { Topbar } from '../components/Topbar'
 import DataTable from '../components/DataTable'
 import { Button } from '../components/Button'
 import QuickCreateModal from '../components/QuickCreateModal'
+import { useAttributes } from '../context/AttributesContext'
 
 const Page = styled.div`
   display:flex;
@@ -20,8 +21,7 @@ const Container = styled.div`
   overflow:auto;
 `
 export default function AttributesView({ navigate }) {
-  const [brands, setBrands] = useState(['Heritage Farms','PrimeCuts','Local Ranch'])
-  const [categories, setCategories] = useState(['Bovine','Porcine','Poultry','Lamb','Processed'])
+  const { brands, categories, addBrand, addCategory, updateBrand, updateCategory, removeBrand, removeCategory } = useAttributes()
   const [quickOpen, setQuickOpen] = useState({ open:false, type:null })
   const [editing, setEditing] = useState(null)
   const [errorMsg, setErrorMsg] = useState('')
@@ -32,31 +32,46 @@ export default function AttributesView({ navigate }) {
     { id:2, name:'Pork Chop', brand:'PrimeCuts', category:'Porcine' }
   ], [])
 
-  const brandRows = brands.map((b, i) => ({ id: `brand-${i}`, name: b }))
-  const categoryRows = categories.map((c, i) => ({ id: `cat-${i}`, name: c }))
+  const brandRows = (brands || []).map((b) => ({ id: `brand-${b.id}`, name: b.brandName, refId: b.id }))
+  const categoryRows = (categories || []).map((c) => ({ id: `cat-${c.id}`, name: c.categoryName, refId: c.id }))
 
-  const handleCreate = (type, value) => {
-    if (type === 'brand') setBrands(prev => [...prev, value])
-    if (type === 'category') setCategories(prev => [...prev, value])
-  }
-
-  const handleDelete = (type, name) => {
-    // deny if linked to product
-    const linked = products.find(p => (type === 'brand' && p.brand === name) || (type === 'category' && p.category === name))
-    if (linked) {
-      setErrorMsg(`Não é possível excluir "${name}" pois existem produtos vinculados.`)
+  const handleCreate = async (type, value) => {
+    try {
+      if (type === 'brand') await addBrand(value)
+      if (type === 'category') await addCategory(value)
+    } catch (e) {
+      setErrorMsg(e.response?.data?.message || 'Falha ao criar')
       setTimeout(() => setErrorMsg(''), 4500)
-      return
     }
-    if (type === 'brand') setBrands(prev => prev.filter(b => b !== name))
-    if (type === 'category') setCategories(prev => prev.filter(c => c !== name))
   }
 
-  const handleEdit = (type, oldName, newName) => {
+  const handleDelete = async (type, id, name) => {
+    try {
+      const linked = products.find(p => (type === 'brand' && p.brand === name) || (type === 'category' && p.category === name))
+      if (linked) {
+        setErrorMsg(`Não é possível excluir "${name}" pois existem produtos vinculados.`)
+        setTimeout(() => setErrorMsg(''), 4500)
+        return
+      }
+
+      if (type === 'brand') await removeBrand(id)
+      if (type === 'category') await removeCategory(id)
+    } catch (e) {
+      setErrorMsg(e.response?.data?.message || 'Falha ao excluir')
+      setTimeout(() => setErrorMsg(''), 4500)
+    }
+  }
+
+  const handleEdit = async (type, id, newName) => {
     if (!newName || newName.trim().length < 2) return
-    if (type === 'brand') setBrands(prev => prev.map(b => b === oldName ? newName : b))
-    if (type === 'category') setCategories(prev => prev.map(c => c === oldName ? newName : c))
-    setEditing(null)
+    try {
+      if (type === 'brand') await updateBrand(id, newName)
+      if (type === 'category') await updateCategory(id, newName)
+      setEditing(null)
+    } catch (e) {
+      setErrorMsg(e.response?.data?.message || 'Falha ao editar')
+      setTimeout(() => setErrorMsg(''), 4500)
+    }
   }
 
   const brandColumns = [
@@ -67,8 +82,8 @@ export default function AttributesView({ navigate }) {
   ]
 
   const rowActions = (type) => ([
-    { icon: 'edit', onClick: (row) => setEditing({ type, oldName: row.name }) },
-    { icon: 'delete', onClick: (row) => handleDelete(type, row.name) }
+    { icon: 'edit', onClick: (row) => setEditing({ type, id: row.refId, oldName: row.name }) },
+    { icon: 'delete', onClick: (row) => handleDelete(type, row.refId, row.name) }
   ])
 
   return (
@@ -102,7 +117,7 @@ export default function AttributesView({ navigate }) {
           </div>
 
           {editing && (
-            <QuickCreateModal open={true} type={editing.type} onClose={() => setEditing(null)} onCreate={(val) => handleEdit(editing.type, editing.oldName, val)} />
+            <QuickCreateModal open={true} type={editing.type} onClose={() => setEditing(null)} onCreate={(val) => handleEdit(editing.type, editing.id, val)} initialValue={editing.oldName} />
           )}
 
           {quickOpen.open && (

@@ -29,9 +29,12 @@ public class CategoriaController {
             @ApiResponse(responseCode = "400", description = "Invalid input data")
     })
     @PostMapping
-    public ResponseEntity<?> createCategory(@Valid @RequestBody CategoriaCreateDTO CategoriaDTO) {
+    public ResponseEntity<CategoriaDTO> createCategory(@Valid @RequestBody CategoriaCreateDTO CategoriaDTO) {
         Categoria Categoria = CatalogoService.createCategory(CategoriaDTO);
-        return ResponseEntity.created(URI.create("/categories/" + Categoria.getId())).build();
+        CategoriaDTO response = new CategoriaDTO();
+        response.setId(Categoria.getId());
+        response.setCategoryName(Categoria.getNome());
+        return ResponseEntity.created(URI.create("/categories/" + Categoria.getId())).body(response);
     }
 
     @GetMapping
