@@ -294,6 +294,7 @@ class ProdutoControllerTest {
                 "Picanha",
                 "001001",
                 "Friboi",
+                "",
                 new BigDecimal("15.5")
         );
 

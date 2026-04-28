@@ -1,6 +1,0 @@
-Remove old StockView
-- Delete legacy StockView.jsx (moved to StockViewV2)
-- Fix QuickCreateModal to avoid nested form submit which caused unexpected page refresh
-- Add categoryName to ProdutoResponseDTO so frontend receives category on product listing
-
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>

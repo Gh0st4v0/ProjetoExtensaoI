@@ -228,6 +228,7 @@ class CatalogoServiceTest {
                 "Picanha",
                 "001001",
                 "Friboi",
+                "",
                 new BigDecimal("10.50")
         );
         Page<ProdutoQuantidadeEstoqueDTO> expectedPage = new PageImpl<>(List.of(dto));
