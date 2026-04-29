@@ -5,6 +5,7 @@ import { Topbar } from '../components/Topbar'
 import DataTable from '../components/DataTable'
 import { Button } from '../components/Button'
 import QuickCreateModal from '../components/QuickCreateModal'
+import ConfirmModal from '../components/ConfirmModal'
 import { useAttributes } from '../context/AttributesContext'
 
 const Page = styled.div`
@@ -45,20 +46,27 @@ export default function AttributesView({ navigate }) {
     }
   }
 
-  const handleDelete = async (type, id, name) => {
+  const [deleteConfirm, setDeleteConfirm] = useState({ open:false, type:null, id:null, name:null, linked:false, error:null, loading:false })
+
+  const handleDelete = (type, id, name) => {
+    const linked = products.find(p => (type === 'brand' && p.brand === name) || (type === 'category' && p.category === name))
+    setDeleteConfirm({ open:true, type, id, name, linked: !!linked, error:null, loading:false })
+  }
+
+  const confirmDelete = async () => {
+    const { type, id, linked } = deleteConfirm
     try {
-      const linked = products.find(p => (type === 'brand' && p.brand === name) || (type === 'category' && p.category === name))
+      setDeleteConfirm(prev => ({ ...prev, loading:true, error:null }))
       if (linked) {
-        setErrorMsg(`Não é possível excluir "${name}" pois existem produtos vinculados.`)
-        setTimeout(() => setErrorMsg(''), 4500)
+        // cannot delete, just close the modal
+        setDeleteConfirm({ open:false, type:null, id:null, name:null, linked:false, error:null, loading:false })
         return
       }
-
       if (type === 'brand') await removeBrand(id)
       if (type === 'category') await removeCategory(id)
+      setDeleteConfirm({ open:false, type:null, id:null, name:null, linked:false, error:null, loading:false })
     } catch (e) {
-      setErrorMsg(e.response?.data?.message || 'Falha ao excluir')
-      setTimeout(() => setErrorMsg(''), 4500)
+      setDeleteConfirm(prev => ({ ...prev, loading:false, error: e.response?.data?.message || 'Falha ao excluir' }))
     }
   }
 
@@ -122,6 +130,19 @@ export default function AttributesView({ navigate }) {
 
           {quickOpen.open && (
             <QuickCreateModal open={quickOpen.open} type={quickOpen.type} onClose={() => setQuickOpen({ open:false, type:null })} onCreate={(val) => handleCreate(quickOpen.type, val)} />
+          )}
+
+          {deleteConfirm.open && (
+            <ConfirmModal
+              open={deleteConfirm.open}
+              title={deleteConfirm.linked ? 'Impossível excluir' : `Excluir ${deleteConfirm.name}`}
+              message={deleteConfirm.linked ? `Não é possível excluir "${deleteConfirm.name}" pois existem produtos vinculados.` : `Tem certeza que deseja excluir "${deleteConfirm.name}"?`}
+              confirmLabel={deleteConfirm.linked ? 'OK' : 'Excluir'}
+              onCancel={() => setDeleteConfirm({ open:false, type:null, id:null, name:null, linked:false, error:null, loading:false })}
+              onConfirm={confirmDelete}
+              loading={deleteConfirm.loading}
+              error={deleteConfirm.error}
+            />
           )}
 
         </Container>
