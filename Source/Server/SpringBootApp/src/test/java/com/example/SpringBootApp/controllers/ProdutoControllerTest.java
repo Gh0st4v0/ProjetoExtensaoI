@@ -201,21 +201,10 @@ class ProdutoControllerTest {
         setup();
 
         // Arrange
-        ProdutoResponseDTO produto1 = new ProdutoResponseDTO();
-        produto1.setId(1L);
-        produto1.setName("Picanha");
-        produto1.setCode("001001");
-        produto1.setBrandName("Friboi");
-        produto1.setUnitMeasurement("KG");
+        ProdutoQuantidadeEstoqueDTO produto1 = new ProdutoQuantidadeEstoqueDTO(1L, "Picanha", "001001", "Friboi", "Bovine", new BigDecimal("0"));
+        ProdutoQuantidadeEstoqueDTO produto2 = new ProdutoQuantidadeEstoqueDTO(2L, "Alcatra", "001002", "Sadia", "Bovine", new BigDecimal("0"));
 
-        ProdutoResponseDTO produto2 = new ProdutoResponseDTO();
-        produto2.setId(2L);
-        produto2.setName("Alcatra");
-        produto2.setCode("001002");
-        produto2.setBrandName("Sadia");
-        produto2.setUnitMeasurement("KG");
-
-        List<ProdutoResponseDTO> products = List.of(produto1, produto2);
+        List<ProdutoQuantidadeEstoqueDTO> products = List.of(produto1, produto2);
 
         when(catalogService.getAllProducts()).thenReturn(products);
 

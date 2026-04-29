@@ -6,7 +6,7 @@ import com.example.SpringBootApp.DTOs.ProdutoQuantidadeEstoqueDTO;
 import com.example.SpringBootApp.models.Produto;
 import com.example.SpringBootApp.services.CatalogoService;
 import com.example.SpringBootApp.services.InventarioService;
-import com.example.SpringBootApp.DTOs.ProdutoResponseDTO;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -48,8 +48,8 @@ public class ProdutoController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ProdutoResponseDTO>> getAllProducts() {
-        List<ProdutoResponseDTO> products = CatalogoService.getAllProducts();
+    public ResponseEntity<List<ProdutoQuantidadeEstoqueDTO>> getAllProducts() {
+        List<ProdutoQuantidadeEstoqueDTO> products = CatalogoService.getAllProducts();
         return ResponseEntity.ok(products);
     }
 

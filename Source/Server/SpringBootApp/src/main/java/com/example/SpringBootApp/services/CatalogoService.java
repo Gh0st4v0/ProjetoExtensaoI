@@ -120,19 +120,8 @@ public class CatalogoService {
 		return categoriesDTO;
 	}
 
-	public List<ProdutoResponseDTO> getAllProducts() {
-		List<Produto> products = ProdutoRepository.findAll();
-
-		return products.stream().map(Produto -> {
-			ProdutoResponseDTO dto = new ProdutoResponseDTO();
-			dto.setId(Produto.getId());
-			dto.setName(Produto.getNome());
-			dto.setCode(Produto.getCodigo());
-			dto.setBrandName(Produto.getMarca() != null ? Produto.getMarca().getNome() : null);
-			dto.setUnitMeasurement(Produto.getUnidadeMedida() != null ? Produto.getUnidadeMedida().name() : null);
-			dto.setCategoryName(Produto.getCategoria() != null ? Produto.getCategoria().getNome() : null);
-			return dto;
-		}).collect(Collectors.toList());
+	public List<ProdutoQuantidadeEstoqueDTO> getAllProducts() {
+		return ProdutoRepository.findAllWithStock();
 	}
 
 	public Page<ProdutoQuantidadeEstoqueDTO> searchProductsWithStock(String query, int page) {
