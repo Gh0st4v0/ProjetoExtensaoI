@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import styled from 'styled-components'
 import { Sidebar } from '../components/Sidebar'
 import { Topbar } from '../components/Topbar'
@@ -6,6 +6,8 @@ import { Input } from '../components/Input'
 import { Button } from '../components/Button'
 import DataTable from '../components/DataTable'
 import ConfirmModal from '../components/ConfirmModal'
+import productsApi from '../services/productsApi'
+import purchasesApi from '../services/purchasesApi'
 
 const Wrapper = styled.div`
   display:flex; min-height:100vh; background:#f9f9f9;
@@ -18,37 +20,54 @@ const FormRow = styled.div`display:flex; gap:12px; margin-bottom:12px; align-ite
 
 export const PurchaseView = ({ navigate }) => {
   const [query, setQuery] = useState('')
-  const [products] = useState([
-    { id:1, name:'Picanha Maturatta', code:'#001', brand:'Maturatta', category:'Bovine', unit:'Kg' },
-    { id:2, name:'Ribeye Premium', code:'#002', brand:'Angus', category:'Bovine', unit:'Kg' },
-    { id:3, name:'Linguiça Toscana', code:'#031', brand:'Local', category:'Porcine', unit:'Kg' }
-  ])
+  const [products, setProducts] = useState([])
 
   const [selectedProductId, setSelectedProductId] = useState('')
   const [qty, setQty] = useState('')
   const [cost, setCost] = useState('')
   const [expiry, setExpiry] = useState('')
+  const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().slice(0,10))
 
   const [cart, setCart] = useState([])
   const [editing, setEditing] = useState(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [pendingEdit, setPendingEdit] = useState(null)
 
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        const res = await productsApi.getAllProducts()
+        // normalize response to expected fields
+        const list = (res || []).map(p => ({ id: p.id, name: p.name || p.product_name || p.productName, code: p.code || p.codigo, brand: p.brandName || p.brand_name || '', category: p.categoryName || '', unit: p.unitMeasurement || 'UN', perecivel: p.perecivel }))
+        setProducts(list)
+      } catch (e) {
+        console.error('Falha ao carregar produtos', e)
+      }
+    }
+    fetch()
+  }, [])
+
   const filtered = useMemo(() => products.filter(p => {
     const q = query.toLowerCase()
-    return !q || p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q) || p.category.toLowerCase().includes(q)
+    return !q || (p.name && p.name.toLowerCase().includes(q)) || (p.code && p.code.toLowerCase().includes(q)) || (p.brand && p.brand.toLowerCase().includes(q)) || (p.category && p.category.toLowerCase().includes(q))
   }), [products, query])
 
   const addToCart = () => {
     if (!selectedProductId || !qty || !cost) return
     const prod = products.find(p => String(p.id) === String(selectedProductId))
-    const item = { id: Date.now(), product: prod.name, code: prod.code, qty: parseFloat(qty), cost: parseFloat(cost), expiry }
-    setCart(prev => [item, ...prev])
+    const itemData = { id: Date.now(), productId: prod.id, productName: prod.name, code: prod.code, qty: parseFloat(qty), cost: parseFloat(cost), expiry }
+
+    if (editing) {
+      setCart(prev => prev.map(it => it.id === editing.id ? { ...it, ...itemData } : it))
+      setEditing(null)
+    } else {
+      setCart(prev => [itemData, ...prev])
+    }
+
     setSelectedProductId(''); setQty(''); setCost(''); setExpiry('')
   }
 
   const startEdit = (item) => {
-    // if item older than 7 days (mock using id timestamp heuristic) show confirm
     const ageDays = (Date.now() - (item.id || 0)) / (1000*60*60*24)
     if (ageDays > 7) {
       setPendingEdit(item)
@@ -56,22 +75,25 @@ export const PurchaseView = ({ navigate }) => {
       return
     }
     setEditing(item)
-    setSelectedProductId('')
+    setSelectedProductId(item.productId)
+    setQty(String(item.qty))
+    setCost(String(item.cost))
+    setExpiry(item.expiry || '')
   }
 
   const confirmEdit = () => {
     setConfirmOpen(false)
-    if (pendingEdit) setEditing(pendingEdit)
+    if (pendingEdit) startEdit(pendingEdit)
     setPendingEdit(null)
   }
 
   const cancelEdit = () => { setConfirmOpen(false); setPendingEdit(null) }
 
   const columns = [
-    { header: 'Produto', key: 'product', render: i => <strong>{i.product}</strong> },
+    { header: 'Produto', key: 'product', render: i => <strong>{i.productName}</strong> },
     { header: 'Código', key: 'code', render: i => <span>{i.code}</span> },
     { header: 'Qtd', key: 'qty', style:{textAlign:'right'}, render: i => <span>{i.qty}</span> },
-    { header: 'Preço Custo', key: 'cost', style:{textAlign:'right'}, render: i => <span>R$ {i.cost.toFixed(2)}</span> },
+    { header: 'Preço Custo', key: 'cost', style:{textAlign:'right'}, render: i => <span>R$ {Number(i.cost).toFixed(2)}</span> },
     { header: 'Validade', key: 'expiry', render: i => <span>{i.expiry || '-'}</span> },
   ]
 
@@ -79,6 +101,22 @@ export const PurchaseView = ({ navigate }) => {
     { icon: 'edit', onClick: startEdit },
     { icon: 'delete', onClick: (it) => setCart(prev => prev.filter(p => p.id !== it.id)) }
   ]
+
+  const handleSubmitPurchase = async () => {
+    if (!cart.length) return alert('Adicione ao menos um item ao carrinho')
+    const payload = {
+      date: purchaseDate,
+      items: cart.map(it => ({ productId: Number(it.productId), quantity: it.qty, unitPurchasePrice: it.cost, expiringDate: it.expiry || null }))
+    }
+    try {
+      await purchasesApi.createPurchase(payload)
+      alert('Compra registrada com sucesso')
+      setCart([])
+    } catch (e) {
+      console.error('Erro ao registrar compra', e)
+      alert(e?.response?.data?.message || 'Falha ao registrar compra')
+    }
+  }
 
   return (
     <Wrapper>
@@ -110,7 +148,9 @@ export const PurchaseView = ({ navigate }) => {
               </div>
 
               <div style={{width:320}}>
-                <label style={{display:'block',fontSize:10,fontWeight:700}}>Produto Selecionado</label>
+                <label style={{display:'block',fontSize:10,fontWeight:700}}>Data da Compra</label>
+                <Input type='date' value={purchaseDate} onChange={e=>setPurchaseDate(e.target.value)} style={{marginBottom:8}} />
+                <label style={{display:'block',fontSize:10,fontWeight:700,marginTop:8}}>Produto Selecionado</label>
                 <select value={selectedProductId} onChange={(e)=>setSelectedProductId(e.target.value)} style={{width:'100%',padding:12,border:'1px solid #e7e5e4',borderRadius:8,marginBottom:8}}>
                   <option value=''>-- selecione --</option>
                   {products.map(p=> <option key={p.id} value={p.id}>{p.name} ({p.code})</option>)}
@@ -118,12 +158,16 @@ export const PurchaseView = ({ navigate }) => {
                 <Input value={qty} onChange={e=>setQty(e.target.value)} placeholder='Quantidade' />
                 <Input value={cost} onChange={e=>setCost(e.target.value)} placeholder='Preço de Compra (R$)' style={{marginTop:8}} />
                 <Input type='date' value={expiry} onChange={e=>setExpiry(e.target.value)} style={{marginTop:8}} />
-                <Button onClick={addToCart} style={{marginTop:12}}>Adicionar à lista</Button>
+                <Button onClick={addToCart} style={{marginTop:12}}>{editing ? 'Atualizar item' : 'Adicionar à lista'}</Button>
               </div>
             </FormRow>
           </div>
 
           <DataTable data={cart} columns={columns} actions={actions} currentPage={1} totalPages={1} totalItems={cart.length} onPageChange={()=>{}} loading={false} emptyMessage='Carrinho vazio.' />
+
+          <div style={{display:'flex',justifyContent:'flex-end',marginTop:12}}>
+            <Button onClick={handleSubmitPurchase} disabled={!cart.length}>Finalizar Compra</Button>
+          </div>
 
         </Content>
       </MainArea>
