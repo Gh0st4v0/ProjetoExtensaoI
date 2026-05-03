@@ -67,6 +67,12 @@ public class ProdutoController {
         return ResponseEntity.ok().location(URI.create("/products/" + updated.getId())).build();
     }
 
+    @PatchMapping("/{id}/price")
+    public ResponseEntity<?> updateProductPrice(@PathVariable Long id, @Valid @RequestBody com.example.SpringBootApp.DTOs.ProdutoPrecoUpdateDTO priceDTO) {
+        Produto updated = CatalogoService.updateProductPrice(id, priceDTO.getPrecoVenda());
+        return ResponseEntity.ok().location(URI.create("/products/" + updated.getId())).build();
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteProduct(@PathVariable Long id) {
         CatalogoService.deleteProduct(id);

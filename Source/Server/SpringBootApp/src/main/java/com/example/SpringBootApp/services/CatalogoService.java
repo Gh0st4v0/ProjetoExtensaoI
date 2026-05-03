@@ -242,6 +242,22 @@ public class CatalogoService {
 		normalized = normalized.replaceAll("\\p{M}", "");
 		return normalized.toLowerCase().trim();
 	}
+
+	public Produto updateProductPrice(Long id, java.math.BigDecimal novoPreco) {
+		Produto produto = ProdutoRepository.findById(id)
+				.orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+
+		if (novoPreco == null) {
+			throw new BusinessException("PrecoVenda is required");
+		}
+
+		if (novoPreco.compareTo(java.math.BigDecimal.ZERO) < 0) {
+			throw new BusinessException("PrecoVenda must be >= 0");
+		}
+
+		produto.setPrecoVenda(novoPreco);
+		return ProdutoRepository.save(produto);
+	}
 }
 
 
