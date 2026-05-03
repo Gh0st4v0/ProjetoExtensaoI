@@ -57,11 +57,11 @@ export default function AttributesView({ navigate }) {
     }
   }
 
-  const [deleteConfirm, setDeleteConfirm] = useState({ open:false, type:null, id:null, name:null, linked:false, error:null, loading:false })
+  const [deleteConfirm, setDeleteConfirm] = useState({ open:false, type:null, id:null, name:null, linked:false, error:null, loading:false, message:null })
 
   const handleDelete = (type, id, name) => {
     const linked = products.find(p => (type === 'brand' && p.brand === name) || (type === 'category' && p.category === name))
-    setDeleteConfirm({ open:true, type, id, name, linked: !!linked, error:null, loading:false })
+    setDeleteConfirm({ open:true, type, id, name, linked: !!linked, error:null, loading:false, message: !!linked ? `Não é possível excluir "${name}" pois existem produtos vinculados.` : null })
   }
 
   const confirmDelete = async () => {
@@ -70,15 +70,21 @@ export default function AttributesView({ navigate }) {
       setDeleteConfirm(prev => ({ ...prev, loading:true, error:null }))
       if (linked) {
         // cannot delete, just close the modal
-        setDeleteConfirm({ open:false, type:null, id:null, name:null, linked:false, error:null, loading:false })
+        setDeleteConfirm({ open:false, type:null, id:null, name:null, linked:false, error:null, loading:false, message:null })
         return
       }
       if (type === 'brand') await removeBrand(id)
       if (type === 'category') await removeCategory(id)
-      setDeleteConfirm({ open:false, type:null, id:null, name:null, linked:false, error:null, loading:false })
+      setDeleteConfirm({ open:false, type:null, id:null, name:null, linked:false, error:null, loading:false, message:null })
     } catch (e) {
-      const msg = e?.response?.status ? translateByStatus(e) : 'Falha ao excluir';
-      setDeleteConfirm(prev => ({ ...prev, loading:false, error: msg }))
+      const status = e?.response?.status;
+      if (status === 422) {
+        // show localized modal message instead of backend text
+        setDeleteConfirm({ open:true, type, id, name, linked:true, error:null, loading:false, message: `Não é possível excluir "${name}" pois existem produtos vinculados.` });
+      } else {
+        const msg = status ? translateByStatus(e) : 'Falha ao excluir';
+        setDeleteConfirm(prev => ({ ...prev, loading:false, error: msg }));
+      }
     }
   }
 
@@ -149,9 +155,9 @@ export default function AttributesView({ navigate }) {
             <ConfirmModal
               open={deleteConfirm.open}
               title={deleteConfirm.linked ? 'Impossível excluir' : `Excluir ${deleteConfirm.name}`}
-              message={deleteConfirm.linked ? `Não é possível excluir "${deleteConfirm.name}" pois existem produtos vinculados.` : `Tem certeza que deseja excluir "${deleteConfirm.name}"?`}
+              message={deleteConfirm.message ?? (deleteConfirm.linked ? `Não é possível excluir "${deleteConfirm.name}" pois existem produtos vinculados.` : `Tem certeza que deseja excluir "${deleteConfirm.name}"?`)}
               confirmLabel={deleteConfirm.linked ? 'Fechar' : 'Excluir'}
-              onCancel={() => setDeleteConfirm({ open:false, type:null, id:null, name:null, linked:false, error:null, loading:false })}
+              onCancel={() => setDeleteConfirm({ open:false, type:null, id:null, name:null, linked:false, error:null, loading:false, message:null })}
               onConfirm={confirmDelete}
               loading={deleteConfirm.loading}
               error={deleteConfirm.error}
