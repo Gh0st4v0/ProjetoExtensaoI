@@ -65,7 +65,7 @@ export default function AttributesView({ navigate }) {
   }
 
   const confirmDelete = async () => {
-    const { type, id, linked } = deleteConfirm
+    const { type, id, linked, name } = deleteConfirm
     try {
       setDeleteConfirm(prev => ({ ...prev, loading:true, error:null }))
       if (linked) {
