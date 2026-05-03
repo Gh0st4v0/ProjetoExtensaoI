@@ -165,7 +165,7 @@ class VendaControllerTest {
         VendReportDTO reportDTO = new VendReportDTO();
         reportDTO.setId(1L);
         reportDTO.setSaleDate(LocalDate.of(2026, 1, 15));
-        reportDTO.setPaymentMethod("CASH");
+        reportDTO.setPaymentMethod("DINHEIRO");
         reportDTO.setSalesmanName("Test User");
         reportDTO.setHasDiscount(false);
         reportDTO.setTotalPrice(new BigDecimal("150.00"));
@@ -182,7 +182,7 @@ class VendaControllerTest {
                         .param("endDate", endDate.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1))
-                .andExpect(jsonPath("$[0].paymentMethod").value("CASH"))
+                .andExpect(jsonPath("$[0].paymentMethod").value("DINHEIRO"))
                 .andExpect(jsonPath("$[0].salesmanName").value("Test User"))
                 .andExpect(jsonPath("$[0].totalPrice").value(150.00))
                 .andExpect(jsonPath("$[0].totalCost").value(100.00));

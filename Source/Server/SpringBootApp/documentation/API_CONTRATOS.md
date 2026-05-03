@@ -258,7 +258,7 @@ POST /sales
 {
   "saleDate": "2026-04-12",
   "totalValue": 250.00,
-  "paymentMethod": "CASH", // enum
+  "paymentMethod": "DINHEIRO", // enum (PIX, CREDITO, DEBITO, DINHEIRO)
   "hasDiscount": false,
   "userId": 1,
   "clienteId": 2,
