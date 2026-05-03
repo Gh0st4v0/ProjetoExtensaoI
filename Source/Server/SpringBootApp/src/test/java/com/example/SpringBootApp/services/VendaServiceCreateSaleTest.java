@@ -38,6 +38,9 @@ class VendaServiceCreateSaleTest {
     @Mock
     private CompraRepository compraRepository;
 
+    @Mock
+    private com.example.SpringBootApp.repositories.ClienteRepository clienteRepository;
+
     @InjectMocks
     private VendaService vendaService;
 
@@ -205,5 +208,42 @@ class VendaServiceCreateSaleTest {
         verify(movimentacaoRepository).save(any(Movimentacao.class));
         Movimentacao savedMov = saved.getItens().get(0);
         assertEquals(overridePrice, savedMov.getPrecoUnitarioVenda());
+    }
+
+    @Test
+    void createSale_ShouldLinkCliente_WhenClienteIdProvided() {
+        Long userId = 1L;
+        Long productId = 10L;
+        Long purchaseId = 100L;
+        Long clienteId = 55L;
+        BigDecimal quantity = new BigDecimal("1.0000");
+
+        Usuario usuario = new Usuario(); usuario.setId(userId);
+        when(usuarioRepository.findById(userId)).thenReturn(Optional.of(usuario));
+
+        Produto produto = new Produto(); produto.setId(productId);
+        when(produtoRepository.findById(productId)).thenReturn(Optional.of(produto));
+
+        Compra compra = new Compra(); compra.setId(purchaseId);
+        when(compraRepository.findById(purchaseId)).thenReturn(Optional.of(compra));
+
+        Cliente cliente = new Cliente(); cliente.setId(clienteId);
+        when(clienteRepository.findById(clienteId)).thenReturn(Optional.of(cliente));
+
+        when(movimentacaoRepository.sumQuantityByProdutoId(productId)).thenReturn(new BigDecimal("10.0000"));
+
+        Movimentacao stockItem = new Movimentacao(); stockItem.setId(200L); stockItem.setQuantidade(new BigDecimal("10.0000")); stockItem.setCompra(compra); stockItem.setProduto(produto);
+        when(movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(purchaseId, productId)).thenReturn(stockItem);
+
+        VendItemDTO item = new VendItemDTO(purchaseId, productId, quantity, null);
+        VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), new BigDecimal("0.00"), PaymentMethod.PIX, false, userId, clienteId, List.of(item));
+
+        when(vendaRepository.save(any(Venda.class))).thenAnswer(i -> { Venda v = i.getArgument(0); v.setId(99L); return v; });
+        when(movimentacaoRepository.save(any(Movimentacao.class))).thenAnswer(i -> i.getArgument(0));
+
+        Venda saved = vendaService.createSale(saleDTO);
+
+        assertNotNull(saved.getCliente());
+        assertEquals(clienteId, saved.getCliente().getId());
     }
 }

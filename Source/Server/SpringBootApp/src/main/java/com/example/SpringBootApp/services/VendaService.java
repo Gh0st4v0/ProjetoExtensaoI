@@ -30,6 +30,7 @@ public class VendaService {
     private final UsuarioRepository usuarioRepository;
     private final ProdutoRepository produtoRepository;
     private final CompraRepository compraRepository;
+    private final com.example.SpringBootApp.repositories.ClienteRepository clienteRepository;
     
     public Venda createSale(VendCreateDTO saleDTO) {
         Usuario usuario = usuarioRepository.findById(saleDTO.getUserId()).orElseThrow(() -> new ResourceNotFoundException("Usuario not found"));
@@ -46,6 +47,13 @@ public class VendaService {
 
         List<Movimentacao> items = new ArrayList<>();
         BigDecimal computedTotal = BigDecimal.ZERO;
+
+        // link client if provided
+        if (saleDTO.getClienteId() != null) {
+            Cliente cliente = clienteRepository.findById(saleDTO.getClienteId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Cliente not found with id: " + saleDTO.getClienteId()));
+            savedSale.setCliente(cliente);
+        }
 
         for (VendItemDTO itemDTO : saleDTO.getItems()) {
             Produto produto = produtoRepository.findById(itemDTO.getProductId())
