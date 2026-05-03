@@ -36,6 +36,8 @@ export default function AttributesView({ navigate }) {
   const brandRows = (brands || []).map((b) => ({ id: `brand-${b.id}`, name: b.brandName, refId: b.id }))
   const categoryRows = (categories || []).map((c) => ({ id: `cat-${c.id}`, name: c.categoryName, refId: c.id }))
 
+  import translateError from '../services/errorTranslator'
+
   const handleCreate = async (type, value) => {
     try {
       if (type === 'brand') await addBrand(value)
@@ -43,7 +45,7 @@ export default function AttributesView({ navigate }) {
       // close quick create modal after successful creation
       setQuickOpen({ open:false, type:null })
     } catch (e) {
-      setErrorMsg(e.response?.data?.message || 'Falha ao criar')
+      setErrorMsg(translateError(e) || 'Falha ao criar')
       setTimeout(() => setErrorMsg(''), 4500)
     }
   }
@@ -68,7 +70,7 @@ export default function AttributesView({ navigate }) {
       if (type === 'category') await removeCategory(id)
       setDeleteConfirm({ open:false, type:null, id:null, name:null, linked:false, error:null, loading:false })
     } catch (e) {
-      setDeleteConfirm(prev => ({ ...prev, loading:false, error: e.response?.data?.message || 'Falha ao excluir' }))
+      setDeleteConfirm(prev => ({ ...prev, loading:false, error: translateError(e) || 'Falha ao excluir' }))
     }
   }
 
@@ -79,7 +81,7 @@ export default function AttributesView({ navigate }) {
       if (type === 'category') await updateCategory(id, newName)
       setEditing(null)
     } catch (e) {
-      setErrorMsg(e.response?.data?.message || 'Falha ao editar')
+      setErrorMsg(translateError(e) || 'Falha ao editar')
       setTimeout(() => setErrorMsg(''), 4500)
     }
   }
