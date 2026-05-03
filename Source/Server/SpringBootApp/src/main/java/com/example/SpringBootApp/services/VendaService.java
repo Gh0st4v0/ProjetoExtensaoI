@@ -128,6 +128,17 @@ public class VendaService {
         savedSale.setItens(items);
         return savedSale;
     }
+
+    public org.springframework.data.domain.Page<com.example.SpringBootApp.DTOs.VendaResponseDTO> listSales(int page, int size) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, org.springframework.data.domain.Sort.by("dataVenda").descending());
+        org.springframework.data.domain.Page<Venda> vendas = vendaRepository.findAll(pageable);
+        return vendas.map(com.example.SpringBootApp.mappers.VendaMapper::toResponse);
+    }
+
+    public com.example.SpringBootApp.DTOs.VendaResponseDTO getSaleById(Long id) {
+        Venda venda = vendaRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Venda not found"));
+        return com.example.SpringBootApp.mappers.VendaMapper.toResponse(venda);
+    }
 }
 
 

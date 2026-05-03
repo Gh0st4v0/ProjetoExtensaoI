@@ -45,5 +45,23 @@ public class VendaController {
         return ResponseEntity.ok(sales);
     }
 
+    @GetMapping(params = {"page"})
+    public org.springframework.http.ResponseEntity<?> getSalesPaged(@RequestParam int page, @RequestParam(defaultValue = "10") int size) {
+        org.springframework.data.domain.Page<com.example.SpringBootApp.DTOs.VendaResponseDTO> sales = VendaService.listSales(page, size);
+        java.util.Map<String, Object> body = new java.util.HashMap<>();
+        body.put("content", sales.getContent());
+        body.put("page", sales.getNumber());
+        body.put("size", sales.getSize());
+        body.put("totalElements", sales.getTotalElements());
+        body.put("totalPages", sales.getTotalPages());
+        return ResponseEntity.ok(body);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getSaleById(@PathVariable Long id) {
+        com.example.SpringBootApp.DTOs.VendaResponseDTO dto = VendaService.getSaleById(id);
+        return ResponseEntity.ok(dto);
+    }
+
 }
 
