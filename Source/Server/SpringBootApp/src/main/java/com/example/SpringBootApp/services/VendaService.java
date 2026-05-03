@@ -36,19 +36,29 @@ public class VendaService {
 
         Venda venda = new Venda();
         venda.setDataVenda(saleDTO.getSaleDate());
-        venda.setValorTotal(saleDTO.getTotalValue());
+        // valorTotal will be computed server-side
         venda.setMetodoPagamento(saleDTO.getPaymentMethod());
         venda.setTemDesconto(saleDTO.getHasDiscount());
         venda.setUsuario(usuario);
 
+        // save early to obtain an id for movimentacoes; valorTotal will be updated after items processed
         Venda savedSale = vendaRepository.save(venda);
 
         List<Movimentacao> items = new ArrayList<>();
+        BigDecimal computedTotal = BigDecimal.ZERO;
+
         for (VendItemDTO itemDTO : saleDTO.getItems()) {
             Produto produto = produtoRepository.findById(itemDTO.getProductId())
                     .orElseThrow(() -> new ResourceNotFoundException("Produto not found with id: " + itemDTO.getProductId()));
 
             BigDecimal requiredQty = itemDTO.getQuantity() != null ? itemDTO.getQuantity() : BigDecimal.ZERO;
+
+            // validação: se o produto for UN, quantidade deve ser inteira (ex.: 2.0000)
+            if (produto.getUnidadeMedida() == UnitMeasurement.UN) {
+                if (requiredQty == null || requiredQty.stripTrailingZeros().scale() > 0) {
+                    throw new BusinessException("Quantidade deve ser inteira para produto com unidade UN id: " + produto.getId());
+                }
+            }
 
             // verify aggregated stock for product
             BigDecimal totalAvailable = movimentacaoRepository.sumQuantityByProdutoId(produto.getId());
@@ -74,11 +84,14 @@ public class VendaService {
                 movimentacao.setQuantidade(requiredQty.multiply(BigDecimal.valueOf(-1)));
                 movimentacao.setTipoMovimentacao(MovementType.VENDA);
 
-                BigDecimal salePrice = itemDTO.getPrecoUnitarioVenda() != null ? itemDTO.getPrecoUnitarioVenda() : stockItem.getPrecoUnitarioVenda();
+                BigDecimal salePrice = itemDTO.getPrecoUnitarioVenda() != null ? itemDTO.getPrecoUnitarioVenda() : ((stockItem != null && stockItem.getPrecoUnitarioVenda() != null) ? stockItem.getPrecoUnitarioVenda() : (produto.getPrecoVenda() != null ? produto.getPrecoVenda() : BigDecimal.ZERO));
                 movimentacao.setPrecoUnitarioVenda(salePrice);
                 movimentacao.setPrecoUnitarioCompra(stockItem.getPrecoUnitarioCompra());
 
                 items.add(movimentacaoRepository.save(movimentacao));
+
+                // accumulate total
+                computedTotal = computedTotal.add(salePrice.multiply(requiredQty));
             } else {
                 // auto-allocate across purchases (FIFO by compra.dataCompra)
                 List<Compra> allCompras = new ArrayList<>(compraRepository.findAll());
@@ -110,11 +123,14 @@ public class VendaService {
                     movimentacao.setQuantidade(allocate.multiply(BigDecimal.valueOf(-1)));
                     movimentacao.setTipoMovimentacao(MovementType.VENDA);
 
-                    BigDecimal salePrice = itemDTO.getPrecoUnitarioVenda() != null ? itemDTO.getPrecoUnitarioVenda() : stockItem.getPrecoUnitarioVenda();
+                    BigDecimal salePrice = itemDTO.getPrecoUnitarioVenda() != null ? itemDTO.getPrecoUnitarioVenda() : ((stockItem != null && stockItem.getPrecoUnitarioVenda() != null) ? stockItem.getPrecoUnitarioVenda() : (produto.getPrecoVenda() != null ? produto.getPrecoVenda() : BigDecimal.ZERO));
                     movimentacao.setPrecoUnitarioVenda(salePrice);
                     movimentacao.setPrecoUnitarioCompra(stockItem.getPrecoUnitarioCompra());
 
                     items.add(movimentacaoRepository.save(movimentacao));
+
+                    // accumulate total with allocated quantity
+                    computedTotal = computedTotal.add(salePrice.multiply(allocate));
 
                     remaining = remaining.subtract(allocate);
                 }
@@ -125,6 +141,13 @@ public class VendaService {
             }
         }
 
+        // apply discount if requested (5%)
+        if (saleDTO.getHasDiscount() != null && saleDTO.getHasDiscount()) {
+            computedTotal = computedTotal.multiply(new BigDecimal("0.95"));
+        }
+
+        // persist final total and items (managed entity - update happens on transaction commit)
+        savedSale.setValorTotal(computedTotal);
         savedSale.setItens(items);
         return savedSale;
     }
