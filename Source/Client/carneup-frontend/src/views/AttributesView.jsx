@@ -139,7 +139,7 @@ export default function AttributesView({ navigate }) {
               open={deleteConfirm.open}
               title={deleteConfirm.linked ? 'Impossível excluir' : `Excluir ${deleteConfirm.name}`}
               message={deleteConfirm.linked ? `Não é possível excluir "${deleteConfirm.name}" pois existem produtos vinculados.` : `Tem certeza que deseja excluir "${deleteConfirm.name}"?`}
-              confirmLabel={deleteConfirm.linked ? 'OK' : 'Excluir'}
+              confirmLabel={deleteConfirm.linked ? 'Fechar' : 'Excluir'}
               onCancel={() => setDeleteConfirm({ open:false, type:null, id:null, name:null, linked:false, error:null, loading:false })}
               onConfirm={confirmDelete}
               loading={deleteConfirm.loading}
