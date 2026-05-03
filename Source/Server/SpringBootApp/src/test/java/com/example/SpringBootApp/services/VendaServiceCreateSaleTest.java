@@ -73,7 +73,6 @@ class VendaServiceCreateSaleTest {
         stockItem.setProduto(produto);
 
         when(movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(purchaseId, productId)).thenReturn(stockItem);
-        when(movimentacaoRepository.findByCompraIdAndProdutoId(purchaseId, productId)).thenReturn(List.of(stockItem));
 
         VendItemDTO item = new VendItemDTO(purchaseId, productId, quantity);
         VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), new BigDecimal("16.00"), PaymentMethod.PIX, false, userId, null, List.of(item));
