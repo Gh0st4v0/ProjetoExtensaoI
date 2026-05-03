@@ -27,27 +27,17 @@ OBS: Front será implementado depois; por enquanto seguimos com contratos backen
 Back — cards (detalhado)
 ------------------------
 
-Card B1 — Modelos de domínio e migração
-  - Novas entidades (esboço):
-    - Venda (vendas)
-      - id LONG (PK)
-      - dataVenda TIMESTAMP
-      - usuarioId LONG (nullable — server pode usar principal autenticado)
-      - clienteId LONG (nullable)
-      - paymentMethod ENUM('PIX','CREDITO','DEBITO','DINHEIRO')
-      - descontoAplicado BOOLEAN
-      - descontoPercent DECIMAL(5,2) DEFAULT 5.00
-      - totalValue DECIMAL(14,4)
-      - created_at TIMESTAMP
-    - VendaItem (venda_items)
-      - id LONG (PK)
-      - venda_id FK -> vendas.id
-      - produto_id LONG
-      - quantidade DECIMAL(18,4)
-      - unidade VARCHAR (KG|UN)
-      - precoUnitarioVenda DECIMAL(14,4)
-      - precoUnitarioCompra DECIMAL(14,4) // valor de custo aplicado nesta venda (extraído das movimentações de compra)
-  - Migrations: criar tabelas vendas e venda_items; adicionar FK para venda_id. Garantir cascata ou remoção manual.
+Card B1 — Usar modelo de banco existente (v2/v3)
+  - Observação: o banco atual (migrations V2 + incrementos V3) já contém as tabelas Venda e Movimentacao. NÃO alterar o esquema do banco.
+  - Tarefa de análise:
+    - Mapear as entidades Java existentes (Venda, Movimentacao) e confirmar que os campos necessários para o PDV estão presentes (metodo_pagamento, valor_total, referencia de usuário/cliente, ligações com Movimentacao).
+    - Confirmar que metodo_pagamento usa os valores do banco: PIX, CREDITO, DEBITO, DINHEIRO.
+  - Adaptar DTOs / Repositórios (SEM MUDAR MIGRATIONS):
+    - VendItemDTO: precoUnitarioVenda (opcional) e purchaseId opcional para permitir auto-alocação FIFO.
+    - VendCreateDTO: incluir paymentMethod obrigatório, clienteId opcional, descontoAplicado boolean.
+    - Repositórios existentes serão usados para localizar compras/lotes e gerar Movimentacao do tipo VENDA.
+  - Motivo: manter compatibilidade com o banco de produção (evita migrações que causem divergência). Implementação deve trabalhar com o modelo já existente e aplicar lógica de negócio em camada de serviço.
+  - Critério de aceite da análise: documento de mapeamento das colunas/entidades OK e lista de alterações de DTOs/repositórios necessárias (sem alterar schema).
 
 Card B2 — Endpoint: Criar Venda
   - POST /sales

@@ -32,7 +32,7 @@ CREATE TABLE Compra (
 CREATE TABLE Venda (
     id SERIAL PRIMARY KEY,
     data TIMESTAMP,
-    metodo_pagamento VARCHAR(9) CHECK (metodo_pagamento IN ('PIX', 'CREDITO', 'DEBITO', 'DINHEIRO')),
+    metodo_pagamento VARCHAR(9) CHECK (metodo_pagamento IN ('DEBIT', 'CREDIT', 'PIX', 'CASH', 'DISCARDED')),
     desconto NUMERIC(10,4),
     fk_Usuario_id INTEGER
 );
