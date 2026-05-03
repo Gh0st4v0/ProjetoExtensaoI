@@ -36,7 +36,13 @@ export default function AttributesView({ navigate }) {
   const brandRows = (brands || []).map((b) => ({ id: `brand-${b.id}`, name: b.brandName, refId: b.id }))
   const categoryRows = (categories || []).map((c) => ({ id: `cat-${c.id}`, name: c.categoryName, refId: c.id }))
 
-  import translateError from '../services/errorTranslator'
+  const translateByStatus = (err) => {
+    const status = err?.response?.status;
+    if (status === 404) return 'Recurso não encontrado.';
+    if (status === 409) return 'Conflito: recurso já existe.';
+    if (status === 422) return 'Operação não permitida.';
+    return 'Falha ao processar a solicitação. Tente novamente.';
+  }
 
   const handleCreate = async (type, value) => {
     try {
@@ -45,7 +51,8 @@ export default function AttributesView({ navigate }) {
       // close quick create modal after successful creation
       setQuickOpen({ open:false, type:null })
     } catch (e) {
-      setErrorMsg(translateError(e) || 'Falha ao criar')
+      const msg = e?.response?.status ? translateByStatus(e) : 'Falha ao criar';
+      setErrorMsg(msg)
       setTimeout(() => setErrorMsg(''), 4500)
     }
   }
@@ -70,7 +77,8 @@ export default function AttributesView({ navigate }) {
       if (type === 'category') await removeCategory(id)
       setDeleteConfirm({ open:false, type:null, id:null, name:null, linked:false, error:null, loading:false })
     } catch (e) {
-      setDeleteConfirm(prev => ({ ...prev, loading:false, error: translateError(e) || 'Falha ao excluir' }))
+      const msg = e?.response?.status ? translateByStatus(e) : 'Falha ao excluir';
+      setDeleteConfirm(prev => ({ ...prev, loading:false, error: msg }))
     }
   }
 
@@ -81,7 +89,8 @@ export default function AttributesView({ navigate }) {
       if (type === 'category') await updateCategory(id, newName)
       setEditing(null)
     } catch (e) {
-      setErrorMsg(translateError(e) || 'Falha ao editar')
+      const msg = e?.response?.status ? translateByStatus(e) : 'Falha ao editar';
+      setErrorMsg(msg)
       setTimeout(() => setErrorMsg(''), 4500)
     }
   }
