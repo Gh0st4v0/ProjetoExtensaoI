@@ -72,7 +72,7 @@ class VendaServiceCreateSaleTest {
 
         when(movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(purchaseId, productId)).thenReturn(stockItem);
 
-        VendItemDTO item = new VendItemDTO(purchaseId, productId, quantity);
+        VendItemDTO item = new VendItemDTO(purchaseId, productId, quantity, null);
         VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), new BigDecimal("16.00"), PaymentMethod.PIX, false, userId, null, List.of(item));
 
         when(vendaRepository.save(any(Venda.class))).thenAnswer(i -> {
@@ -127,7 +127,7 @@ class VendaServiceCreateSaleTest {
 
         // no direct findFirst stub for this flow; service should iterate purchases
 
-        VendItemDTO item = new VendItemDTO(null, productId, quantity);
+        VendItemDTO item = new VendItemDTO(null, productId, quantity, null);
         VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), new BigDecimal("0.00"), PaymentMethod.PIX, false, userId, null, List.of(item));
 
         when(vendaRepository.save(any(Venda.class))).thenAnswer(i -> { Venda v = i.getArgument(0); v.setId(2L); return v; });
@@ -156,9 +156,54 @@ class VendaServiceCreateSaleTest {
 
         when(movimentacaoRepository.sumQuantityByProdutoId(productId)).thenReturn(new BigDecimal("2.0000"));
 
-        VendItemDTO item = new VendItemDTO(null, productId, quantity);
+        VendItemDTO item = new VendItemDTO(null, productId, quantity, null);
         VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), new BigDecimal("0.00"), PaymentMethod.PIX, false, userId, null, List.of(item));
 
         assertThrows(BusinessException.class, () -> vendaService.createSale(saleDTO));
+    }
+
+    @Test
+    void createSale_ShouldUseProvidedPrecoUnitarioVenda_WhenGiven() {
+        Long userId = 1L;
+        Long productId = 10L;
+        Long purchaseId = 100L;
+        BigDecimal quantity = new BigDecimal("2.0000");
+
+        Usuario usuario = new Usuario();
+        usuario.setId(userId);
+        when(usuarioRepository.findById(userId)).thenReturn(Optional.of(usuario));
+
+        Produto produto = new Produto();
+        produto.setId(productId);
+        when(produtoRepository.findById(productId)).thenReturn(Optional.of(produto));
+
+        Compra compra = new Compra();
+        compra.setId(purchaseId);
+        when(compraRepository.findById(purchaseId)).thenReturn(Optional.of(compra));
+
+        when(movimentacaoRepository.sumQuantityByProdutoId(productId)).thenReturn(new BigDecimal("10.0000"));
+
+        Movimentacao stockItem = new Movimentacao();
+        stockItem.setId(200L);
+        stockItem.setQuantidade(new BigDecimal("10.0000"));
+        stockItem.setPrecoUnitarioCompra(new BigDecimal("5.00"));
+        stockItem.setPrecoUnitarioVenda(new BigDecimal("8.00"));
+        stockItem.setCompra(compra);
+        stockItem.setProduto(produto);
+
+        when(movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(purchaseId, productId)).thenReturn(stockItem);
+
+        BigDecimal overridePrice = new BigDecimal("12.75");
+        VendItemDTO item = new VendItemDTO(purchaseId, productId, quantity, overridePrice);
+        VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), new BigDecimal("25.50"), PaymentMethod.PIX, false, userId, null, List.of(item));
+
+        when(vendaRepository.save(any(Venda.class))).thenAnswer(i -> { Venda v = i.getArgument(0); v.setId(3L); return v; });
+        when(movimentacaoRepository.save(any(Movimentacao.class))).thenAnswer(i -> i.getArgument(0));
+
+        Venda saved = vendaService.createSale(saleDTO);
+
+        verify(movimentacaoRepository).save(any(Movimentacao.class));
+        Movimentacao savedMov = saved.getItens().get(0);
+        assertEquals(overridePrice, savedMov.getPrecoUnitarioVenda());
     }
 }

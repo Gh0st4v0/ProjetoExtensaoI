@@ -74,7 +74,8 @@ public class VendaService {
                 movimentacao.setQuantidade(requiredQty.multiply(BigDecimal.valueOf(-1)));
                 movimentacao.setTipoMovimentacao(MovementType.VENDA);
 
-                movimentacao.setPrecoUnitarioVenda(stockItem.getPrecoUnitarioVenda());
+                BigDecimal salePrice = itemDTO.getPrecoUnitarioVenda() != null ? itemDTO.getPrecoUnitarioVenda() : stockItem.getPrecoUnitarioVenda();
+                movimentacao.setPrecoUnitarioVenda(salePrice);
                 movimentacao.setPrecoUnitarioCompra(stockItem.getPrecoUnitarioCompra());
 
                 items.add(movimentacaoRepository.save(movimentacao));
@@ -109,7 +110,8 @@ public class VendaService {
                     movimentacao.setQuantidade(allocate.multiply(BigDecimal.valueOf(-1)));
                     movimentacao.setTipoMovimentacao(MovementType.VENDA);
 
-                    movimentacao.setPrecoUnitarioVenda(stockItem.getPrecoUnitarioVenda());
+                    BigDecimal salePrice = itemDTO.getPrecoUnitarioVenda() != null ? itemDTO.getPrecoUnitarioVenda() : stockItem.getPrecoUnitarioVenda();
+                    movimentacao.setPrecoUnitarioVenda(salePrice);
                     movimentacao.setPrecoUnitarioCompra(stockItem.getPrecoUnitarioCompra());
 
                     items.add(movimentacaoRepository.save(movimentacao));

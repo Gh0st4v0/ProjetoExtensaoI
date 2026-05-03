@@ -61,7 +61,7 @@ class VendaControllerTest {
     @Test
     void createSale_ShouldReturn201_WhenValidInput() throws Exception {
         // Arrange
-        VendItemDTO itemDTO = new VendItemDTO(1L, 1L, new BigDecimal("2.5"));
+        VendItemDTO itemDTO = new VendItemDTO(1L, 1L, new BigDecimal("2.5"), null);
         List<VendItemDTO> items = List.of(itemDTO);
         
         VendCreateDTO request = new VendCreateDTO(
@@ -91,7 +91,7 @@ class VendaControllerTest {
     @Test
     void createSale_ShouldReturn404_WhenUsuarioNotFound() throws Exception {
         // Arrange
-        VendItemDTO itemDTO = new VendItemDTO(1L, 1L, new BigDecimal("2.5"));
+        VendItemDTO itemDTO = new VendItemDTO(1L, 1L, new BigDecimal("2.5"), null);
         List<VendItemDTO> items = List.of(itemDTO);
         
         VendCreateDTO request = new VendCreateDTO(
@@ -119,7 +119,7 @@ class VendaControllerTest {
     @Test
     void createSale_ShouldReturn404_WhenProdutoNotFound() throws Exception {
         // Arrange
-        VendItemDTO itemDTO = new VendItemDTO(999L, 1L, new BigDecimal("2.5"));
+        VendItemDTO itemDTO = new VendItemDTO(999L, 1L, new BigDecimal("2.5"), null);
         List<VendItemDTO> items = List.of(itemDTO);
         
         VendCreateDTO request = new VendCreateDTO(
