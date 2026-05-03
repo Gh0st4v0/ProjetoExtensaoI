@@ -158,6 +158,18 @@ PATCH /products/{id}/price
   - 404 Not Found — Produto não encontrado (ErrorResponse).
   - 400 Bad Request — Erro de validação (ErrorResponse).
 
+Exemplos de curl:
+# Atualizar preco do produto (requer autenticação)
+curl -i -X PATCH "http://localhost:8080/products/1/price" \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer <token>' \
+  -d '{"precoVenda":12.50}'
+
+# Atualizar preco sem token (pode retornar 401/403 dependendo da configuração)
+curl -i -X PATCH "http://localhost:8080/products/1/price" \
+  -H 'Content-Type: application/json' \
+  -d '{"precoVenda":12.50}'
+
 
 5) Compras (purchases)
 Base: /purchases
@@ -345,6 +357,15 @@ GET /clients/search?q={q}&page={page}
   - page (opcional, default 0): número da página
 - Resposta: Page<ClienteResponseDTO> (fields: id, nickname)
 - 200 OK
+
+Exemplos de curl:
+# Criar cliente (quick-create)
+curl -i -X POST "http://localhost:8080/clients" \
+  -H 'Content-Type: application/json' \
+  -d '{"nickname":"Joao123"}'
+
+# Buscar clientes (pagina 0, termo 'jo')
+curl -s "http://localhost:8080/clients/search?q=jo&page=0"
 
 Observações:
 - Tamanho de página padrão = 10
