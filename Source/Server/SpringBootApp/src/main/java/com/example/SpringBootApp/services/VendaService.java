@@ -80,7 +80,7 @@ public class VendaService {
                 items.add(movimentacaoRepository.save(movimentacao));
             } else {
                 // auto-allocate across purchases (FIFO by compra.dataCompra)
-                List<Compra> allCompras = compraRepository.findAll();
+                List<Compra> allCompras = new ArrayList<>(compraRepository.findAll());
                 allCompras.sort((a, b) -> {
                     if (a.getDataCompra() == null && b.getDataCompra() == null) return 0;
                     if (a.getDataCompra() == null) return 1;

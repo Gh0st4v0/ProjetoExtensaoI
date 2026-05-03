@@ -59,6 +59,7 @@ class VendaServiceCreateSaleTest {
         Compra compra = new Compra();
         compra.setId(purchaseId);
         when(compraRepository.findAll()).thenReturn(List.of(compra));
+        when(compraRepository.findById(purchaseId)).thenReturn(Optional.of(compra));
 
         when(movimentacaoRepository.sumQuantityByProdutoId(productId)).thenReturn(new BigDecimal("10.0000"));
         when(movimentacaoRepository.sumQuantityByPurchaseId(purchaseId)).thenReturn(new BigDecimal("10.0000"));
