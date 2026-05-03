@@ -146,6 +146,19 @@ DELETE /products/{id}
 - 204 No Content se não houver movimentação (Movimentacao) associada ao produto
 - 422 Unprocessable Entity se existir qualquer movimentação (compra/venda) — neste caso apenas edição é permitida
 
+PATCH /products/{id}/price
+- Atualiza o campo `preco_venda` do produto identificado por `{id}` (ProdutoPrecoUpdateDTO)
+- Request (JSON):
+{
+  "precoVenda": 12.50
+}
+- Validação: `precoVenda` obrigatório e >= 0
+- Respostas:
+  - 200 OK — Atualização executada. Retorna header `Location: /products/{id}`.
+  - 404 Not Found — Produto não encontrado (ErrorResponse).
+  - 400 Bad Request — Erro de validação (ErrorResponse).
+
+
 5) Compras (purchases)
 Base: /purchases
 
@@ -312,7 +325,33 @@ GET /sales?startDate={YYYY-MM-DD}&endDate={YYYY-MM-DD}
 - Editar item de compra
   PUT /purchases/{purchaseId}/items/{productId} -> { quantity?, unitPurchasePrice?, expiringDate? } -> 200 (ou 422)
 
-10) Contatos / Observações finais
+10) Clientes (clients)
+Base: /clients
+
+POST /clients
+- Cria um cliente simples (ClienteCreateDTO)
+- Request (JSON):
+{
+  "nickname": "Joao123"
+}
+- Respostas:
+  - 201 Created + Location: /clients/{id}
+  - 400 Bad Request — validação (ErrorResponse)
+
+GET /clients/search?q={q}&page={page}
+- Pesquisa clientes por apelido (case-insensitive) com paginação
+- Parâmetros:
+  - q (opcional): termo de busca; se ausente ou menor que 2 caracteres, retorna página vazia
+  - page (opcional, default 0): número da página
+- Resposta: Page<ClienteResponseDTO> (fields: id, nickname)
+- 200 OK
+
+Observações:
+- Tamanho de página padrão = 10
+- DTOs: ClienteCreateDTO{nickname}, ClienteResponseDTO{id,nickname}
+- Testes TDD: ClienteServiceTest, ClienteControllerTest
+
+11) Contatos / Observações finais
 - Se o frontend precisar de campos adicionais (ex.: nome da categoria/brand embutido nas respostas) podemos adicionar ou ampliar DTOs; posso ajudar adaptando os contratos caso a equipe prefira outro formato.
 
 ---
