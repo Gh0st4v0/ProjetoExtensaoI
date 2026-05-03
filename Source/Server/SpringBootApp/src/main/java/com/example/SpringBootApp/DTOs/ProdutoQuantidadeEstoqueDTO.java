@@ -1,6 +1,7 @@
 package com.example.SpringBootApp.DTOs;
 
 import java.math.BigDecimal;
+import com.example.SpringBootApp.models.UnitMeasurement;
 
 public record ProdutoQuantidadeEstoqueDTO(
         Long id,
@@ -8,6 +9,7 @@ public record ProdutoQuantidadeEstoqueDTO(
         String code,
         String brandName,
         String categoryName,
+        UnitMeasurement unitMeasurement,
         BigDecimal stockQuantity
 ) {
 }

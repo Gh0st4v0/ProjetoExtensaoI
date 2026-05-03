@@ -230,7 +230,7 @@ class InventarioServiceTest {
         when(movimentacaoRepository.save(any(Movimentacao.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
-        Movimentacao result = inventarioService.updatePurchaseItem(1L, 1L, new BigDecimal("5"));
+        Movimentacao result = inventarioService.updatePurchaseItem(1L, 1L, new BigDecimal("5"), null, null);
 
         // Assert
         assertNotNull(result);
@@ -254,7 +254,7 @@ class InventarioServiceTest {
         when(movimentacaoRepository.sumQuantityByProdutoId(1L)).thenReturn(new BigDecimal("3"));
 
         // Act & Assert
-        assertThrows(BusinessException.class, () -> inventarioService.updatePurchaseItem(1L, 1L, new BigDecimal("1")));
+        assertThrows(BusinessException.class, () -> inventarioService.updatePurchaseItem(1L, 1L, new BigDecimal("1"), null, null));
     }
 
     @Test
@@ -279,7 +279,31 @@ class InventarioServiceTest {
         lenient().when(movimentacaoRepository.sumQuantityByProdutoId(1L)).thenReturn(new BigDecimal("2"));
 
         // Act & Assert
-        assertThrows(BusinessException.class, () -> inventarioService.updatePurchaseItem(1L, 1L, new BigDecimal("5")));
+        assertThrows(BusinessException.class, () -> inventarioService.updatePurchaseItem(1L, 1L, new BigDecimal("5"), null, null));
+    }
+    @Test
+    void updatePurchaseItem_ShouldThrow_WhenExpiryBeforeSaleDate() {
+        // Arrange
+        Produto produto = new Produto();
+        produto.setId(1L);
+        produto.setPerecivel(true);
+        Movimentacao purchaseMov = new Movimentacao();
+        purchaseMov.setId(12L);
+        purchaseMov.setQuantidade(new BigDecimal("10"));
+        purchaseMov.setProduto(produto);
+        Venda venda = new Venda();
+        venda.setId(1L);
+        venda.setDataVenda(LocalDate.of(2024, 2, 10));
+        Movimentacao saleMov = new Movimentacao();
+        saleMov.setId(13L);
+        saleMov.setQuantidade(new BigDecimal("-2"));
+        saleMov.setVenda(venda);
+        saleMov.setProduto(produto);
+        when(movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(1L, 1L)).thenReturn(purchaseMov);
+        when(movimentacaoRepository.findByCompraIdAndProdutoId(1L, 1L)).thenReturn(List.of(purchaseMov, saleMov));
+        when(movimentacaoRepository.sumQuantityByProdutoId(1L)).thenReturn(new BigDecimal("8"));
+        // Act & Assert
+        assertThrows(BusinessException.class, () -> inventarioService.updatePurchaseItem(1L, 1L, new BigDecimal("10"), null, LocalDate.of(2024, 2, 1)));
     }
 
     @Test
@@ -353,4 +377,9 @@ class InventarioServiceTest {
         assertThrows(ResourceNotFoundException.class, () -> inventarioService.discardPurchaseItem(1L, 1L, new BigDecimal("1"), DescarteType.DANO, "broken"));
     }
 }
+
+
+
+
+
 

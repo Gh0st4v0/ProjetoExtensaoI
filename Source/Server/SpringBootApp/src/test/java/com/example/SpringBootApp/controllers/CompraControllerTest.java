@@ -180,12 +180,12 @@ class CompraControllerTest {
     void updateCompraItem_ShouldReturn200_WhenValidInput() throws Exception {
         setup();
 
-        String json = "{\"quantity\":1.0}";
+        String json = "{\"quantity\":1.0, \"unitPurchasePrice\": 10.5, \"expiringDate\": \"2024-02-15\"}";
 
         Movimentacao updated = new Movimentacao();
         updated.setId(10L);
 
-        when(inventarioService.updatePurchaseItem(eq(1L), eq(1L), any(BigDecimal.class))).thenReturn(updated);
+        when(inventarioService.updatePurchaseItem(eq(1L), eq(1L), any(BigDecimal.class), any(BigDecimal.class), any(java.time.LocalDate.class))).thenReturn(updated);
 
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/purchases/1/items/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -197,9 +197,9 @@ class CompraControllerTest {
     void updateCompraItem_ShouldReturn422_WhenStockNegative() throws Exception {
         setup();
 
-        String json = "{\"quantity\":1.0}";
+        String json = "{\"quantity\":1.0, \"unitPurchasePrice\": 10.5, \"expiringDate\": \"2024-02-15\"}";
 
-        doThrow(new BusinessException("Stock would become negative")).when(inventarioService).updatePurchaseItem(eq(1L), eq(1L), any(BigDecimal.class));
+        doThrow(new BusinessException("Stock would become negative")).when(inventarioService).updatePurchaseItem(eq(1L), eq(1L), any(BigDecimal.class), any(BigDecimal.class), any(java.time.LocalDate.class));
 
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/purchases/1/items/1")
                         .contentType(MediaType.APPLICATION_JSON)

@@ -36,9 +36,9 @@ export const PurchaseView = ({ navigate }) => {
   useEffect(() => {
     const fetch = async () => {
       try {
-        const res = await productsApi.getAllProducts()
-        // normalize response to expected fields
-        const list = (res || []).map(p => ({ id: p.id, name: p.name || p.product_name || p.productName, code: p.code || p.codigo, brand: p.brandName || p.brand_name || '', category: p.categoryName || '', unit: p.unitMeasurement || 'UN', perecivel: p.perecivel }))
+        const res = await productsApi.getAllProducts(0)
+        // normalize response to expected fields (page.content)
+        const list = (res?.content || []).map(p => ({ id: p.id, name: p.name || p.product_name || p.productName, code: p.code || p.codigo, brand: p.brandName || p.brand_name || '', category: p.categoryName || '', unit: p.unitMeasurement || 'UN', perecivel: p.perecivel }))
         setProducts(list)
       } catch (e) {
         console.error('Falha ao carregar produtos', e)

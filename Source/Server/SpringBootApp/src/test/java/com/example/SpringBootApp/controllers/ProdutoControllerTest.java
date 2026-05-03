@@ -201,22 +201,22 @@ class ProdutoControllerTest {
         setup();
 
         // Arrange
-        ProdutoQuantidadeEstoqueDTO produto1 = new ProdutoQuantidadeEstoqueDTO(1L, "Picanha", "001001", "Friboi", "Bovine", new BigDecimal("0"));
-        ProdutoQuantidadeEstoqueDTO produto2 = new ProdutoQuantidadeEstoqueDTO(2L, "Alcatra", "001002", "Sadia", "Bovine", new BigDecimal("0"));
+        ProdutoQuantidadeEstoqueDTO produto1 = new ProdutoQuantidadeEstoqueDTO(1L, "Picanha", "001001", "Friboi", "Bovine", UnitMeasurement.KG, new BigDecimal("0"));
+        ProdutoQuantidadeEstoqueDTO produto2 = new ProdutoQuantidadeEstoqueDTO(2L, "Alcatra", "001002", "Sadia", "Bovine", UnitMeasurement.KG, new BigDecimal("0"));
 
-        List<ProdutoQuantidadeEstoqueDTO> products = List.of(produto1, produto2);
+        Page<ProdutoQuantidadeEstoqueDTO> products = new PageImpl<>(List.of(produto1, produto2), PageRequest.of(0, 10), 2);
 
-        when(catalogService.getAllProducts()).thenReturn(products);
+        when(catalogService.getAllProducts(0)).thenReturn(products);
 
         // Act & Assert
-        mockMvc.perform(get("/products"))
+        mockMvc.perform(get("/products").param("page", "0"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1))
-                .andExpect(jsonPath("$[0].name").value("Picanha"))
-                .andExpect(jsonPath("$[0].code").value("001001"))
-                .andExpect(jsonPath("$[0].brandName").value("Friboi"))
-                .andExpect(jsonPath("$[1].id").value(2))
-                .andExpect(jsonPath("$[1].name").value("Alcatra"));
+                .andExpect(jsonPath("$.content[0].id").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("Picanha"))
+                .andExpect(jsonPath("$.content[0].code").value("001001"))
+                .andExpect(jsonPath("$.content[0].brandName").value("Friboi"))
+                .andExpect(jsonPath("$.content[1].id").value(2))
+                .andExpect(jsonPath("$.content[1].name").value("Alcatra"));
     }
 
     @Test
@@ -224,13 +224,12 @@ class ProdutoControllerTest {
         setup();
 
         // Arrange
-        when(catalogService.getAllProducts()).thenReturn(new ArrayList<>());
-
-        // Act & Assert
-        mockMvc.perform(get("/products"))
+        when(catalogService.getAllProducts(0)).thenReturn(Page.empty(PageRequest.of(0, 10)));
+        // Act & Assert
+        mockMvc.perform(get("/products").param("page","0"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$").isEmpty());
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content").isEmpty());
     }
 
     @Test
@@ -284,6 +283,7 @@ class ProdutoControllerTest {
                 "001001",
                 "Friboi",
                 "",
+                UnitMeasurement.KG,
                 new BigDecimal("15.5")
         );
 

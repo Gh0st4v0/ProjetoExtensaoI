@@ -117,15 +117,18 @@ POST /products
   - 404 Not Found se categoryId ou brandId não existirem
   - 400 Bad Request para violações de validação (formato do código, campos obrigatórios, etc.)
 
-GET /products
-- Lista todos products (ProdutoResponseDTO)
+GET /products?page={page}
+- Lista paginada de produtos (ProdutoQuantidadeEstoqueDTO)
+- Request params: page (default 0)
+- Response Page<ProdutoQuantidadeEstoqueDTO>
+  - Fields: id, name, code, brandName, unitMeasurement, stockQuantity
 - 200 OK
 
 GET /products/search?q={query}&page={page}
-- Busca paginada que também retorna quantidade em estoque por produto (ProdutoQuantidadeEstoqueDTO)
-- Request params: q (opcional), page (default 0)
+- Busca paginada que retorna quantidade e unidade de medida por produto (ProdutoQuantidadeEstoqueDTO)
+- Request params: q (opcional, mínimo 2 caracteres), page (default 0)
 - Response Page<ProdutoQuantidadeEstoqueDTO>
-  - Fields: id, name, code, brandName, stockQuantity
+  - Fields: id, name, code, brandName, unitMeasurement, stockQuantity
 - 200 OK
 
 GET /products/purchases
@@ -173,18 +176,27 @@ POST /purchases
   - 422 Unprocessable Entity para regras de negócio (ex.: expiringDate faltando quando necessário)
 
 PUT /purchases/{purchaseId}/items/{productId}
-- Ajuste (edição) de quantidade de um item de compra (CompraItemUpdateDTO)
-- Request body: { "quantity": 5.0 }
-- Regras:
-  - Quantity obrigatória e positiva (> 0)
-  - Localiza a Movimentacao correspondente ao lote (compraId + produtoId onde venda == null)
-  - Verifica que, após alteração:
-    - Soma das movimentações do lote (compras e vendas atreladas ao mesmo lote) não fica negativa (não vendeu mais do que o lote terá)
-    - Estoque global do produto (soma de todas movimentações) não fica negativo
+- Ajuste (edição) de um item de compra (CompraItemUpdateDTO)
+- Request body (aceita campos abaixo; enviar apenas os campos a alterar):
+{
+  "quantity": 5.0,               // (opcional) quantidade do lote; se fornecida deve ser > 0
+  "unitPurchasePrice": 45.90,    // (opcional) preço de compra por unidade; se fornecido deve ser > 0
+  "expiringDate": "2026-07-01" // (opcional) nova data de validade (ISO-8601); somente para produtos perecíveis
+}
+- Regras de validação/negócio:
+  - Se 'quantity' for fornecida, deve ser positiva (> 0).
+  - Se 'unitPurchasePrice' for fornecido, deve ser positiva (> 0).
+  - Para produtos perecíveis: 'expiringDate' pode ser fornecida para atualizar a data de validade do lote; para não-perecíveis, não deve ser fornecida.
+  - O método localiza a Movimentacao correspondente ao lote (compraId + produtoId onde venda == null).
+  - Após a alteração, valida-se que:
+    - A soma das movimentações do lote (compras e vendas atreladas ao mesmo lote) não fique negativa (ou seja, não foi vendido mais do que o lote terá).
+    - O estoque global do produto (soma de todas movimentações) não fique negativo.
+  - Não é permitido definir 'expiringDate' anterior a qualquer data de venda já registrada para esse lote (prevenir vendas com produto vencido).
 - Responses:
-  - 200 OK no sucesso
+  - 200 OK no sucesso (retorna a Movimentacao atualizada)
   - 404 Not Found se o item/lote não for encontrado
-  - 422 Unprocessable Entity se a alteração causaria estoque negativo (regra de negócio)
+  - 400 Bad Request para payload inválido
+  - 422 Unprocessable Entity se a alteração causaria estoque negativo ou violar regras de validade/preço
 
 POST /purchases/{purchaseId}/items/{productId}/discard
 - Cria um descarte (movimentação negativa) ligado ao lote (compra)
@@ -212,11 +224,11 @@ curl -X POST http://localhost:8080/purchases \
   -H "Authorization: Bearer <token>" \
   -d '{"date":"2026-04-10","items":[{"productId":10,"quantity":10,"unitPurchasePrice":40.00,"expiringDate":"2026-07-01"}]}'
 
-# Ajustar quantidade do item de compra (produto 10 na compra 1)
+# Ajustar item de compra (produto 10 na compra 1) — exemplo atualizando quantidade, preço e validade
 curl -X PUT http://localhost:8080/purchases/1/items/10 \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <token>" \
-  -d '{"quantity":5}'
+  -d '{"quantity":5, "unitPurchasePrice":45.00, "expiringDate":"2026-07-01"}'
 
 6) Vendas (sales)
 Base: /sales

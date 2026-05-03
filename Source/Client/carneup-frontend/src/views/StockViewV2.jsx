@@ -121,7 +121,7 @@ export const StockView = ({ navigate }) => {
 		code: p.code,
 		brand: p.brandName || '',
 		category: p.categoryName || p.category || '',
-		unit: p.unitMeasurement || '',
+		unit: p.unitMeasurement || p.unidadeMedida || p.unit || '',
 		stockQuantity: p.stockQuantity != null ? Number(p.stockQuantity) : 0,
 		stockStatus: (p.stockQuantity != null && Number(p.stockQuantity) < 5) ? 'low' : 'normal',
 	})
@@ -132,11 +132,11 @@ export const StockView = ({ navigate }) => {
 		const load = async () => {
 			setIsLoading(true)
 			try {
-				const all = await productsApi.getAllProducts()
+				const page = await productsApi.getAllProducts(0)
 				if (!mounted) return
-				setProducts(all || [])
-				// initial page (client-side pagination)
-				const initialSlice = (all || []).slice(0, ITEMS_PER_PAGE).map(mapProductDtoToRow)
+				setSearchPage(page)
+				// initial page (server-side pagination)
+				const initialSlice = (page.content || []).map(mapProductDtoToRow)
 				setStockItems(initialSlice)
 			} catch (e) {
 				console.error('Failed to load products', e)
@@ -174,32 +174,46 @@ export const StockView = ({ navigate }) => {
 			setCurrentPage(1)
 			debounceRef.current = setTimeout(() => performSearch(term, 0), 300)
 		} else {
-			// clear server-side results and show client-side paginated products
-			setSearchPage(null)
-			const filtered = (products || []).filter(p => {
-				if (!selectedCategory) return true
-				const cat = p.categoryName || p.category || ''
-				return cat === selectedCategory
-			})
-			const slice = (filtered).slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map(mapProductDtoToRow)
-			setStockItems(slice)
+			// load first page for all products after debounce
+			setCurrentPage(1)
+			debounceRef.current = setTimeout(async () => {
+				setIsLoading(true)
+				try {
+					const page = await productsApi.getAllProducts(0)
+					setSearchPage(page)
+					const rows = (page.content || []).map(mapProductDtoToRow)
+					setStockItems(rows)
+				} catch (e) {
+					console.error('Failed to load products', e)
+					setSearchPage({ content: [], totalElements: 0, totalPages: 0, number: 0 })
+					setStockItems([])
+				} finally {
+					setIsLoading(false)
+				}
+			}, 300)
 		}
 		return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
 	}, [searchQuery, products, selectedCategory])
 
-	const handlePageChange = (page) => {
+	const handlePageChange = async (page) => {
 		setCurrentPage(page)
 		const term = (searchQuery || '').trim()
 		if (term.length >= 2) {
 			performSearch(term, page - 1)
 		} else {
-			const filtered = (products || []).filter(p => {
-				if (!selectedCategory) return true
-				const cat = p.categoryName || p.category || ''
-				return cat === selectedCategory
-			})
-			const slice = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE).map(mapProductDtoToRow)
-			setStockItems(slice)
+			setIsLoading(true)
+			try {
+				const pg = await productsApi.getAllProducts(page - 1)
+				setSearchPage(pg)
+				const rows = (pg.content || []).map(mapProductDtoToRow)
+				setStockItems(rows)
+			} catch (e) {
+				console.error('Failed to load products', e)
+				setSearchPage({ content: [], totalElements: 0, totalPages: 0, number: 0 })
+				setStockItems([])
+			} finally {
+				setIsLoading(false)
+			}
 		}
 	}
 
@@ -325,23 +339,9 @@ export const StockView = ({ navigate }) => {
 		</>
 	)
 
-	// derive pagination info depending on mode (search vs client-side)
-	const isSearchMode = (searchQuery || '').trim().length >= 2
-	let totalItems = 0
-	let totalPages = 0
-	if (isSearchMode) {
-		const pg = searchPage || { totalElements: 0, totalPages: 0 }
-		totalItems = pg.totalElements || 0
-		totalPages = pg.totalPages || 0
-	} else {
-		const filtered = (products || []).filter(p => {
-			if (!selectedCategory) return true
-			const cat = p.categoryName || p.category || ''
-			return cat === selectedCategory
-		})
-		totalItems = filtered.length
-		totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE))
-	}
+	const pg = searchPage || { totalElements: 0, totalPages: 0 }
+	const totalItems = pg.totalElements || 0
+	const totalPages = pg.totalPages || 0
 
 	return (
 		<Wrapper>

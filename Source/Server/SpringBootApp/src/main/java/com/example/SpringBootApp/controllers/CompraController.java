@@ -40,7 +40,7 @@ public class CompraController {
 
     @PutMapping("/{purchaseId}/items/{productId}")
     public ResponseEntity<?> updatePurchaseItem(@PathVariable Long purchaseId, @PathVariable Long productId, @Valid @RequestBody com.example.SpringBootApp.DTOs.CompraItemUpdateDTO updateDTO) {
-        InventarioService.updatePurchaseItem(purchaseId, productId, updateDTO.getQuantity());
+        InventarioService.updatePurchaseItem(purchaseId, productId, updateDTO.getQuantity(), updateDTO.getUnitPurchasePrice(), updateDTO.getExpiringDate());
         return ResponseEntity.ok().build();
     }
 }

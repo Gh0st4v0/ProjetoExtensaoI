@@ -138,7 +138,7 @@ public class InventarioService {
                 .toList();
     }
 
-    public Movimentacao updatePurchaseItem(Long purchaseId, Long productId, BigDecimal newQuantity) {
+    public Movimentacao updatePurchaseItem(Long purchaseId, Long productId, BigDecimal newQuantity, BigDecimal newUnitPurchasePrice, LocalDate newExpiringDate) {
         if (newQuantity == null || newQuantity.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException("Quantity must be positive");
         }
@@ -165,7 +165,32 @@ public class InventarioService {
             throw new BusinessException("Stock would become negative");
         }
 
+        // Validate and apply expiring date changes (do not allow making an expired product having been sold)
+        Produto produto = purchaseMov.getProduto();
+        if (newExpiringDate != null) {
+            if (!Boolean.TRUE.equals(produto.getPerecivel())) {
+                throw new BusinessException("Expiring date must not be provided for non-perishable product with id: " + produto.getId());
+            }
+            for (Movimentacao m : group) {
+                if (m.getVenda() != null && m.getVenda().getDataVenda() != null) {
+                    LocalDate saleDate = m.getVenda().getDataVenda();
+                    if (newExpiringDate.isBefore(saleDate)) {
+                        throw new BusinessException("Cannot set expiration date before existing sale date: " + saleDate);
+                    }
+                }
+            }
+        }
+
+        // Apply unit purchase price if provided
+        if (newUnitPurchasePrice != null) {
+            if (newUnitPurchasePrice.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new BusinessException("Unit purchase price must be positive");
+            }
+            purchaseMov.setPrecoUnitarioCompra(newUnitPurchasePrice);
+        }
+
         purchaseMov.setQuantidade(newQuantity);
+        if (newExpiringDate != null) purchaseMov.setDataValidade(newExpiringDate);
         return movimentacaoRepository.save(purchaseMov);
     }
 

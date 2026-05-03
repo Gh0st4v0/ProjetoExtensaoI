@@ -120,8 +120,9 @@ public class CatalogoService {
 		return categoriesDTO;
 	}
 
-	public List<ProdutoQuantidadeEstoqueDTO> getAllProducts() {
-		return ProdutoRepository.findAllWithStock();
+	public Page<ProdutoQuantidadeEstoqueDTO> getAllProducts(int page) {
+		Pageable pageable = PageRequest.of(page, 10, Sort.by("nome").ascending());
+		return ProdutoRepository.findAllWithStock(pageable);
 	}
 
 	public Page<ProdutoQuantidadeEstoqueDTO> searchProductsWithStock(String query, int page) {

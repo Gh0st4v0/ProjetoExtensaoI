@@ -48,8 +48,8 @@ public class ProdutoController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ProdutoQuantidadeEstoqueDTO>> getAllProducts() {
-        List<ProdutoQuantidadeEstoqueDTO> products = CatalogoService.getAllProducts();
+    public ResponseEntity<Page<ProdutoQuantidadeEstoqueDTO>> getAllProducts(@RequestParam(value = "page", defaultValue = "0") int page) {
+        Page<ProdutoQuantidadeEstoqueDTO> products = CatalogoService.getAllProducts(page);
         return ResponseEntity.ok(products);
     }
 

@@ -1,8 +1,8 @@
 import api from './apiClient'
 
 export const createProduct = (payload) => api.post('/products', payload)
-export const getAllProducts = async () => {
-	const res = await api.get('/products')
+export const getAllProducts = async (page = 0) => {
+	const res = await api.get('/products', { params: { page } })
 	return res.data
 }
 
