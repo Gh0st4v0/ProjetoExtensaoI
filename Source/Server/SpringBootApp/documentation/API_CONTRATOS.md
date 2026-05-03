@@ -263,9 +263,14 @@ POST /sales
   "userId": 1,
   "clienteId": 2,
   "items": [
-    { "purchaseId": 1, "productId": 10, "quantity": 1.0 }
+    { "purchaseId": 1, "productId": 10, "quantity": "1.0000", "precoUnitarioVenda": "12.75" }
   ]
 }
+- Observações importantes:
+  - purchaseId (opcional): se informado, a venda será retirada desse lote (compra) específico. Se ausente, o backend aloca automaticamente por FIFO entre lotes em estoque.
+  - productId: obrigatório
+  - quantity: BigDecimal com escala 4 (ex.: "1.0000"). Para unidade (UN), frontend deve enviar inteiro com escala 4 (ex.: "2.0000"); para KG enviar com 4 casas decimais.
+  - precoUnitarioVenda (opcional): override do preço de venda por unidade para esta venda. Se fornecido, será gravado em Movimentacao.precoUnitarioVenda e usado no cálculo do total da venda. NÃO atualiza o produto.precoVenda.
 - Responses:
   - 201 Created + Location: /sales/{id}
   - 404 Not Found se compra/produto/usuario não existir
