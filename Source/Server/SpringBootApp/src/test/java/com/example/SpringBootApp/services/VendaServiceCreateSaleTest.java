@@ -83,6 +83,7 @@ class VendaServiceCreateSaleTest {
             v.setId(1L);
             return v;
         });
+        when(movimentacaoRepository.save(any(Movimentacao.class))).thenAnswer(i -> i.getArgument(0));
 
         Venda saved = vendaService.createSale(saleDTO);
 
@@ -133,6 +134,7 @@ class VendaServiceCreateSaleTest {
         VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), new BigDecimal("0.00"), PaymentMethod.PIX, false, userId, null, List.of(item));
 
         when(vendaRepository.save(any(Venda.class))).thenAnswer(i -> { Venda v = i.getArgument(0); v.setId(2L); return v; });
+        when(movimentacaoRepository.save(any(Movimentacao.class))).thenAnswer(i -> i.getArgument(0));
 
         Venda saved = vendaService.createSale(saleDTO);
 
