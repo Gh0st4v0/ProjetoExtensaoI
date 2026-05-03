@@ -101,7 +101,7 @@ class CatalogoServiceCrudTest {
         when(produtoRepository.findAll()).thenReturn(List.of(prod));
 
         BusinessException ex = assertThrows(BusinessException.class, () -> catalogService.deleteCategory(1L));
-        assertTrue(ex.getMessage().contains("linked"));
+        assertTrue(ex.getMessage().toLowerCase().contains("vincul"));
     }
 
     @Test
@@ -141,6 +141,6 @@ class CatalogoServiceCrudTest {
         when(produtoRepository.findAll()).thenReturn(List.of(prod));
 
         BusinessException ex = assertThrows(BusinessException.class, () -> catalogService.deleteBrand(1L));
-        assertTrue(ex.getMessage().contains("linked"));
+        assertTrue(ex.getMessage().toLowerCase().contains("vincul"));
     }
 }
