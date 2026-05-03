@@ -172,7 +172,7 @@ public class CatalogoService {
 
 		boolean used = MovimentacaoRepository.existsByProdutoId(id);
 		if (used) {
-			throw new BusinessException("Product is linked to movimentacoes and cannot be deleted");
+			throw new BusinessException("Produto vinculado a movimentações e não pode ser excluído");
 		}
 
 		ProdutoRepository.delete(produto);
@@ -217,7 +217,7 @@ public class CatalogoService {
 		boolean used = ProdutoRepository.findAll().stream().anyMatch(p ->
 				p.getCategoria() != null && p.getCategoria().getId().equals(id));
 		if (used) {
-			throw new BusinessException("Category is linked to products and cannot be deleted");
+			throw new BusinessException("Categoria vinculada a produtos e não pode ser excluída");
 		}
 
 		CategoriaRepository.delete(categoria);
@@ -230,7 +230,7 @@ public class CatalogoService {
 		boolean used = ProdutoRepository.findAll().stream().anyMatch(p ->
 				p.getMarca() != null && p.getMarca().getId().equals(id));
 		if (used) {
-			throw new BusinessException("Brand is linked to products and cannot be deleted");
+			throw new BusinessException("Marca vinculada a produtos e não pode ser excluída");
 		}
 
 		MarcaRepository.delete(marca);
