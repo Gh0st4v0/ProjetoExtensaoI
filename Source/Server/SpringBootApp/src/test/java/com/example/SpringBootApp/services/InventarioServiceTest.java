@@ -307,7 +307,7 @@ class InventarioServiceTest {
     }
 
     @Test
-    void discardPurchaseItem_ShouldCreateDiscard_WhenStockOk() {
+    void createDiscard_ShouldCreateDescarte_WhenStockOk() {
         // Arrange
         Produto produto = new Produto();
         produto.setId(1L);
@@ -335,18 +335,21 @@ class InventarioServiceTest {
             return m;
         });
 
+        com.example.SpringBootApp.DTOs.DescarteItemDTO item = new com.example.SpringBootApp.DTOs.DescarteItemDTO(1L, 1L, new BigDecimal("2"));
+        com.example.SpringBootApp.DTOs.DescarteCreateDTO dto = new com.example.SpringBootApp.DTOs.DescarteCreateDTO(null, DescarteType.PERDA_PESO, List.of(item));
+
         // Act
-        Movimentacao result = inventarioService.discardPurchaseItem(1L, 1L, new BigDecimal("2"), DescarteType.PERDA_PESO, "weight loss");
+        Descarte result = inventarioService.createDiscard(dto);
 
         // Assert
         assertNotNull(result);
-        assertEquals(new BigDecimal("-2"), result.getQuantidade());
+        assertEquals(100L, result.getId());
         verify(decarteRepository).save(any(Descarte.class));
-        verify(movimentacaoRepository).save(any(Movimentacao.class));
+        verify(movimentacaoRepository, times(1)).save(any(Movimentacao.class));
     }
 
     @Test
-    void discardPurchaseItem_ShouldThrow_WhenGlobalStockNegative() {
+    void createDiscard_ShouldThrow_WhenGlobalStockNegative() {
         // Arrange
         Produto produto = new Produto();
         produto.setId(1L);
@@ -364,17 +367,23 @@ class InventarioServiceTest {
         when(movimentacaoRepository.findByCompraIdAndProdutoId(1L, 1L)).thenReturn(List.of(purchaseMov));
         when(movimentacaoRepository.sumQuantityByProdutoId(1L)).thenReturn(new BigDecimal("1"));
 
+        com.example.SpringBootApp.DTOs.DescarteItemDTO item = new com.example.SpringBootApp.DTOs.DescarteItemDTO(1L, 1L, new BigDecimal("2"));
+        com.example.SpringBootApp.DTOs.DescarteCreateDTO dto = new com.example.SpringBootApp.DTOs.DescarteCreateDTO(null, DescarteType.PERDA_PESO, List.of(item));
+
         // Act & Assert
-        assertThrows(BusinessException.class, () -> inventarioService.discardPurchaseItem(1L, 1L, new BigDecimal("2"), DescarteType.PERDA_PESO, null));
+        assertThrows(BusinessException.class, () -> inventarioService.createDiscard(dto));
     }
 
     @Test
-    void discardPurchaseItem_ShouldThrow_WhenPurchaseItemNotFound() {
+    void createDiscard_ShouldThrow_WhenPurchaseItemNotFound() {
         // Arrange
         when(movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(1L, 1L)).thenReturn(null);
 
+        com.example.SpringBootApp.DTOs.DescarteItemDTO item = new com.example.SpringBootApp.DTOs.DescarteItemDTO(1L, 1L, new BigDecimal("1"));
+        com.example.SpringBootApp.DTOs.DescarteCreateDTO dto = new com.example.SpringBootApp.DTOs.DescarteCreateDTO(null, DescarteType.DANO, List.of(item));
+
         // Act & Assert
-        assertThrows(ResourceNotFoundException.class, () -> inventarioService.discardPurchaseItem(1L, 1L, new BigDecimal("1"), DescarteType.DANO, "broken"));
+        assertThrows(ResourceNotFoundException.class, () -> inventarioService.createDiscard(dto));
     }
 }
 

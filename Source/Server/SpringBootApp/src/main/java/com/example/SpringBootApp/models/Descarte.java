@@ -23,8 +23,9 @@ public class Descarte {
     @Column(name = "data_descarte")
     private LocalDate disposalDate;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "motivo")
-    private String reason;
+    private DescarteType motivo;
 
     @OneToMany(mappedBy = "descarte", fetch = FetchType.LAZY)
     private List<Movimentacao> movements;

@@ -149,6 +149,18 @@ DELETE /products/{id}
 5) Compras (purchases)
 Base: /purchases
 
+GET /purchases?page={page}
+- Lista paginada de compras (CompraResponseDTO)
+- Request params: page (default 0)
+- Response Page<CompraResponseDTO>
+  - Fields:
+    - id (Long)
+    - date (ISO-8601 string)
+    - items: [ { productId: Long, quantity: number, unitPurchasePrice: number, expiringDate: ISO-8601|null } ]
+    - totalValue: number  // soma de (quantity * unitPurchasePrice) por item
+- Paging: 10 compras por página, ordenado por dataCompra (desc)
+- 200 OK
+
 POST /purchases
 - Cria uma compra com itens (CompraCreateDTO)
 - Request (exemplo)
@@ -198,37 +210,44 @@ PUT /purchases/{purchaseId}/items/{productId}
   - 400 Bad Request para payload inválido
   - 422 Unprocessable Entity se a alteração causaria estoque negativo ou violar regras de validade/preço
 
-POST /purchases/{purchaseId}/items/{productId}/discard
-- Cria um descarte (movimentação negativa) ligado ao lote (compra)
-- Request body (CompraItemDiscardDTO):
+POST /discards
+- Cria um descarte (grupo) com múltiplas movimentações (DescarteCreateDTO)
+- Request body (DescarteCreateDTO):
 {
-  "quantity": 2.0,
-  "type": "PERDA_PESO",   // Valores aceitos: ROUBO, VENCIMENTO, CONSUMO_PESSOAL, DANO, OUTRO, PERDA_PESO
-  "description": "opcional, texto explicando o descarte (até 255 chars)"
+  "date": "2026-05-03",       // opcional
+  "type": "PERDA_PESO",       // motivo do descarte (enum: ROUBO, VENCIMENTO, CONSUMO_PESSOAL, DANO, OUTRO, PERDA_PESO)
+  "items": [
+    { "purchaseId": 1, "productId": 10, "quantity": 2.0 }
+  ]
 }
 - Regras:
-  - quantity obrigatória e positiva (>0)
-  - Cria um registro de Descarte (tabela legacy) com motivo igual ao nome do enum e descrição opcional
-  - Validações:
-    - A quantidade a descartar não pode exceder a quantidade disponível no lote (compra)
-    - O estoque global do produto não pode ficar negativo após o descarte
+  - Cada item deve conter purchaseId, productId e quantity (>0)
+  - O motivo (type) é obrigatório e deve ser um dos valores do enum
+  - Validações server-side:
+    - Para cada item, a quantidade a descartar não pode exceder a quantidade disponível no lote (compra)
+    - O estoque global do produto não pode ficar negativo considerando a soma de todos os itens do mesmo produto dentro do mesmo request
 - Responses:
-  - 201 Created no sucesso
-  - 404 Not Found se o item/lote não for encontrado
-  - 422 Unprocessable Entity se o descarte levaria o estoque a ficar negativo
+  - 201 Created + Location: /discards/{id} no sucesso
+  - 400 Bad Request para payload inválido
+  - 404 Not Found se algum item/lote não for encontrado
+  - 422 Unprocessable Entity se o descarte levaria o estoque a ficar negativo (regra de negócio)
 
-Exemplo de curl (criar + ajustar):
+Exemplo de curl:
+# List purchases (first page)
+curl -X GET "http://localhost:8080/purchases?page=0" \
+  -H "Authorization: Bearer <token>"
+
 # Criar compra
 curl -X POST http://localhost:8080/purchases \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <token>" \
-  -d '{"date":"2026-04-10","items":[{"productId":10,"quantity":10,"unitPurchasePrice":40.00,"expiringDate":"2026-07-01"}]}'
+  -d '{"date":"2026-04-10","items":[{"productId":10,"quantity":10,"unitPurchasePrice":40.00,"expiringDate":"2026-07-01" }]}'
 
 # Ajustar item de compra (produto 10 na compra 1) — exemplo atualizando quantidade, preço e validade
 curl -X PUT http://localhost:8080/purchases/1/items/10 \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <token>" \
-  -d '{"quantity":5, "unitPurchasePrice":45.00, "expiringDate":"2026-07-01"}'
+  -d '{"quantity":5, "unitPurchasePrice":45.00, "expiringDate":"2026-07-01" }'
 
 6) Vendas (sales)
 Base: /sales
@@ -286,7 +305,7 @@ GET /sales?startDate={YYYY-MM-DD}&endDate={YYYY-MM-DD}
   POST /purchases -> { date, items: [{ productId, quantity, unitPurchasePrice, expiringDate? }] } -> 201 Location: /purchases/12
 
 - Editar item de compra
-  PUT /purchases/{purchaseId}/items/{productId} -> { quantity } -> 200 (ou 422)
+  PUT /purchases/{purchaseId}/items/{productId} -> { quantity?, unitPurchasePrice?, expiringDate? } -> 200 (ou 422)
 
 10) Contatos / Observações finais
 - Se o frontend precisar de campos adicionais (ex.: nome da categoria/brand embutido nas respostas) podemos adicionar ou ampliar DTOs; posso ajudar adaptando os contratos caso a equipe prefira outro formato.

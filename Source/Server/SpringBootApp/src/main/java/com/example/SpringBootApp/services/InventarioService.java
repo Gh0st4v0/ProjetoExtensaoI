@@ -194,52 +194,67 @@ public class InventarioService {
         return movimentacaoRepository.save(purchaseMov);
     }
 
-    public Movimentacao discardPurchaseItem(Long purchaseId, Long productId, BigDecimal quantity, DescarteType type, String description) {
-        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException("Quantity must be positive");
+    public Descarte createDiscard(com.example.SpringBootApp.DTOs.DescarteCreateDTO discardDTO) {
+        if (discardDTO == null || discardDTO.getItems() == null || discardDTO.getItems().isEmpty()) {
+            throw new BusinessException("Discard must contain at least one item");
         }
 
-        Movimentacao purchaseMov = movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(purchaseId, productId);
-        if (purchaseMov == null) {
-            throw new ResourceNotFoundException("Purchase item not found");
+        // Validate each lot (purchase) individually and build total map per product
+        java.util.Map<Long, java.math.BigDecimal> totalByProduct = new java.util.HashMap<>();
+        for (com.example.SpringBootApp.DTOs.DescarteItemDTO item : discardDTO.getItems()) {
+            if (item.getQuantity() == null || item.getQuantity().compareTo(java.math.BigDecimal.ZERO) <= 0) {
+                throw new BusinessException("Quantity must be positive");
+            }
+
+            Movimentacao purchaseMov = movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(item.getPurchaseId(), item.getProductId());
+            if (purchaseMov == null) {
+                throw new ResourceNotFoundException("Purchase item not found");
+            }
+
+            java.util.List<Movimentacao> group = movimentacaoRepository.findByCompraIdAndProdutoId(item.getPurchaseId(), item.getProductId());
+            java.math.BigDecimal groupSum = group.stream().map(m -> m.getQuantidade() != null ? m.getQuantidade() : java.math.BigDecimal.ZERO).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+            java.math.BigDecimal groupAfter = groupSum.subtract(item.getQuantity());
+            if (groupAfter.compareTo(java.math.BigDecimal.ZERO) < 0) {
+                throw new BusinessException("Cannot discard more than available in this lot");
+            }
+
+            totalByProduct.merge(item.getProductId(), item.getQuantity(), java.math.BigDecimal::add);
         }
 
-        List<Movimentacao> group = movimentacaoRepository.findByCompraIdAndProdutoId(purchaseId, productId);
-        BigDecimal groupSum = group.stream().map(m -> m.getQuantidade() != null ? m.getQuantidade() : BigDecimal.ZERO).reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal groupAfter = groupSum.subtract(quantity);
-        if (groupAfter.compareTo(BigDecimal.ZERO) < 0) {
-            throw new BusinessException("Cannot discard more than available in this lot");
+        // Validate global stock per product (considering all items in this discard)
+        for (java.util.Map.Entry<Long, java.math.BigDecimal> e : totalByProduct.entrySet()) {
+            Long productId = e.getKey();
+            java.math.BigDecimal totalSum = movimentacaoRepository.sumQuantityByProdutoId(productId);
+            if (totalSum == null) totalSum = java.math.BigDecimal.ZERO;
+            java.math.BigDecimal totalAfter = totalSum.subtract(e.getValue());
+            if (totalAfter.compareTo(java.math.BigDecimal.ZERO) < 0) {
+                throw new BusinessException("Stock would become negative");
+            }
         }
 
-        BigDecimal totalSum = movimentacaoRepository.sumQuantityByProdutoId(productId);
-        if (totalSum == null) totalSum = BigDecimal.ZERO;
-        BigDecimal totalAfter = totalSum.subtract(quantity);
-        if (totalAfter.compareTo(BigDecimal.ZERO) < 0) {
-            throw new BusinessException("Stock would become negative");
-        }
-
+        // Create Descarte record (single group)
         Descarte descarte = new Descarte();
-        descarte.setDisposalDate(LocalDate.now());
-        String reasonString = type != null ? type.name() : DescarteType.OUTRO.name();
-        if (description != null && !description.isBlank()) {
-            reasonString += " - " + description;
-        }
-        descarte.setReason(reasonString);
+        descarte.setDisposalDate(discardDTO.getDate() != null ? discardDTO.getDate() : LocalDate.now());
+        descarte.setMotivo(discardDTO.getType() != null ? discardDTO.getType() : DescarteType.OUTRO);
         Descarte savedDescarte = decarteRepository.save(descarte);
 
-        Movimentacao discardMov = new Movimentacao();
-        discardMov.setQuantidade(quantity.negate());
-        discardMov.setPrecoUnitarioCompra(null);
-        discardMov.setPrecoUnitarioVenda(null);
-        discardMov.setDataValidade(null);
-        discardMov.setProduto(purchaseMov.getProduto());
-        discardMov.setCompra(purchaseMov.getCompra());
-        discardMov.setVenda(null);
-        discardMov.setTipoMovimentacao(MovementType.DESCARTE);
-        discardMov.setDescarte(savedDescarte);
+        // Create a Movimentacao (negative) for each item in the discard
+        for (com.example.SpringBootApp.DTOs.DescarteItemDTO item : discardDTO.getItems()) {
+            Movimentacao purchaseMov = movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(item.getPurchaseId(), item.getProductId());
+            Movimentacao discardMov = new Movimentacao();
+            discardMov.setQuantidade(item.getQuantity().negate());
+            discardMov.setPrecoUnitarioCompra(null);
+            discardMov.setPrecoUnitarioVenda(null);
+            discardMov.setDataValidade(null);
+            discardMov.setProduto(purchaseMov.getProduto());
+            discardMov.setCompra(purchaseMov.getCompra());
+            discardMov.setVenda(null);
+            discardMov.setTipoMovimentacao(MovementType.DESCARTE);
+            discardMov.setDescarte(savedDescarte);
+            movimentacaoRepository.save(discardMov);
+        }
 
-        return movimentacaoRepository.save(discardMov);
+        return savedDescarte;
     }
 
 }

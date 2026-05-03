@@ -6,20 +6,19 @@ import lombok.NoArgsConstructor;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.NotBlank;
 import java.math.BigDecimal;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class CompraItemDiscardDTO {
+public class DescarteItemDTO {
+    @NotNull
+    private Long purchaseId;
 
-    @NotNull(message = "Quantity is required")
-    @Positive(message = "Quantity must be positive")
+    @NotNull
+    private Long productId;
+
+    @NotNull
+    @Positive
     private BigDecimal quantity;
-
-    @NotBlank(message = "Type is required")
-    private String type; // should match DescarteType values
-
-
 }
