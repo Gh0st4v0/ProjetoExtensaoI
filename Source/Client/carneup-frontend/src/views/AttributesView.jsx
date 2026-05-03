@@ -40,6 +40,8 @@ export default function AttributesView({ navigate }) {
     try {
       if (type === 'brand') await addBrand(value)
       if (type === 'category') await addCategory(value)
+      // close quick create modal after successful creation
+      setQuickOpen({ open:false, type:null })
     } catch (e) {
       setErrorMsg(e.response?.data?.message || 'Falha ao criar')
       setTimeout(() => setErrorMsg(''), 4500)
