@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'feature/**'
+      - 'hotfix/**'
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: juniorprimebeef_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d juniorprimebeef_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DB_PATH: jdbc:postgresql://localhost:5432/juniorprimebeef_ci
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      RESEND_API_KEY: test-key
+
+    defaults:
+      run:
+        working-directory: Source/Server/SpringBootApp
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Run backend tests
+        run: mvn --batch-mode clean test
+
+      - name: Package backend artifact
+        if: github.event_name == 'push'
+        run: mvn --batch-mode -DskipTests package
+
+      - name: Upload backend artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          path: Source/Server/SpringBootApp/target/*.jar
+          if-no-files-found: error
+
+  frontend:
+    name: Frontend Checks
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: Source/Client/carneup-frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: Source/Client/carneup-frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Lint frontend
+        run: npm run lint
+
+      - name: Build frontend
+        env:
+          VITE_API_URL: http://localhost:8080
+        run: npm run build
+
+      - name: Upload frontend artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: Source/Client/carneup-frontend/dist
+          if-no-files-found: error

@@ -1,0 +1,105 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+
+concurrency:
+  group: cd-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy Production
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build backend jar
+        working-directory: Source/Server/SpringBootApp
+        run: mvn --batch-mode -DskipTests clean package
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: Source/Client/carneup-frontend/package-lock.json
+
+      - name: Build frontend bundle
+        working-directory: Source/Client/carneup-frontend
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: Upload production artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-build-${{ github.event.workflow_run.run_number }}
+          path: |
+            Source/Server/SpringBootApp/target/*.jar
+            Source/Client/carneup-frontend/dist
+          if-no-files-found: error
+
+      - name: Trigger backend deploy
+        env:
+          BACKEND_DEPLOY_HOOK_URL: ${{ secrets.BACKEND_DEPLOY_HOOK_URL }}
+        run: |
+          test -n "$BACKEND_DEPLOY_HOOK_URL"
+          curl --fail --silent --show-error --request POST "$BACKEND_DEPLOY_HOOK_URL"
+
+      - name: Trigger frontend deploy
+        env:
+          FRONTEND_DEPLOY_HOOK_URL: ${{ secrets.FRONTEND_DEPLOY_HOOK_URL }}
+        run: |
+          test -n "$FRONTEND_DEPLOY_HOOK_URL"
+          curl --fail --silent --show-error --request POST "$FRONTEND_DEPLOY_HOOK_URL"
+
+      - name: Wait for backend health
+        env:
+          BACKEND_HEALTH_URL: ${{ secrets.BACKEND_HEALTH_URL }}
+        run: |
+          test -n "$BACKEND_HEALTH_URL"
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error "$BACKEND_HEALTH_URL" > /tmp/backend-health.json; then
+              cat /tmp/backend-health.json
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "Backend health check failed"
+          exit 1
+
+      - name: Wait for frontend smoke test
+        env:
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+        run: |
+          test -n "$FRONTEND_URL"
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error "$FRONTEND_URL" > /dev/null; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Frontend smoke test failed"
+          exit 1  
