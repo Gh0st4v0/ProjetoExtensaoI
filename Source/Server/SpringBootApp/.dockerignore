@@ -1,0 +1,10 @@
+git add .github/workflows/ci-backend.yml Source/Server/SpringBootApp/pom.xml Source/Server/SpringBootApp/Dockerfile Source/Server/SpringBootApp/.dockerignore
+target
+.mvn
+documentation
+.env
+.env.*
+Dockerfile
+HELP.md
+read.me
+RESEND_API_KEY_SETUP.md
