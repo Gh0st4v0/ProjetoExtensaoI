@@ -1,10 +1,11 @@
 name: CI Frontend
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
-      - develop
+      - ci-cd-pipeline
     paths:
       - 'Source/Client/carneup-frontend/**'
       - '.github/workflows/ci-frontend.yml'
