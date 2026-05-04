@@ -21,7 +21,7 @@ permissions:
 
 env:
   FRONTEND_DIR: Source/Client/carneup-frontend
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/carneup-frontend
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/projeto-frontend
 
 jobs:
   pipeline:
