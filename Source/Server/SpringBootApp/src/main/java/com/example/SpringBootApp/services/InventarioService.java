@@ -56,6 +56,13 @@ public class InventarioService {
                 }
             }
 
+            // validação: se o produto for UN, quantidade deve ser inteira
+            if (Produto.getUnidadeMedida() == UnitMeasurement.UN) {
+                if (itemDTO.getQuantity() == null || itemDTO.getQuantity().stripTrailingZeros().scale() > 0) {
+                    throw new BusinessException("Quantidade deve ser inteira para produto com unidade UN id: " + Produto.getId());
+                }
+            }
+
             Movimentacao Movimentacao = new Movimentacao();
             Movimentacao.setQuantidade(itemDTO.getQuantity());
             Movimentacao.setPrecoUnitarioCompra(itemDTO.getUnitPurchasePrice());
@@ -167,6 +174,14 @@ public class InventarioService {
 
         // Validate and apply expiring date changes (do not allow making an expired product having been sold)
         Produto produto = purchaseMov.getProduto();
+
+        // validação: se o produto for UN, nova quantidade deve ser inteira
+        if (produto != null && produto.getUnidadeMedida() == UnitMeasurement.UN) {
+            if (newQuantity == null || newQuantity.stripTrailingZeros().scale() > 0) {
+                throw new BusinessException("Quantidade deve ser inteira para produto com unidade UN id: " + produto.getId());
+            }
+        }
+
         if (newExpiringDate != null) {
             if (!Boolean.TRUE.equals(produto.getPerecivel())) {
                 throw new BusinessException("Expiring date must not be provided for non-perishable product with id: " + produto.getId());
@@ -209,6 +224,14 @@ public class InventarioService {
             Movimentacao purchaseMov = movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(item.getPurchaseId(), item.getProductId());
             if (purchaseMov == null) {
                 throw new ResourceNotFoundException("Purchase item not found");
+            }
+
+            // validação: se o produto for UN, quantidade do descarte deve ser inteira
+            Produto produto = purchaseMov.getProduto();
+            if (produto != null && produto.getUnidadeMedida() == UnitMeasurement.UN) {
+                if (item.getQuantity() == null || item.getQuantity().stripTrailingZeros().scale() > 0) {
+                    throw new BusinessException("Quantidade deve ser inteira para produto com unidade UN id: " + produto.getId());
+                }
             }
 
             java.util.List<Movimentacao> group = movimentacaoRepository.findByCompraIdAndProdutoId(item.getPurchaseId(), item.getProductId());

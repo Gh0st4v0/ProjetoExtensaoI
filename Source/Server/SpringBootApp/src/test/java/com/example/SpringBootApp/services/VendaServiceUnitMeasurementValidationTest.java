@@ -71,7 +71,7 @@ class VendaServiceUnitMeasurementValidationTest {
         org.mockito.Mockito.lenient().when(movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(purchaseId, productId)).thenReturn(stockItem);
 
         VendItemDTO item = new VendItemDTO(purchaseId, productId, quantity, null);
-        VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), new BigDecimal("0.00"), PaymentMethod.PIX, false, userId, null, List.of(item));
+        VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), PaymentMethod.PIX, false, userId, null, List.of(item));
 
         assertThrows(BusinessException.class, () -> vendaService.createSale(saleDTO));
     }

@@ -58,7 +58,7 @@ Objetivo
 Esses métodos já suportam a lógica de alocação FIFO (serviço itera compras ordenadas por dataCompra) e verificação de estoque agregado.
 
 3) DTOs existentes relacionados ao PDV
-- VendCreateDTO: totalValue, paymentMethod (PaymentMethod enum), hasDiscount, userId (obrigatório), clienteId (opcional), items: List<VendItemDTO>
+- VendCreateDTO: paymentMethod (PaymentMethod enum), hasDiscount, userId (obrigatório), clienteId (opcional), items: List<VendItemDTO>
 - VendItemDTO: purchaseId (opcional), productId (obrigatório), quantity (BigDecimal), precoUnitarioVenda (opcional)
 - VendReportDTO / VendItemReportDTO: já existem para relatório (GET por data)
 

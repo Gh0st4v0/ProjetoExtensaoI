@@ -71,7 +71,7 @@ public class VendaIntegrationTest {
 
         // Act: create a sale of quantity 2
         VendItemDTO item = new VendItemDTO(null, savedProduto.getId(), new BigDecimal("2.0000"), null);
-        VendCreateDTO create = new VendCreateDTO(LocalDate.now(), new BigDecimal("40.0000"), PaymentMethod.PIX, false, usuario.getId(), null, List.of(item));
+        VendCreateDTO create = new VendCreateDTO(LocalDate.now(), PaymentMethod.PIX, false, usuario.getId(), null, List.of(item));
 
         vendaService.createSale(create);
 

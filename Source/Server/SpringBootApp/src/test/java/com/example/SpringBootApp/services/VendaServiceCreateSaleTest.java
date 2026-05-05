@@ -76,7 +76,7 @@ class VendaServiceCreateSaleTest {
         when(movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(purchaseId, productId)).thenReturn(stockItem);
 
         VendItemDTO item = new VendItemDTO(purchaseId, productId, quantity, null);
-        VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), new BigDecimal("16.00"), PaymentMethod.PIX, false, userId, null, List.of(item));
+        VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), PaymentMethod.PIX, false, userId, null, List.of(item));
 
         when(vendaRepository.save(any(Venda.class))).thenAnswer(i -> {
             Venda v = i.getArgument(0);
@@ -131,7 +131,7 @@ class VendaServiceCreateSaleTest {
         // no direct findFirst stub for this flow; service should iterate purchases
 
         VendItemDTO item = new VendItemDTO(null, productId, quantity, null);
-        VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), new BigDecimal("0.00"), PaymentMethod.PIX, false, userId, null, List.of(item));
+        VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), PaymentMethod.PIX, false, userId, null, List.of(item));
 
         when(vendaRepository.save(any(Venda.class))).thenAnswer(i -> { Venda v = i.getArgument(0); v.setId(2L); return v; });
         when(movimentacaoRepository.save(any(Movimentacao.class))).thenAnswer(i -> i.getArgument(0));
@@ -160,7 +160,7 @@ class VendaServiceCreateSaleTest {
         when(movimentacaoRepository.sumQuantityByProdutoId(productId)).thenReturn(new BigDecimal("2.0000"));
 
         VendItemDTO item = new VendItemDTO(null, productId, quantity, null);
-        VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), new BigDecimal("0.00"), PaymentMethod.PIX, false, userId, null, List.of(item));
+        VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), PaymentMethod.PIX, false, userId, null, List.of(item));
 
         assertThrows(BusinessException.class, () -> vendaService.createSale(saleDTO));
     }
@@ -198,7 +198,7 @@ class VendaServiceCreateSaleTest {
 
         BigDecimal overridePrice = new BigDecimal("12.75");
         VendItemDTO item = new VendItemDTO(purchaseId, productId, quantity, overridePrice);
-        VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), new BigDecimal("25.50"), PaymentMethod.PIX, false, userId, null, List.of(item));
+        VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), PaymentMethod.PIX, false, userId, null, List.of(item));
 
         when(vendaRepository.save(any(Venda.class))).thenAnswer(i -> { Venda v = i.getArgument(0); v.setId(3L); return v; });
         when(movimentacaoRepository.save(any(Movimentacao.class))).thenAnswer(i -> i.getArgument(0));
@@ -236,7 +236,7 @@ class VendaServiceCreateSaleTest {
         when(movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(purchaseId, productId)).thenReturn(stockItem);
 
         VendItemDTO item = new VendItemDTO(purchaseId, productId, quantity, null);
-        VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), new BigDecimal("0.00"), PaymentMethod.PIX, false, userId, clienteId, List.of(item));
+        VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), PaymentMethod.PIX, false, userId, clienteId, List.of(item));
 
         when(vendaRepository.save(any(Venda.class))).thenAnswer(i -> { Venda v = i.getArgument(0); v.setId(99L); return v; });
         when(movimentacaoRepository.save(any(Movimentacao.class))).thenAnswer(i -> i.getArgument(0));

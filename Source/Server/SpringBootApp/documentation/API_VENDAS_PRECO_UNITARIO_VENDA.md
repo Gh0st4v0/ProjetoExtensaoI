@@ -24,7 +24,6 @@ Testes
 Exemplo curl
 curl -X POST http://localhost:8080/sales -H "Content-Type: application/json" -d '{
   "saleDate": "2026-05-02",
-  "totalValue": "25.50",
   "paymentMethod": "PIX",
   "hasDiscount": false,
   "userId": 1,

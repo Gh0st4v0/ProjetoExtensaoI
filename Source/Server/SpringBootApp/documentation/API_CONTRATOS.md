@@ -282,7 +282,6 @@ POST /sales
 - Request example
 {
   "saleDate": "2026-04-12",
-  "totalValue": 250.00,
   "paymentMethod": "DINHEIRO", // enum (PIX, CREDITO, DEBITO, DINHEIRO)
   "hasDiscount": false,
   "userId": 1,
@@ -292,6 +291,7 @@ POST /sales
   ]
 }
 - Observações importantes:
+  - Nota: O campo 'totalValue' foi removido do payload. O servidor calcula o total da venda automaticamente e ignora qualquer valor fornecido pelo cliente.
   - purchaseId (opcional): se informado, a venda será retirada desse lote (compra) específico. Se ausente, o backend aloca automaticamente por FIFO entre lotes em estoque.
   - productId: obrigatório
   - quantity: BigDecimal com escala 4 (ex.: "1.0000"). Para unidade (UN), frontend deve enviar inteiro com escala 4 (ex.: "2.0000"); para KG enviar com 4 casas decimais.

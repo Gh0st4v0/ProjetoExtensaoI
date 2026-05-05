@@ -66,7 +66,6 @@ class VendaControllerTest {
         
         VendCreateDTO request = new VendCreateDTO(
                 LocalDate.now(),
-                new BigDecimal("100.00"),
                 PaymentMethod.DINHEIRO,
                 false,
                 1L,
@@ -96,7 +95,6 @@ class VendaControllerTest {
         
         VendCreateDTO request = new VendCreateDTO(
                 LocalDate.now(),
-                new BigDecimal("100.00"),
                 PaymentMethod.DINHEIRO,
                 false,
                 999L,
@@ -124,7 +122,6 @@ class VendaControllerTest {
         
         VendCreateDTO request = new VendCreateDTO(
                 LocalDate.now(),
-                new BigDecimal("100.00"),
                 PaymentMethod.DINHEIRO,
                 false,
                 1L,
@@ -147,7 +144,7 @@ class VendaControllerTest {
     @Test
     void createSale_ShouldReturn400_WhenInvalidInput() throws Exception {
         // Arrange
-        String invalidJson = "{\"totalValue\": -100}";
+        String invalidJson = "{}";
 
         // Act & Assert
         mockMvc.perform(post("/sales")
