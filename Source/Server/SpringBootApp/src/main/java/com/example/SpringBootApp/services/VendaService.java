@@ -17,6 +17,11 @@ import com.example.SpringBootApp.repositories.ProdutoRepository;
 import com.example.SpringBootApp.repositories.CompraRepository;
 import com.example.SpringBootApp.repositories.VendaRepository;
 import com.example.SpringBootApp.repositories.UsuarioRepository;
+import com.example.SpringBootApp.DTOs.DescarteCreateDTO;
+import com.example.SpringBootApp.DTOs.DescarteItemDTO;
+import com.example.SpringBootApp.models.DescarteType;
+import java.util.HashSet;
+import java.util.Set;
 
 import lombok.RequiredArgsConstructor;
 
@@ -31,6 +36,8 @@ public class VendaService {
     private final ProdutoRepository produtoRepository;
     private final CompraRepository compraRepository;
     private final com.example.SpringBootApp.repositories.ClienteRepository clienteRepository;
+    private final com.example.SpringBootApp.services.InventarioService inventarioService;
+    private static final java.math.BigDecimal AUTO_DISCARD_THRESHOLD_KG = new java.math.BigDecimal("0.1000");
     
     public Venda createSale(VendCreateDTO saleDTO) {
         Usuario usuario = usuarioRepository.findById(saleDTO.getUserId()).orElseThrow(() -> new ResourceNotFoundException("Usuario not found"));
@@ -46,6 +53,7 @@ public class VendaService {
         Venda savedSale = vendaRepository.save(venda);
 
         List<Movimentacao> items = new ArrayList<>();
+        java.util.Set<Long> purchasesDiscarded = new java.util.HashSet<>();
         BigDecimal computedTotal = BigDecimal.ZERO;
 
         // link client if provided
@@ -98,6 +106,17 @@ public class VendaService {
 
                 items.add(movimentacaoRepository.save(movimentacao));
 
+                if (produto.getUnidadeMedida() == UnitMeasurement.KG) {
+                    java.math.BigDecimal leftover = movimentacaoRepository.sumQuantityByPurchaseId(compra.getId());
+                    if (leftover == null) leftover = java.math.BigDecimal.ZERO;
+                    if (leftover.compareTo(java.math.BigDecimal.ZERO) > 0 && leftover.compareTo(AUTO_DISCARD_THRESHOLD_KG) < 0 && !purchasesDiscarded.contains(compra.getId())) {
+                        com.example.SpringBootApp.DTOs.DescarteItemDTO discardItem = new com.example.SpringBootApp.DTOs.DescarteItemDTO(compra.getId(), produto.getId(), leftover);
+                        com.example.SpringBootApp.DTOs.DescarteCreateDTO discardDTO = new com.example.SpringBootApp.DTOs.DescarteCreateDTO(null, com.example.SpringBootApp.models.DescarteType.PERDA_PESO, java.util.List.of(discardItem));
+                        inventarioService.createDiscard(discardDTO);
+                        purchasesDiscarded.add(compra.getId());
+                    }
+                }
+
                 // accumulate total
                 computedTotal = computedTotal.add(salePrice.multiply(requiredQty));
             } else {
@@ -136,6 +155,17 @@ public class VendaService {
                     movimentacao.setPrecoUnitarioCompra(stockItem.getPrecoUnitarioCompra());
 
                     items.add(movimentacaoRepository.save(movimentacao));
+
+                    if (produto.getUnidadeMedida() == UnitMeasurement.KG) {
+                        java.math.BigDecimal leftover = movimentacaoRepository.sumQuantityByPurchaseId(compra.getId());
+                        if (leftover == null) leftover = java.math.BigDecimal.ZERO;
+                        if (leftover.compareTo(java.math.BigDecimal.ZERO) > 0 && leftover.compareTo(AUTO_DISCARD_THRESHOLD_KG) < 0 && !purchasesDiscarded.contains(compra.getId())) {
+                            com.example.SpringBootApp.DTOs.DescarteItemDTO discardItem = new com.example.SpringBootApp.DTOs.DescarteItemDTO(compra.getId(), produto.getId(), leftover);
+                            com.example.SpringBootApp.DTOs.DescarteCreateDTO discardDTO = new com.example.SpringBootApp.DTOs.DescarteCreateDTO(null, com.example.SpringBootApp.models.DescarteType.PERDA_PESO, java.util.List.of(discardItem));
+                            inventarioService.createDiscard(discardDTO);
+                            purchasesDiscarded.add(compra.getId());
+                        }
+                    }
 
                     // accumulate total with allocated quantity
                     computedTotal = computedTotal.add(salePrice.multiply(allocate));

@@ -37,6 +37,9 @@ class VendaServiceUnitMeasurementValidationTest {
     @Mock
     private CompraRepository compraRepository;
 
+    @Mock
+    private com.example.SpringBootApp.services.InventarioService inventarioService;
+
     @InjectMocks
     private VendaService vendaService;
 
