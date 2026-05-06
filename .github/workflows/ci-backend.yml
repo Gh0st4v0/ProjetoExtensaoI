@@ -1,10 +1,11 @@
 name: CI Backend
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
-      - develop
+      - ci-cd-pipeline
     paths:
       - 'Source/Server/SpringBootApp/**'
       - '.github/workflows/ci-backend.yml'
