@@ -230,7 +230,8 @@ class CatalogoServiceTest {
                 "Friboi",
                 "",
                 UnitMeasurement.KG,
-                new BigDecimal("10.50")
+                new BigDecimal("10.50"),
+                new BigDecimal("0")
         );
         Page<ProdutoQuantidadeEstoqueDTO> expectedPage = new PageImpl<>(List.of(dto));
 

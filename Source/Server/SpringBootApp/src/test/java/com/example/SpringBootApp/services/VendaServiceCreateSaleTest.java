@@ -61,7 +61,7 @@ class VendaServiceCreateSaleTest {
 
         Compra compra = new Compra();
         compra.setId(purchaseId);
-        when(compraRepository.findById(purchaseId)).thenReturn(Optional.of(compra));
+        when(compraRepository.findAll()).thenReturn(List.of(compra));
 
         when(movimentacaoRepository.sumQuantityByProdutoId(productId)).thenReturn(new BigDecimal("10.0000"));
 
@@ -73,9 +73,10 @@ class VendaServiceCreateSaleTest {
         stockItem.setCompra(compra);
         stockItem.setProduto(produto);
 
-        when(movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(purchaseId, productId)).thenReturn(stockItem);
+        when(movimentacaoRepository.findByCompraIdAndProdutoId(purchaseId, productId)).thenReturn(List.of(stockItem));
+        when(movimentacaoRepository.sumQuantityByPurchaseId(purchaseId)).thenReturn(stockItem.getQuantidade());
 
-        VendItemDTO item = new VendItemDTO(purchaseId, productId, quantity, null);
+        VendItemDTO item = new VendItemDTO(null, productId, quantity, null);
         VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), PaymentMethod.PIX, false, userId, null, List.of(item));
 
         when(vendaRepository.save(any(Venda.class))).thenAnswer(i -> {
@@ -182,7 +183,7 @@ class VendaServiceCreateSaleTest {
 
         Compra compra = new Compra();
         compra.setId(purchaseId);
-        when(compraRepository.findById(purchaseId)).thenReturn(Optional.of(compra));
+        when(compraRepository.findAll()).thenReturn(List.of(compra));
 
         when(movimentacaoRepository.sumQuantityByProdutoId(productId)).thenReturn(new BigDecimal("10.0000"));
 
@@ -194,10 +195,11 @@ class VendaServiceCreateSaleTest {
         stockItem.setCompra(compra);
         stockItem.setProduto(produto);
 
-        when(movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(purchaseId, productId)).thenReturn(stockItem);
+        when(movimentacaoRepository.findByCompraIdAndProdutoId(purchaseId, productId)).thenReturn(List.of(stockItem));
+        when(movimentacaoRepository.sumQuantityByPurchaseId(purchaseId)).thenReturn(stockItem.getQuantidade());
 
         BigDecimal overridePrice = new BigDecimal("12.75");
-        VendItemDTO item = new VendItemDTO(purchaseId, productId, quantity, overridePrice);
+        VendItemDTO item = new VendItemDTO(null, productId, quantity, overridePrice);
         VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), PaymentMethod.PIX, false, userId, null, List.of(item));
 
         when(vendaRepository.save(any(Venda.class))).thenAnswer(i -> { Venda v = i.getArgument(0); v.setId(3L); return v; });
@@ -225,7 +227,7 @@ class VendaServiceCreateSaleTest {
         when(produtoRepository.findById(productId)).thenReturn(Optional.of(produto));
 
         Compra compra = new Compra(); compra.setId(purchaseId);
-        when(compraRepository.findById(purchaseId)).thenReturn(Optional.of(compra));
+        when(compraRepository.findAll()).thenReturn(List.of(compra));
 
         Cliente cliente = new Cliente(); cliente.setId(clienteId);
         when(clienteRepository.findById(clienteId)).thenReturn(Optional.of(cliente));
@@ -233,9 +235,10 @@ class VendaServiceCreateSaleTest {
         when(movimentacaoRepository.sumQuantityByProdutoId(productId)).thenReturn(new BigDecimal("10.0000"));
 
         Movimentacao stockItem = new Movimentacao(); stockItem.setId(200L); stockItem.setQuantidade(new BigDecimal("10.0000")); stockItem.setCompra(compra); stockItem.setProduto(produto);
-        when(movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(purchaseId, productId)).thenReturn(stockItem);
+        when(movimentacaoRepository.findByCompraIdAndProdutoId(purchaseId, productId)).thenReturn(List.of(stockItem));
+        when(movimentacaoRepository.sumQuantityByPurchaseId(purchaseId)).thenReturn(stockItem.getQuantidade());
 
-        VendItemDTO item = new VendItemDTO(purchaseId, productId, quantity, null);
+        VendItemDTO item = new VendItemDTO(null, productId, quantity, null);
         VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), PaymentMethod.PIX, false, userId, clienteId, List.of(item));
 
         when(vendaRepository.save(any(Venda.class))).thenAnswer(i -> { Venda v = i.getArgument(0); v.setId(99L); return v; });

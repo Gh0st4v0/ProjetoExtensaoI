@@ -60,7 +60,7 @@ class VendaServiceAutoDiscardTest {
         when(produtoRepository.findById(productId)).thenReturn(Optional.of(produto));
 
         Compra compra = new Compra(); compra.setId(purchaseId);
-        when(compraRepository.findById(purchaseId)).thenReturn(Optional.of(compra));
+        when(compraRepository.findAll()).thenReturn(List.of(compra));
 
         when(movimentacaoRepository.sumQuantityByProdutoId(productId)).thenReturn(new BigDecimal("10.0000"));
 
@@ -72,16 +72,16 @@ class VendaServiceAutoDiscardTest {
         stockItem.setCompra(compra);
         stockItem.setProduto(produto);
 
-        when(movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(purchaseId, productId)).thenReturn(stockItem);
+        when(movimentacaoRepository.findByCompraIdAndProdutoId(purchaseId, productId)).thenReturn(List.of(stockItem));
 
-        VendItemDTO item = new VendItemDTO(purchaseId, productId, quantity, null);
+        VendItemDTO item = new VendItemDTO(null, productId, quantity, null);
         VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), PaymentMethod.PIX, false, userId, null, List.of(item));
 
         when(vendaRepository.save(any(Venda.class))).thenAnswer(i -> { Venda v = i.getArgument(0); v.setId(1L); return v; });
         when(movimentacaoRepository.save(any(Movimentacao.class))).thenAnswer(i -> i.getArgument(0));
 
         BigDecimal leftover = new BigDecimal("0.0140");
-        when(movimentacaoRepository.sumQuantityByPurchaseId(purchaseId)).thenReturn(leftover);
+        when(movimentacaoRepository.sumQuantityByPurchaseId(purchaseId)).thenReturn(new BigDecimal("10.0000"), leftover);
 
         Descarte descarte = new Descarte();
         when(inventarioService.createDiscard(any(com.example.SpringBootApp.DTOs.DescarteCreateDTO.class))).thenReturn(descarte);

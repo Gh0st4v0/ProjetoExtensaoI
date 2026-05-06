@@ -11,4 +11,6 @@ export const searchProducts = async (q, page = 0) => {
 	return res.data
 }
 
-export default { createProduct, getAllProducts, searchProducts }
+export const updateProductPrice = (id, precoVenda) => api.patch(`/products/${id}/price`, { precoVenda }).then(r => r.data)
+
+export default { createProduct, getAllProducts, searchProducts, updateProductPrice }

@@ -1,11 +1,14 @@
 import styled from 'styled-components'
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Sidebar } from '../components/Sidebar'
 import { Topbar } from '../components/Topbar'
+import productsApi from '../services/productsApi'
+import salesApi from '../services/salesApi'
 
-// ==========================================
-// ESTILOS
-// ==========================================
+// Minimal SalesView: search bar at top + product list + cart sidebar
+
+
+
 
 const Wrapper = styled.div`
 	background-color: #f9f9f9;
@@ -456,202 +459,263 @@ const PaymentButton = styled.button`
 export const SalesView = ({ navigate }) => {
 	const [pagamentoSelecionado, setPagamentoSelecionado] = useState('dinheiro')
 	const [searchQuery, setSearchQuery] = useState('')
+	const [products, setProducts] = useState([])
+	const [cart, setCart] = useState([])
+	const [selectedCategory, setSelectedCategory] = useState('TODOS')
+	const [editingProductId, setEditingProductId] = useState(null)
+	const [editingQty, setEditingQty] = useState('')
+	const [editingPrice, setEditingPrice] = useState('')
+
+	useEffect(() => {
+		let mounted = true
+		const load = async () => {
+			try {
+				const page = await productsApi.getAllProducts(0)
+				if (!mounted) return
+				const list = (page?.content || []).map(p => ({ id: p.id, name: p.name, code: p.code, brand: p.brandName || (p.brand && p.brand.name) || p.brand || p.marca || '', categoryName: p.categoryName || p.category, unit: p.unitMeasurement || p.unidadeMedida || p.unit, precoVenda: Number(p.precoVenda || p.price || p.precoUnitarioVenda || p.valor || p.salePrice || p.unitPrice || 0), image: p.imageUrl || p.image }))
+				setProducts(list)
+			} catch (e) {
+				console.error('Failed to load products', e)
+			}
+		}
+		load()
+		return () => { mounted = false }
+	}, [])
+
+	const categories = useMemo(() => {
+		const set = new Set((products || []).map(p => p.categoryName || p.category || 'OUTROS'))
+		return ['TODOS', ...Array.from(set)]
+	}, [products])
+
+	const displayedProducts = useMemo(() => {
+		let list = products || []
+		if (selectedCategory && selectedCategory !== 'TODOS') {
+			list = list.filter(p => (p.categoryName || p.category || '').toLowerCase() === selectedCategory.toLowerCase())
+		}
+		const q = (searchQuery || '').trim().toLowerCase()
+		if (q.length >= 2) {
+			list = list.filter(p => (p.name || '').toLowerCase().includes(q) || (p.code || '').toLowerCase().includes(q) || (p.brand || '').toLowerCase().includes(q))
+		}
+		return list
+	}, [products, selectedCategory, searchQuery])
+
+	const handleProductClick = (p) => {
+		// Toggle editing state for inline quantity entry
+		if (editingProductId === p.id) {
+			setEditingProductId(null)
+			setEditingQty('')
+			setEditingPrice('')
+			return
+		}
+		const defaultQty = (p.unit || p.unitMeasurement) === 'UN' ? '1' : '0.5'
+		setEditingProductId(p.id)
+		setEditingQty(defaultQty)
+		setEditingPrice((p.precoVenda || 0).toString())
+	}
+
+	const addToCartFromProduct = (p) => {
+		const raw = (editingQty || '').toString().trim()
+		if (!raw) return alert('Quantidade inválida')
+		const parsed = Number(raw.replace(',', '.'))
+		if (isNaN(parsed) || parsed <= 0) return alert('Quantidade inválida')
+		const unit = p.unit || p.unitMeasurement || 'UN'
+		if (unit === 'UN' && !Number.isInteger(parsed)) return alert('Quantidade deve ser inteira para UN')
+		const priceRaw = (editingPrice || '').toString().trim()
+		const price = priceRaw ? Number(priceRaw.replace(',', '.')) : (p.precoVenda || 0)
+		if (isNaN(price) || price < 0) return alert('Preço inválido')
+		const item = { id: Date.now(), productId: p.id, productName: p.name, qty: parsed, precoUnitarioVenda: price, unit, brand: p.brand || '' }
+		setCart(prev => [item, ...prev])
+		setEditingProductId(null)
+		setEditingQty('')
+		setEditingPrice('')
+	}
+
+	const cancelEditing = () => {
+		setEditingProductId(null)
+		setEditingQty('')
+	}
+
+	const updateQty = (id, newQty) => {
+		setCart(prev => prev.map(it => it.id === id ? { ...it, qty: newQty } : it).filter(it => it.qty > 0))
+	}
+
+	const removeFromCart = (id) => setCart(prev => prev.filter(it => it.id !== id))
+
+	const total = cart.reduce((s, it) => s + (Number(it.precoUnitarioVenda || it.price || 0) * Number(it.qty || 0)), 0)
+
+	const handleFinalize = async () => {
+		if (!cart.length) return alert('Carrinho vazio')
+		const payload = {
+			paymentMethod: pagamentoSelecionado,
+			discount: 0,
+			items: cart.map(it => ({ productId: Number(it.productId), quantity: Number(it.qty), precoUnitarioVenda: Number(it.precoUnitarioVenda || it.price || 0) }))
+		}
+		try {
+			const res = await salesApi.createSale(payload)
+			const saleId = res?.id || res?.saleId || res?.data?.id
+			const discards = res?.discards || res?.data?.discards || []
+			let msg = `Venda criada. ID: ${saleId || '(sem id retornado)'}`
+			if (discards && discards.length) {
+				msg += '\nDescartes aplicados:\n' + discards.map(d => `- ${d.productName || d.productId}: ${d.quantity} ${d.unit || ''}`).join('\n')
+			}
+			alert(msg)
+			setCart([])
+		} catch (e) {
+			console.error('Erro ao criar venda', e)
+			alert(e?.response?.data?.message || 'Falha ao criar venda')
+		}
+	}
 
 	return (
-		    <Wrapper>
-			    <Sidebar navigate={navigate} activeView='sales' />
+			<Wrapper>
+				<Sidebar navigate={navigate} activeView='sales' />
 
-			<MainArea>
-				<Topbar searchQuery={searchQuery} onSearchChange={setSearchQuery} />
+				<MainArea>
+					<Topbar searchQuery={searchQuery} onSearchChange={setSearchQuery} />
 
-				<ContentArea>
-					<ProductSection>
-						<Categories>
-							<button className='active'>TODOS</button>
-							<button className='inactive'>BOVINO</button>
-							<button className='inactive'>SUÍNO</button>
-							<button className='inactive'>FRANGO</button>
-							<button className='inactive'>CORTES ESPECIAIS</button>
-						</Categories>
-
-						<ProductGrid>
-							<ProductCard>
-								<div className='img-wrapper'>
-									<img
-										src='https://lh3.googleusercontent.com/aida-public/AB6AXuC84ad8Fmzd2bqdgT_W5PBpqhxtiUITlJ9RBl0MojB8HhALiMllTu7c9iK1Ia271QYrIs69BvI1eVchZvIQQAZjG1RRgGRfHy0JNhviJbhmOTu3oWvqn5jpgKws40VgSzmOGYUitSKyJqCMqCwH2vc1CN6o5QvgVTafcWP-mOVlwXJaRBuAhLCI72bvvFkbx9JMI8xZKEKAZTfNOTWGfESxEfXgmZK-evGWiY2AerdLEsdaZDIUT-SV1YsmFRYj1TTNyYUlGmER_bk'
-										alt='Picanha Maturatta'
-									/>
-								</div>
-								<div className='info'>
+					<ContentArea>
+						<ProductSection>
+							<ProductGrid>
+							  {displayedProducts.length === 0 && <div style={{padding:16,color:'#777'}}>Nenhum produto encontrado.</div>}
+							  {displayedProducts.map(p => (
+								<ProductCard key={p.id} onClick={editingProductId === p.id ? undefined : () => handleProductClick(p)}>
+								  <div className='info'>
 									<div>
-										<span className='category'>Bovino</span>
-										<h3>Picanha Maturatta</h3>
+									  <span className='category'>{p.categoryName}</span>
+									  <h3>{p.name}</h3>
+									  <div style={{fontSize:12,color:'#6b6b6b',marginTop:6}}>{p.brand}</div>
+										{editingProductId === p.id ? (
+										<div style={{marginTop:12,display:'flex',gap:8,alignItems:'center'}} onClick={(e)=>e.stopPropagation()}>
+											<div style={{display:'flex',flexDirection:'column',marginRight:8}}>
+							<label style={{fontSize:11,marginBottom:6,fontWeight:700}}>Qtd</label>
+							<input autoFocus type="number" min="0" step="0.01" value={editingQty} onChange={(e)=>setEditingQty(e.target.value.replace(',','.'))} onKeyDown={(e)=>{ if (e.key === 'Enter') { e.stopPropagation(); addToCartFromProduct(p) } }} style={{padding:8,borderRadius:8,border:'1px solid #e7e5e4',width:120}} />
+						</div>
+										<div style={{display:'flex',flexDirection:'column',marginRight:8}}>
+							<label style={{fontSize:11,marginBottom:6,fontWeight:700}}>Preço R$</label>
+							<input value={editingPrice} onChange={(e)=>setEditingPrice(e.target.value.replace(',','.'))} onKeyDown={(e)=>{ if (e.key === 'Enter') { e.stopPropagation(); addToCartFromProduct(p) } }} type="number" min="0" step="0.01" style={{padding:8,borderRadius:8,border:'1px solid #e7e5e4',width:120}} />
+						</div>
+											<button onClick={(e)=>{e.stopPropagation(); addToCartFromProduct(p)}} style={{padding:'10px 16px',background:'#610005',color:'#fff',border:'none',borderRadius:8}}>Adicionar</button>
+											<button onClick={(e)=>{e.stopPropagation(); cancelEditing()}} style={{padding:'10px 12px',border:'1px solid #e7e5e4',background:'#fff',borderRadius:8}}>Cancelar</button>
+										</div>
+									) : (
+										<div className='price-row'>
+									  <span className='price-label'>R$ / {p.unit}</span>
+									  <span className='price'>{(p.precoVenda || 0).toFixed(2)}</span>
 									</div>
-									<div className='price-row'>
-										<span className='price-label'>R$ / KG</span>
-										<span className='price'>124,50</span>
-									</div>
+									)}
 								</div>
+							  </div>
 							</ProductCard>
+							  ))}
+							</ProductGrid>
+						</ProductSection>
 
-							<ProductCard>
-								<div className='img-wrapper'>
-									<img
-										src='https://lh3.googleusercontent.com/aida-public/AB6AXuCZxWh1EL-cZEja1sjsigHMTCspchHj61ggo23tHmHBZuPZwrt3Mw4-n-NWJ6LTDce7tziAHJ8KQ66a9i8Vp-5lMjAzJuCTf0hS0zW_7GX_koJHBXKWAwa5xUixAe8J-mZtdSVF3XIDmL97uXXreQ33t1a8fv0nAFkZbqqAbDg1-2ZhzDzyUHvavUmWhOSOd1nSosWzAPcnhak88kPkVn9dEHQ2oJ3-N6sejrS_nc0APZ5dY9pLeGTJyL5SrIp-ithnv1LsfTb6UUM'
-										alt='Ribeye Premium'
-									/>
-								</div>
-								<div className='info'>
-									<div>
-										<span className='category'>Bovino</span>
-										<h3>Ribeye Premium</h3>
-									</div>
-									<div className='price-row'>
-										<span className='price-label'>R$ / KG</span>
-										<span className='price'>89,90</span>
-									</div>
-								</div>
-							</ProductCard>
-
-							<ProductCard>
-								<div className='img-wrapper'>
-									<img
-										src='https://lh3.googleusercontent.com/aida-public/AB6AXuAVSYHyMqu41HzoBI-ywOMthFeZF-UgldiAUVlW3gjSMtZJVuRJEYHDutTJq7woASF9406issI1ojtyU6aYxHMusUv4nnHXaUHe476kytBqjaiHlz-GYC_yQJ-mnIic-GWMjh9_GYCKVLo57NHXsmx9azmgKWTwSmRxwhNpAf6QQPBbCbUsPsPvWCnO0-x9AbskvEbfH7VQtWgI8--GJa81P8T6NsikBLVT5iPSj5M6t71eU4XrQ5z6U3T01UpZxVEu58yFNPDiL-E'
-										alt='T-Bone Porterhouse'
-									/>
-								</div>
-								<div className='info'>
-									<div>
-										<span className='category'>Bovino</span>
-										<h3>T-Bone Porterhouse</h3>
-									</div>
-									<div className='price-row'>
-										<span className='price-label'>R$ / KG</span>
-										<span className='price'>95,00</span>
-									</div>
-								</div>
-							</ProductCard>
-						</ProductGrid>
-					</ProductSection>
-
-					<CartSidebar>
-						<CartHeader>
-							<div>
-								<h2>Pedido Atual</h2>
-								<p>Mesa 04 • #88241</p>
-							</div>
-							<button className='delete-btn'>
-								<span className='material-symbols-outlined'>delete_sweep</span>
-							</button>
-						</CartHeader>
-
-						<CartItemsList>
-							<CartItem>
-								<div className='details'>
-									<h4>Picanha Maturatta</h4>
-									<p>1.450 kg × R$ 124,50</p>
-								</div>
-								<div className='actions'>
-									<p className='total'>R$ 180,52</p>
-									<div className='controls'>
-										<button>
-											<span className='material-symbols-outlined'>remove</span>
-										</button>
-										<button>
-											<span className='material-symbols-outlined'>add</span>
-										</button>
-									</div>
-								</div>
-							</CartItem>
-
-							<CartItem>
-								<div className='details'>
-									<h4>Ribeye Premium</h4>
-									<p>0.820 kg × R$ 89,90</p>
-								</div>
-								<div className='actions'>
-									<p className='total'>R$ 73,71</p>
-									<div className='controls'>
-										<button>
-											<span className='material-symbols-outlined'>remove</span>
-										</button>
-										<button>
-											<span className='material-symbols-outlined'>add</span>
-										</button>
-									</div>
-								</div>
-							</CartItem>
-						</CartItemsList>
-
-						<CartFooter>
-							<div className='total-box'>
+						<CartSidebar>
+							<CartHeader>
 								<div>
-									<p className='label'>Valor Total</p>
-									<p className='discount'>Desconto: R$ 0,00</p>
+									<h2>Pedido Atual</h2>
+									<p>Mesa 04 • #88241</p>
 								</div>
-								<div className='value'>R$ 254,23</div>
-							</div>
+								<button className='delete-btn'>
+									<span className='material-symbols-outlined'>delete_sweep</span>
+								</button>
+							</CartHeader>
 
-							<div className='payment-section'>
-								<p className='title'>Forma de Pagamento</p>
-								<div className='grid'>
-									<PaymentButton
-										$active={pagamentoSelecionado === 'pix'}
-										onClick={() => setPagamentoSelecionado('pix')}
-									>
-										<span className='material-symbols-outlined icon'>
-											qr_code
-										</span>
-										<span className='text'>PIX</span>
-									</PaymentButton>
+							<CartItemsList>
+								{cart.length === 0 && <div style={{padding:24,color:'#78716c'}}>Carrinho vazio.</div>}
+								{cart.map((it) => (
+									<CartItem key={it.id}>
+										<div className='details'>
+											<h4>{it.productName}</h4>
+										<div style={{fontSize:12,color:'#6b6b6b'}}>{it.brand}</div>
+											<p>{it.qty} {it.unit || ''} × R$ {Number(it.precoUnitarioVenda || it.price || 0).toFixed(2)}</p>
+										</div>
+										<div className='actions'>
+											<p className='total'>R$ {(Number(it.precoUnitarioVenda || it.price || 0) * Number(it.qty || 0)).toFixed(2)}</p>
+											<div className='controls'>
+												<button onClick={() => updateQty(it.id, Math.max(0, (it.qty || 0) - 1))}>
+												<span className='material-symbols-outlined'>remove</span>
+												</button>
+												<button onClick={() => updateQty(it.id, (it.qty || 0) + 1)}>
+												<span className='material-symbols-outlined'>add</span>
+												</button>
+											</div>
+											</div>
+										</CartItem>
+									))}
+								</CartItemsList>
 
-									<PaymentButton
-										$active={pagamentoSelecionado === 'dinheiro'}
-										onClick={() => setPagamentoSelecionado('dinheiro')}
-									>
-										<span
-											className='material-symbols-outlined icon'
-											style={
-												pagamentoSelecionado === 'dinheiro'
-													? { fontVariationSettings: "'FILL' 1" }
-													: {}
-											}
-										>
-											payments
-										</span>
-										<span className='text'>Dinheiro</span>
-									</PaymentButton>
+								<CartFooter>
+									<div className='total-box'>
+										<div>
+											<p className='label'>Valor Total</p>
+											<p className='discount'>Desconto: R$ 0,00</p>
+										</div>
+										<div className='value'>R$ {total.toFixed(2)}</div>
+									</div>
 
-									<PaymentButton
-										$active={pagamentoSelecionado === 'credito'}
-										onClick={() => setPagamentoSelecionado('credito')}
-									>
-										<span className='material-symbols-outlined icon'>
-											credit_card
-										</span>
-										<span className='text'>Crédito</span>
-									</PaymentButton>
+									<div className='payment-section'>
+										<p className='title'>Forma de Pagamento</p>
+										<div className='grid'>
+											<PaymentButton
+												$active={pagamentoSelecionado === 'PIX'}
+												onClick={() => setPagamentoSelecionado('PIX')}
+											>
+												<span className='material-symbols-outlined icon'>
+													qr_code
+												</span>
+												<span className='text'>PIX</span>
+											</PaymentButton>
 
-									<PaymentButton
-										$active={pagamentoSelecionado === 'debito'}
-										onClick={() => setPagamentoSelecionado('debito')}
-									>
-										<span className='material-symbols-outlined icon'>
-											contactless
-										</span>
-										<span className='text'>Débito</span>
-									</PaymentButton>
-								</div>
-							</div>
+											<PaymentButton
+												$active={pagamentoSelecionado === 'DINHEIRO'}
+												onClick={() => setPagamentoSelecionado('DINHEIRO')}
+											>
+												<span
+													className='material-symbols-outlined icon'
+													style={
+														pagamentoSelecionado === 'DINHEIRO'
+														? { fontVariationSettings: "'FILL' 1" }
+														: {}
+													}
+											>
+													payments
+												</span>
+												<span className='text'>Dinheiro</span>
+											</PaymentButton>
 
-							<button className='finalize-btn'>
-								Finalizar Venda
-								<span className='material-symbols-outlined'>chevron_right</span>
-							</button>
-						</CartFooter>
-					</CartSidebar>
-				</ContentArea>
-			</MainArea>
-		</Wrapper>
-	)
+											<PaymentButton
+												$active={pagamentoSelecionado === 'CREDITO'}
+												onClick={() => setPagamentoSelecionado('CREDITO')}
+											>
+												<span className='material-symbols-outlined icon'>
+													credit_card
+												</span>
+												<span className='text'>Crédito</span>
+											</PaymentButton>
+
+											<PaymentButton
+												$active={pagamentoSelecionado === 'DEBITO'}
+												onClick={() => setPagamentoSelecionado('DEBITO')}
+											>
+												<span className='material-symbols-outlined icon'>
+													contactless
+												</span>
+												<span className='text'>Débito</span>
+											</PaymentButton>
+										</div>
+									</div>
+
+									<button className='finalize-btn' onClick={handleFinalize}>
+										Finalizar Venda
+										<span className='material-symbols-outlined'>chevron_right</span>
+									</button>
+								</CartFooter>
+							</CartSidebar>
+						</ContentArea>
+					</MainArea>
+				</Wrapper>
+		)
 }
+
+

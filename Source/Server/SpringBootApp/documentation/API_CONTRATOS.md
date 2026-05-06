@@ -290,9 +290,11 @@ POST /sales
     { "purchaseId": 1, "productId": 10, "quantity": "1.0000", "precoUnitarioVenda": "12.75" }
   ]
 }
+
+Note: If provided, 'purchaseId' in items will be ignored by the backend — allocation is always FIFO.
 - Observações importantes:
   - Nota: O campo 'totalValue' foi removido do payload. O servidor calcula o total da venda automaticamente e ignora qualquer valor fornecido pelo cliente.
-  - purchaseId (opcional): se informado, a venda será retirada desse lote (compra) específico. Se ausente, o backend aloca automaticamente por FIFO entre lotes em estoque.
+  - purchaseId: o backend IGNORA o campo purchaseId enviado pelo cliente. A alocação é sempre feita pelo modelo FIFO entre lotes (compras) em estoque; o frontend NÃO deve enviar purchaseId.
   - productId: obrigatório
   - quantity: BigDecimal com escala 4 (ex.: "1.0000"). Para unidade (UN), frontend deve enviar inteiro com escala 4 (ex.: "2.0000"); para KG enviar com 4 casas decimais.
   - precoUnitarioVenda (opcional): override do preço de venda por unidade para esta venda. Se fornecido, será gravado em Movimentacao.precoUnitarioVenda e usado no cálculo do total da venda. NÃO atualiza o produto.precoVenda.

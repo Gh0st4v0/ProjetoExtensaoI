@@ -40,23 +40,21 @@ public class VendaService {
     private static final java.math.BigDecimal AUTO_DISCARD_THRESHOLD_KG = new java.math.BigDecimal("0.1000");
     
     public Venda createSale(VendCreateDTO saleDTO) {
-        Usuario usuario = usuarioRepository.findById(saleDTO.getUserId()).orElseThrow(() -> new ResourceNotFoundException("Usuario not found"));
+        Usuario usuario = usuarioRepository.findById(saleDTO.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario not found"));
 
         Venda venda = new Venda();
         venda.setDataVenda(saleDTO.getSaleDate());
-        // valorTotal will be computed server-side
         venda.setMetodoPagamento(saleDTO.getPaymentMethod());
         venda.setTemDesconto(saleDTO.getHasDiscount());
         venda.setUsuario(usuario);
 
-        // save early to obtain an id for movimentacoes; valorTotal will be updated after items processed
         Venda savedSale = vendaRepository.save(venda);
 
         List<Movimentacao> items = new ArrayList<>();
         java.util.Set<Long> purchasesDiscarded = new java.util.HashSet<>();
         BigDecimal computedTotal = BigDecimal.ZERO;
 
-        // link client if provided
         if (saleDTO.getClienteId() != null) {
             Cliente cliente = clienteRepository.findById(saleDTO.getClienteId())
                     .orElseThrow(() -> new ResourceNotFoundException("Cliente not found with id: " + saleDTO.getClienteId()));
@@ -69,122 +67,80 @@ public class VendaService {
 
             BigDecimal requiredQty = itemDTO.getQuantity() != null ? itemDTO.getQuantity() : BigDecimal.ZERO;
 
-            // validação: se o produto for UN, quantidade deve ser inteira (ex.: 2.0000)
             if (produto.getUnidadeMedida() == UnitMeasurement.UN) {
                 if (requiredQty == null || requiredQty.stripTrailingZeros().scale() > 0) {
                     throw new BusinessException("Quantidade deve ser inteira para produto com unidade UN id: " + produto.getId());
                 }
             }
 
-            // verify aggregated stock for product
             BigDecimal totalAvailable = movimentacaoRepository.sumQuantityByProdutoId(produto.getId());
             if (totalAvailable == null) totalAvailable = BigDecimal.ZERO;
             if (totalAvailable.compareTo(requiredQty) < 0) {
                 throw new BusinessException("Quantidade insuficiente em estoque para o produto id: " + produto.getId());
             }
 
-            if (itemDTO.getPurchaseId() != null) {
-                Compra compra = compraRepository.findById(itemDTO.getPurchaseId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Compra not found with id: " + itemDTO.getPurchaseId()));
+            List<Compra> allCompras = new ArrayList<>(compraRepository.findAll());
+            allCompras.sort((a, b) -> {
+                if (a.getDataCompra() == null && b.getDataCompra() == null) return 0;
+                if (a.getDataCompra() == null) return 1;
+                if (b.getDataCompra() == null) return -1;
+                return a.getDataCompra().compareTo(b.getDataCompra());
+            });
 
-                Movimentacao stockItem = movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(compra.getId(), produto.getId());
-                
-                if (stockItem == null) {
-                    throw new ResourceNotFoundException("Lote de estoque não encontrado para a compra ID: " + compra.getId());
-                }
+            BigDecimal remaining = requiredQty;
+            for (Compra compra : allCompras) {
+                if (remaining.compareTo(BigDecimal.ZERO) <= 0) break;
+                BigDecimal available = movimentacaoRepository.sumQuantityByPurchaseId(compra.getId());
+                if (available == null) available = BigDecimal.ZERO;
+                if (available.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+                List<Movimentacao> movs = movimentacaoRepository.findByCompraIdAndProdutoId(compra.getId(), produto.getId());
+                if (movs == null || movs.isEmpty()) continue;
+                Movimentacao stockItem = movs.get(0);
+
+                BigDecimal allocate = available.min(remaining);
 
                 Movimentacao movimentacao = new Movimentacao();
                 movimentacao.setProduto(produto);
                 movimentacao.setCompra(compra);
                 movimentacao.setVenda(savedSale);
-                movimentacao.setQuantidade(requiredQty.multiply(BigDecimal.valueOf(-1)));
+                movimentacao.setQuantidade(allocate.multiply(BigDecimal.valueOf(-1)));
                 movimentacao.setTipoMovimentacao(MovementType.VENDA);
 
-                BigDecimal salePrice = itemDTO.getPrecoUnitarioVenda() != null ? itemDTO.getPrecoUnitarioVenda() : ((stockItem != null && stockItem.getPrecoUnitarioVenda() != null) ? stockItem.getPrecoUnitarioVenda() : (produto.getPrecoVenda() != null ? produto.getPrecoVenda() : BigDecimal.ZERO));
+                BigDecimal salePrice = itemDTO.getPrecoUnitarioVenda() != null ? itemDTO.getPrecoUnitarioVenda()
+                        : ((stockItem != null && stockItem.getPrecoUnitarioVenda() != null) ? stockItem.getPrecoUnitarioVenda()
+                                : (produto.getPrecoVenda() != null ? produto.getPrecoVenda() : BigDecimal.ZERO));
                 movimentacao.setPrecoUnitarioVenda(salePrice);
                 movimentacao.setPrecoUnitarioCompra(stockItem.getPrecoUnitarioCompra());
 
                 items.add(movimentacaoRepository.save(movimentacao));
 
                 if (produto.getUnidadeMedida() == UnitMeasurement.KG) {
-                    java.math.BigDecimal leftover = movimentacaoRepository.sumQuantityByPurchaseId(compra.getId());
-                    if (leftover == null) leftover = java.math.BigDecimal.ZERO;
-                    if (leftover.compareTo(java.math.BigDecimal.ZERO) > 0 && leftover.compareTo(AUTO_DISCARD_THRESHOLD_KG) < 0 && !purchasesDiscarded.contains(compra.getId())) {
-                        com.example.SpringBootApp.DTOs.DescarteItemDTO discardItem = new com.example.SpringBootApp.DTOs.DescarteItemDTO(compra.getId(), produto.getId(), leftover);
-                        com.example.SpringBootApp.DTOs.DescarteCreateDTO discardDTO = new com.example.SpringBootApp.DTOs.DescarteCreateDTO(null, com.example.SpringBootApp.models.DescarteType.PERDA_PESO, java.util.List.of(discardItem));
+                    BigDecimal leftover = movimentacaoRepository.sumQuantityByPurchaseId(compra.getId());
+                    if (leftover == null) leftover = BigDecimal.ZERO;
+                    if (leftover.compareTo(BigDecimal.ZERO) > 0 && leftover.compareTo(AUTO_DISCARD_THRESHOLD_KG) < 0
+                            && !purchasesDiscarded.contains(compra.getId())) {
+                        DescarteItemDTO discardItem = new DescarteItemDTO(compra.getId(), produto.getId(), leftover);
+                        DescarteCreateDTO discardDTO = new DescarteCreateDTO(null, DescarteType.PERDA_PESO,
+                                java.util.List.of(discardItem));
                         inventarioService.createDiscard(discardDTO);
                         purchasesDiscarded.add(compra.getId());
                     }
                 }
 
-                // accumulate total
-                computedTotal = computedTotal.add(salePrice.multiply(requiredQty));
-            } else {
-                // auto-allocate across purchases (FIFO by compra.dataCompra)
-                List<Compra> allCompras = new ArrayList<>(compraRepository.findAll());
-                allCompras.sort((a, b) -> {
-                    if (a.getDataCompra() == null && b.getDataCompra() == null) return 0;
-                    if (a.getDataCompra() == null) return 1;
-                    if (b.getDataCompra() == null) return -1;
-                    return a.getDataCompra().compareTo(b.getDataCompra());
-                });
+                computedTotal = computedTotal.add(salePrice.multiply(allocate));
+                remaining = remaining.subtract(allocate);
+            }
 
-                BigDecimal remaining = requiredQty;
-                for (Compra compra : allCompras) {
-                    if (remaining.compareTo(BigDecimal.ZERO) <= 0) break;
-                    BigDecimal available = movimentacaoRepository.sumQuantityByPurchaseId(compra.getId());
-                    if (available == null) available = BigDecimal.ZERO;
-                    if (available.compareTo(BigDecimal.ZERO) <= 0) continue;
-
-                    // check if this compra contains the produto
-                    List<Movimentacao> movs = movimentacaoRepository.findByCompraIdAndProdutoId(compra.getId(), produto.getId());
-                    if (movs == null || movs.isEmpty()) continue;
-                    Movimentacao stockItem = movs.get(0);
-
-                    BigDecimal allocate = available.min(remaining);
-
-                    Movimentacao movimentacao = new Movimentacao();
-                    movimentacao.setProduto(produto);
-                    movimentacao.setCompra(compra);
-                    movimentacao.setVenda(savedSale);
-                    movimentacao.setQuantidade(allocate.multiply(BigDecimal.valueOf(-1)));
-                    movimentacao.setTipoMovimentacao(MovementType.VENDA);
-
-                    BigDecimal salePrice = itemDTO.getPrecoUnitarioVenda() != null ? itemDTO.getPrecoUnitarioVenda() : ((stockItem != null && stockItem.getPrecoUnitarioVenda() != null) ? stockItem.getPrecoUnitarioVenda() : (produto.getPrecoVenda() != null ? produto.getPrecoVenda() : BigDecimal.ZERO));
-                    movimentacao.setPrecoUnitarioVenda(salePrice);
-                    movimentacao.setPrecoUnitarioCompra(stockItem.getPrecoUnitarioCompra());
-
-                    items.add(movimentacaoRepository.save(movimentacao));
-
-                    if (produto.getUnidadeMedida() == UnitMeasurement.KG) {
-                        java.math.BigDecimal leftover = movimentacaoRepository.sumQuantityByPurchaseId(compra.getId());
-                        if (leftover == null) leftover = java.math.BigDecimal.ZERO;
-                        if (leftover.compareTo(java.math.BigDecimal.ZERO) > 0 && leftover.compareTo(AUTO_DISCARD_THRESHOLD_KG) < 0 && !purchasesDiscarded.contains(compra.getId())) {
-                            com.example.SpringBootApp.DTOs.DescarteItemDTO discardItem = new com.example.SpringBootApp.DTOs.DescarteItemDTO(compra.getId(), produto.getId(), leftover);
-                            com.example.SpringBootApp.DTOs.DescarteCreateDTO discardDTO = new com.example.SpringBootApp.DTOs.DescarteCreateDTO(null, com.example.SpringBootApp.models.DescarteType.PERDA_PESO, java.util.List.of(discardItem));
-                            inventarioService.createDiscard(discardDTO);
-                            purchasesDiscarded.add(compra.getId());
-                        }
-                    }
-
-                    // accumulate total with allocated quantity
-                    computedTotal = computedTotal.add(salePrice.multiply(allocate));
-
-                    remaining = remaining.subtract(allocate);
-                }
-
-                if (remaining.compareTo(BigDecimal.ZERO) > 0) {
-                    throw new BusinessException("Quantidade insuficiente em estoque para o produto id: " + produto.getId());
-                }
+            if (remaining.compareTo(BigDecimal.ZERO) > 0) {
+                throw new BusinessException("Quantidade insuficiente em estoque para o produto id: " + produto.getId());
             }
         }
 
-        // apply discount if requested (5%)
         if (saleDTO.getHasDiscount() != null && saleDTO.getHasDiscount()) {
             computedTotal = computedTotal.multiply(new BigDecimal("0.95"));
         }
 
-        // persist final total and items (managed entity - update happens on transaction commit)
         savedSale.setValorTotal(computedTotal);
         savedSale.setItens(items);
         return savedSale;

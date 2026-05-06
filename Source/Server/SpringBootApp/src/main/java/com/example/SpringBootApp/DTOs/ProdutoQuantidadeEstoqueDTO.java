@@ -10,6 +10,7 @@ public record ProdutoQuantidadeEstoqueDTO(
         String brandName,
         String categoryName,
         UnitMeasurement unitMeasurement,
+        BigDecimal precoVenda,
         BigDecimal stockQuantity
 ) {
 }
