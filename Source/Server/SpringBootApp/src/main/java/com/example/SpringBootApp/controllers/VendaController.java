@@ -12,6 +12,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.example.SpringBootApp.models.Usuario;
 
 import java.net.URI;
 import java.time.LocalDate;
@@ -33,7 +35,11 @@ public class VendaController {
             @ApiResponse(responseCode = "422", description = "Insufficient quantity")
     })
     @PostMapping
-    public ResponseEntity<?> createSale(@Valid @RequestBody VendCreateDTO saleDTO) {
+    public ResponseEntity<?> createSale(@AuthenticationPrincipal Usuario usuario, @Valid @RequestBody VendCreateDTO saleDTO) {
+        // If userId not provided in payload, use authenticated user from JWT
+        if (usuario != null) {
+            saleDTO.setUserId(usuario.getId());
+        }
         Venda Venda = VendaService.createSale(saleDTO);
         return ResponseEntity.created(URI.create("/sales/" + Venda.getId())).build();
     }

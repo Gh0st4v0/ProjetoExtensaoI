@@ -28,7 +28,7 @@ public class VendCreateDTO {
 
     private Boolean hasDiscount;
 
-    @NotNull(message = "Usuario ID is required")
+    // userId will be filled from authenticated principal on the server side when missing in the request
     private Long userId;
 
     private Long clienteId;
