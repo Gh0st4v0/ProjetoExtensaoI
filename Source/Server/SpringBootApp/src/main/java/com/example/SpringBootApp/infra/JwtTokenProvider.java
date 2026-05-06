@@ -1,6 +1,6 @@
 package com.example.SpringBootApp.infra;
 
-import com.example.SpringBootApp.models.User;
+import com.example.SpringBootApp.models.Usuario;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -26,15 +26,15 @@ public class JwtTokenProvider {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public String generateToken(User user) {
+    public String generateToken(Usuario Usuario) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpiration);
 
         return Jwts.builder()
-                .setSubject(user.getName())
-                .claim("userId", user.getId())
-                .claim("name", user.getName())
-                .claim("accessLevel", user.getAccessLevel())
+                .setSubject(Usuario.getNome())
+                .claim("userId", Usuario.getId())
+                .claim("name", Usuario.getNome())
+                .claim("accessLevel", Usuario.getAccessLevel())
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
@@ -62,3 +62,5 @@ public class JwtTokenProvider {
         return claims.getSubject();
     }
 }
+
+

@@ -1,0 +1,31 @@
+Title,Body,Labels,Assignee,Milestone,State
+"B1 - Mapear entidades (V2/V3)","Card ID: b1-model-mapping
+Mapear e validar mapeamento entre schema V2/V3 e classes Java (Venda, Movimentacao, Compra, Produto, Cliente, Usuario). Critério: doc PDV_DB_V2_JAVA_MAPPING.md aprovado.","backend;pdv",, ,closed
+"B9 - Criar VendaResponseDTO e mappers","Card ID: b9-venda-response-dto
+Criar VendaResponseDTO/VendaItemResponseDTO e VendaMapper; testes unitários de mapeamento.","backend;pdv",, ,closed
+"B2 - POST /sales - Criar Venda","Card ID: b2-create-sale
+POST /sales: validações, alocação FIFO, gerar Movimentacao VENDA, aplicar desconto 5%, persistir Venda+Itens+Movimentacoes. Dependências: b1-model-mapping,b9-venda-response-dto,b7-validations. Acceptance: 201+Location e testes unitários/controller.","backend;pdv",, ,closed
+"B3 - GET /sales (paginado)","Card ID: b3-list-sales-paged
+Listar vendas paginado (page,size) retornando VendaResponseDTO; corpo com content,page,size,totalElements,totalPages. Dependência: b9-venda-response-dto.","backend;pdv",, ,closed
+"B4 - GET /sales/{id}","Card ID: b4-get-sale-by-id
+Retornar VendaResponseDTO por id com itens e preços (precoUnitarioCompra/precoUnitarioVenda). Acceptance: 200 ou 404.","backend;pdv",, ,closed
+"B5 - PATCH /products/{id}/price","Card ID: b5-patch-product-price
+Atualizar produto.precoVenda. Validação preco >= 0. Retornar 200 + Location; testes unitários.","backend;pdv",, ,closed
+"B11 - GET /products, search e /products/purchases","Card ID: b11-products-search-and-stock
+Listagem e busca de produtos com quantidade em estoque e lotes em estoque. DTOs: ProdutoQuantidadeEstoqueDTO e CompraEmEstoqueDTO. Tests controller/service.","backend;pdv",, ,closed
+"B10 - POST /purchases e GET /purchases","Card ID: b10-post-purchases
+Criar compra com itens e gerar Movimentacao COMPRA; validar expiringDate para perecíveis. GET paginado de compras.","backend;pdv",, ,closed
+"B10b - PUT /purchases/{id}/items/{productId}","Card ID: b10b-put-purchase-item
+Editar item de compra do lote (quantity, unitPurchasePrice, expiringDate). Validar não gerar estoque negativo; 200 ou 422.","backend;pdv",, ,closed
+"B6 - POST /clients e GET /clients/search","Card ID: b6-clients-endpoints
+Endpoints para quick-create de cliente e busca para autocomplete. Acceptance: 201+Location e Page response.","backend;pdv",, ,closed
+"B7 - Validações de negócio (UN, perishable, estoque)","Card ID: b7-validations
+Implementar validações: UN inteiro, perishable vs dataVenda, checagem estoque agregado. Escrever/atualizar testes unitários.","backend;pdv",, ,open
+"B8 - Testes de integração PDV","Card ID: b8-integration-tests
+Cobrir fluxos compra->venda, insuficiência de estoque e desconto; usar H2. Criar testes que validem mudanças em Movimentacao.","backend;pdv",, ,open
+"POST /discards - Criar Descarte","Card ID: post-discards
+Criar descarte com múltiplos itens; validar quantidades por lote e estoque global; 201+Location e testes.","backend;pdv",, ,closed
+"Seed - Popular BD com dados mockados","Card ID: seed-dev-data
+Gerar scripts/curl para popular marcas, categorias, produtos, compras e vendas de exemplo para dev; documentar em SEED_MOCK_PRODUTOS_ESTOQUE.md.","backend;pdv",, ,open
+"Atualizar API_CONTRATOS.md","Card ID: update-api-contracts
+Sincronizar contratos e exemplos de curl (remoção totalValue, enums de pagamento atualizados).","backend;pdv",, ,closed

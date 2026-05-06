@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: com.example.SpringBootApp.controllers.BrandControllerTest
--------------------------------------------------------------------------------
-Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.936 s -- in com.example.SpringBootApp.controllers.BrandControllerTest

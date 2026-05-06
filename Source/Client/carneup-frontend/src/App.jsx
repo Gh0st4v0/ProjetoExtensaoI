@@ -1,149 +1,86 @@
-import React from 'react'
-import {
-	BrowserRouter,
-	Routes,
-	Route,
-	Link,
-	Navigate,
-	useLocation,
-} from 'react-router-dom'
-import {
-	Nav,
-	Container,
-	Navbar as BootstrapNavbar,
-	Button,
-} from 'react-bootstrap'
+import { useState, useEffect } from 'react'
 
-import { ToastContainer } from 'react-toastify'
-import 'react-toastify/dist/ReactToastify.css'
+import { GlobalStyle } from './GlobalStyle'
 
-import Login from './pages/Login'
-import Dashboard from './pages/Dashboard'
-import StockManagement from './pages/StockManagement'
-import Sales from './pages/Sales'
-import Reports from './pages/Reports'
-import Brands from './pages/Brands'
-import Categories from './pages/Categories'
+import { LoginView } from './views/LoginView'
+import { DashboardView } from './views/DashboardView'
+import { SalesView } from './views/SalesView'
+import { StockView } from './views/StockViewV2'
+import { SettingsView } from './views/SettingsView'
+import { ForgotPasswordView } from './views/ForgotPasswordView'
+import { RecoveryCodeView } from './views/RecoveryCodeView'
+import { ResetPasswordView } from './views/ResetPasswordView'
+import { SuccessView } from './views/SuccessView'
+import { DiscardView } from './views/DiscardView'
+import { PurchaseView } from './views/PurchaseView'
+import AttributesView from './views/AttributesView'
 
-function AppNavbar() {
-	const location = useLocation()
-	const isLoginPage = location.pathname === '/login'
+export default function App() {
+	const [currentView, setCurrentView] = useState('login')
+	const [recoveryEmail, setRecoveryEmail] = useState('')
+	const [recoveryCode, setRecoveryCode] = useState('')
 
-	if (isLoginPage) return null
+	useEffect(() => {
+		// Verificar se há token no localStorage ao carregar a página
+		const token = localStorage.getItem('authToken')
+		if (token) {
+			setCurrentView('dashboard')
+		}
+	}, [])
 
-	const handleLogout = () => {
-		localStorage.removeItem('authToken')
-		window.location.href = '/login'
+	const renderView = () => {
+		switch (currentView) {
+			case 'login':
+				return <LoginView navigate={setCurrentView} />
+			case 'dashboard':
+				return <DashboardView navigate={setCurrentView} />
+			case 'sales':
+				return <SalesView navigate={setCurrentView} />
+			case 'forgot':
+				return (
+					<ForgotPasswordView
+						navigate={setCurrentView}
+						setRecoveryEmail={setRecoveryEmail}
+					/>
+				)
+			case 'code':
+				return (
+					<RecoveryCodeView
+						navigate={setCurrentView}
+						recoveryEmail={recoveryEmail}
+						setRecoveryCode={setRecoveryCode}
+					/>
+				)
+			case 'reset':
+				return (
+					<ResetPasswordView
+						navigate={setCurrentView}
+						recoveryCode={recoveryCode}
+					/>
+				)
+			case 'success':
+				return <SuccessView navigate={setCurrentView} />
+			case 'stock':
+				return <StockView navigate={setCurrentView} />
+			case 'discard':
+				return <DiscardView navigate={setCurrentView} />
+			case 'purchases':
+				return <PurchaseView navigate={setCurrentView} />
+			case 'attributes':
+				return <AttributesView navigate={setCurrentView} />
+			case 'configuracoes':
+				return <SettingsView navigate={setCurrentView} />
+		case 'settings':
+				return <SettingsView navigate={setCurrentView} />
+		default:
+				return <LoginView navigate={setCurrentView} />
+		}
 	}
 
 	return (
-		<BootstrapNavbar bg='dark' variant='dark' expand='lg'>
-			<Container>
-				<BootstrapNavbar.Brand as={Link} to='/'>
-					CarneUp
-				</BootstrapNavbar.Brand>
-				<BootstrapNavbar.Toggle aria-controls='basic-navbar-nav' />
-				<BootstrapNavbar.Collapse id='basic-navbar-nav'>
-					<Nav className='me-auto'>
-						<Nav.Link as={Link} to='/'>
-							Dashboard
-						</Nav.Link>{' '}
-						<Nav.Link as={Link} to='/stock'>
-							Estoque
-						</Nav.Link>
-						<Nav.Link as={Link} to='/sales'>
-							Vendas
-						</Nav.Link>
-						<Nav.Link as={Link} to='/reports'>
-							Relatórios
-						</Nav.Link>
-						<Nav.Link as={Link} to='/brands'>
-							Marcas
-						</Nav.Link>
-						<Nav.Link as={Link} to='/categories'>
-							Categorias
-						</Nav.Link>
-					</Nav>
-					<Nav>
-						<Button variant='outline-light' size='sm' onClick={handleLogout}>
-							Sair
-						</Button>
-					</Nav>
-				</BootstrapNavbar.Collapse>
-			</Container>
-		</BootstrapNavbar>
+		<>
+			<GlobalStyle />
+			{renderView()}
+		</>
 	)
 }
-
-function PrivateRoute({ children }) {
-	const token = localStorage.getItem('authToken')
-	return token ? children : <Navigate to='/login' />
-}
-
-function App() {
-	return (
-		<BrowserRouter>
-			<ToastContainer autoClose={3000} />
-			<AppNavbar />
-			<Container className='mt-3'>
-				<Routes>
-					<Route path='/login' element={<Login />} />
-
-					<Route
-						path='/'
-						element={
-							<PrivateRoute>
-								<Dashboard />
-							</PrivateRoute>
-						}
-					/>
-
-					<Route
-						path='/stock'
-						element={
-							<PrivateRoute>
-								<StockManagement />
-							</PrivateRoute>
-						}
-					/>
-					<Route
-						path='/sales'
-						element={
-							<PrivateRoute>
-								<Sales />
-							</PrivateRoute>
-						}
-					/>
-					<Route
-						path='/reports'
-						element={
-							<PrivateRoute>
-								<Reports />
-							</PrivateRoute>
-						}
-					/>
-					<Route
-						path='/brands'
-						element={
-							<PrivateRoute>
-								<Brands />
-							</PrivateRoute>
-						}
-					/>
-					<Route
-						path='/categories'
-						element={
-							<PrivateRoute>
-								<Categories />
-							</PrivateRoute>
-						}
-					/>
-
-					<Route path='*' element={<Navigate to='/' />} />
-				</Routes>
-			</Container>
-		</BrowserRouter>
-	)
-}
-
-export default App

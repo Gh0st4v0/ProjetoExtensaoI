@@ -1,7 +1,7 @@
 package com.example.SpringBootApp.infra;
 
-import com.example.SpringBootApp.models.User;
-import com.example.SpringBootApp.repositories.UserRepository;
+import com.example.SpringBootApp.models.Usuario;
+import com.example.SpringBootApp.repositories.UsuarioRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,7 +20,7 @@ import java.util.ArrayList;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
-    private final UserRepository userRepository;
+    private final UsuarioRepository UsuarioRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -32,11 +32,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (token != null && tokenProvider.validateToken(token)) {
             String username = tokenProvider.getUsernameFromToken(token);
 
-            User user = userRepository.findByName(username)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+            Usuario Usuario = UsuarioRepository.findByNome(username)
+                    .orElseThrow(() -> new RuntimeException("Usuario not found"));
 
             UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(user, null, new ArrayList<>());
+                    new UsernamePasswordAuthenticationToken(Usuario, null, new ArrayList<>());
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
         }
@@ -52,3 +52,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return null;
     }
 }
+
+
+
