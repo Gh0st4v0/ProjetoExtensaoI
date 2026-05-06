@@ -7,10 +7,14 @@ name: Qodana
 on:
   workflow_dispatch:
   pull_request:
+    paths-ignore:
+      - 'Source/Server/SpringBootApp/**'
   push:
     branches:
       - main
       - ci-cd-pipeline
+    paths-ignore:
+      - 'Source/Server/SpringBootApp/**'
 
 jobs:
   qodana:
