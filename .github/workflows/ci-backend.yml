@@ -23,6 +23,8 @@ permissions:
 env:
   BACKEND_DIR: Source/Server/SpringBootApp
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/projeto-backend
+  SONAR_PROJECT_KEY_BACKEND: Gh0st4v0_ProjetoExtensaoI
+  SONAR_ORGANIZATION: gh0st4v0
   DB_PATH: jdbc:postgresql://localhost:5432/juniorprimebeef_ci
   DB_USERNAME: postgres
   DB_PASSWORD: postgres
@@ -72,10 +74,12 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          mvn --batch-mode org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
-            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY_BACKEND }} \
-            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }} \
+          test -n "$SONAR_TOKEN"
+          mvn --batch-mode org.sonarsource.scanner.maven:sonar-maven-plugin:5.6.0.6792:sonar \
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY_BACKEND }} \
+            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }} \
             -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
             -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
 
       - name: Login no GitHub Container Registry
