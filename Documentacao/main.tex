@@ -165,7 +165,7 @@
 % resumo em português
 \setlength{\absparsep}{18pt} % ajusta o espaçamento dos parágrafos do resumo
 \begin{resumo}
- Este trabalho propõe o desenvolvimento do CarneUp, um sistema de gerenciamento de açougues focado em digitalizar e otimizar as operações de venda, compra e controle de estoque de carnes. A ausência de controle digital em muitas boutiques e açougues de pequeno e médio porte, onde as vendas e o gerenciamento de estoque ainda são feitos de forma analógica em cadernos, gera ineficiência e perda de informações cruciais. O CarneUp visa solucionar este problema, oferecendo uma plataforma robusta e intuitiva para o gerenciamento completo do negócio, desde o registro de vendas, até o controle de validade e a rastreabilidade por fornecedor. O sistema é projetado para açougues de pequeno e médio porte, fornecendo ferramentas essenciais para aumentar a precisão do estoque, melhorar o controle financeiro por peça e reduzir o desperdício, \textbf{visando assim} a eficiência e a competitividade do negócio. 
+ Este trabalho propõe o desenvolvimento do CarneUp, um sistema de gerenciamento de açougues focado em digitalizar e otimizar as operações de venda, compra e controle de estoque de carnes. A ausência de controle digital em muitas boutiques e açougues de pequeno e médio porte, onde as vendas e o gerenciamento de estoque ainda são feitos de forma analógica em cadernos, gera ineficiência e perda de informações cruciais. O CarneUp visa solucionar este problema, oferecendo uma plataforma robusta e intuitiva para o gerenciamento do negócio, desde o registro de vendas, até o controle de validade e a rastreabilidade. O sistema é projetado para açougues de pequeno e médio porte, fornecendo ferramentas essenciais para aumentar a precisão do estoque, melhorar o controle financeiro por peça e reduzir o desperdício, \textbf{visando assim} a eficiência e a competitividade do negócio. 
 
  \textbf{Palavras-chaves}: Gestão de açougue, Controle de estoque de carnes, Sistema de vendas, Software de açougue.
 \end{resumo}
@@ -173,7 +173,7 @@
 % resumo em inglês
 \begin{resumo}[Abstract]
  \begin{otherlanguage*}{english}
-   This work proposes the development of CarneUp, a butcher shop management system focused on digitizing and optimizing sales, purchasing, and meat stock control operations. The lack of digital control in many small and medium-sized butcher shops, where sales and inventory management are still carried out analogically in notebooks, leads to inefficiency and loss of crucial information. CarneUp aims to solve this problem by offering a robust and intuitive platform for complete business management, from sales registration, to expiration control and traceability by supplier. The system is designed for small and medium-sized butcher shops, providing essential tools to increase inventory accuracy, improve financial control per piece, and reduce waste, \textbf{thereby aiming for} business efficiency and competitiveness.
+   This work proposes the development of CarneUp, a butcher shop management system focused on digitizing and optimizing sales, purchasing, and meat stock control operations. The lack of digital control in many small and medium-sized butcher shops, where sales and inventory management are still carried out analogically in notebooks, leads to inefficiency and loss of crucial information. CarneUp aims to solve this problem by offering a robust and intuitive platform for business management, from sales registration, to expiration control and traceability. The system is designed for small and medium-sized butcher shops, providing essential tools to increase inventory accuracy, improve financial control per piece, and reduce waste, \textbf{thereby aiming for} business efficiency and competitiveness.
 
    \vspace{\onelineskip}
  
@@ -341,7 +341,7 @@ A Tabela \ref{tab:requisitos_funcionais} lista os requisitos funcionais que defi
     \hline
 \end{longtable}
 
-A Tabela \ref{tab:requisitos_rn} apresenta as regras de negócio obrigatórias, com referências atualizadas aos novos requisitos funcionais.
+A Tabela \ref{tab:requisitos_rn} apresenta as regras de negócio obrigatórias, com referências aos requisitos funcionais.
 
 % Tabela de Regras de Negócio - ATUALIZADA
 \begin{longtable}{|>{\centering\arraybackslash}m{1.5cm}|>{\raggedright\arraybackslash}m{9cm}|>{\centering\arraybackslash}m{4cm}|}
@@ -499,7 +499,7 @@ Para o presente semestre, as funções foram redistribuídas para garantir que t
     \hline
     Pedro Augusto Silva Santos & Foco no desenvolvimento Front-end e interface do usuário (UI). \\
     \hline
-    Wellington Oliveira de Sousa & Desenvolvimento Back-end, pesquisa de novas tecnologias e suporte à documentação técnica. \\
+    Wellington Oliveira de Sousa & Desenvolvimento Back-end e pesquisa de novas tecnologias. \\
     \hline
 \end{longtable}
 
@@ -666,7 +666,7 @@ O CarneUp adota uma arquitetura de dados que prioriza a privacidade através da 
 
 \subsection{Conformidade com a LGPD}
 
-A observância à Lei Geral de Proteção de Dados (Lei nº 13.709/2018) é garantida pelo princípio da **Minimização de Dados**. Ao processar apenas apelidos e dados de usuários internos (necessários para auditoria e login), o CarneUp assegura transparência e segurança jurídica para o pequeno açougueiro, protegendo o negócio contra sanções e garantindo o direito de exclusão de registros a qualquer momento.
+A observância à Lei Geral de Proteção de Dados (Lei nº 13.709/2018) é garantida pelo princípio da Minimização de Dados. Ao processar apenas apelidos e dados de usuários internos (necessários para auditoria e login), o CarneUp assegura transparência e segurança jurídica para o pequeno açougueiro, protegendo o negócio contra sanções e garantindo o direito de exclusão de registros a qualquer momento.
 % ---
 \section{Modelo de Banco de Dados}
 % ---
@@ -693,11 +693,13 @@ Este diagrama (Figura \ref{fig:mer_conceitual}) é um modelo clássico que serve
 O modelo é composto pelas seguintes entidades principais:
 \begin{itemize}
     \item \textbf{Entidade Produto:} Armazena dados de itens (carne, carvão, bebidas).
-    \item \textbf{Entidade Estoque (Lote/Item):} Central para a rastreabilidade (peso, validade, custo).
-    \item \textbf{Entidade Marca:} Substitui o fornecedor para rastreabilidade de custo.
-    \item \textbf{Entidade Venda:} Representa a transação completa.
-    \item \textbf{Entidade ItemVenda:} Conecta a Venda ao Estoque.
+    \item \textbf{Entidade Movimentação:} Representa as movimentações de produtos no estoque, sendo elas de entrada ou saida. 
+    \item \textbf{Entidade Compra:} Representa a entrada de um produto no estoque.
+    \item \textbf{Entidade Venda:} Representa a venda de um produto a um cliente, é um dos dois tipos de saidas.
+    \item \textbf{Entidade Descarte:} Representa a saida de um produto do estoque por outro motivo que não a venda (descartes, perdas, furtos ). 
+    \item \textbf{Entidade Cliente:} Representa o cliente.
     \item \textbf{Entidade Usuário:} Dados de login e perfil de acesso.
+    \item \textbf{Entidade Despesa:} Utilizada para inserção de despesas do negócio e cálculo do lucro.
 \end{itemize}
 
 % AQUI ESTÁ A MUDANÇA: [H] em vez de [htb]
@@ -705,8 +707,8 @@ O modelo é composto pelas seguintes entidades principais:
     \caption{Diagrama Entidade - Relacionamento (DER)}
     \label{fig:mer_conceitual}
     \centering
-    \includegraphics[width=0.9\textwidth]{Imagens/DER.jpg}
-    \fonte{Autoria própria (2025).}
+    \includegraphics[width=0.9\textwidth]{Imagens/DER.jpeg}
+    \fonte{Autoria própria (2026).}
 \end{figure}
 
 % ---
@@ -721,13 +723,14 @@ A Figura \ref{fig:der_logico} apresenta o modelo lógico do sistema CarneUp.
     \caption{Modelo Lógico }
     \label{fig:der_logico}
     \centering
-    \includegraphics[width=0.9\textwidth]{Imagens/DiagramaLogico.jpg} 
+    \includegraphics[width=0.9\textwidth]{Imagens/DiagramaLogico.jpeg} 
     \fonte{Autoria própria (2025).}
 \end{figure}
 
-A estrutura foi projetada para garantir a rastreabilidade completa do fluxo de mercadorias. A tabela \textbf{Item} atua como a entidade centralizadora da lógica de negócio, conectando os \textbf{Produtos} às transações de \textbf{Compra} e \textbf{Venda}.
+A estrutura foi projetada para garantir a rastreabilidade completa do fluxo de mercadorias. A tabela \textbf{Movimentação} atua como a entidade centralizadora da lógica de negócio, conectando os \textbf{Produtos} às transações de \textbf{Compra}, \textbf{Venda} e \textbf{Descarte}.
 
-Diferente de modelos convencionais, a tabela \texttt{Item} armazena dados históricos críticos, como \texttt{preco\_unitario\_compra} e \texttt{preco\_unitario\_venda} no momento da transação, além da \texttt{data\_validade}. Essa modelagem permite o cálculo exato da margem de lucro e o gerenciamento de vencimento de lotes, atendendo aos requisitos de redução de desperdício.
+Diferente de modelos conv
+encionais, a tabela \texttt{Item} armazena dados históricos críticos, como \texttt{preco\_unitario\_compra} e \texttt{preco\_unitario\_venda} no momento da transação, além da \texttt{data\_validade}. Essa modelagem permite o cálculo exato da margem de lucro e o gerenciamento de vencimento de lotes, atendendo aos requisitos de redução de desperdício.
 
 % ---
 \section{Arquitetura do Sistema}
@@ -744,9 +747,9 @@ O Diagrama de Implantação (Figura \ref{fig:implantacao}) ilustra a distribuiç
 O modelo de implantação utiliza um \textit{Load Balancer} (AWS ALB) como ponto de entrada para distribuir o tráfego do \textit{Front-end} (React) para a camada de aplicação (\textit{Spring Boot}). Esta separação é crucial para:
 
 \begin{itemize}
-    \item \textbf{Segurança (RNF04):} O ALB é configurado para a Terminação SSL/TLS (HTTPS), assegurando criptografia.
+    \item \textbf{Segurança :} O ALB é configurado para a Terminação SSL/TLS (HTTPS), assegurando criptografia.
     \item \textbf{Dados:} O banco de dados PostgreSQL é gerenciado pelo AWS RDS.
-    \item \textbf{Escalabilidade (RNF02):} A aplicação \textit{Back-end} é hospedada em instâncias elásticas (AWS EC2).
+    \item \textbf{Escalabilidade:} A aplicação \textit{Back-end} é hospedada em instâncias elásticas (AWS EC2).
 \end{itemize}
 
 % AQUI ESTÁ A MUDANÇA: [H] em vez de [htb]
@@ -762,7 +765,7 @@ O modelo de implantação utiliza um \textit{Load Balancer} (AWS ALB) como ponto
 \subsection{Diagrama de Componentes}
 % ---
 
-O Diagrama de Componentes (Figura \ref{fig:componentes}) oferece uma visão de alto nível da estrutura interna do sistema, ilustrando como os principais módulos lógicos interagem no \textit{Back-end}. Ele demonstra a separação de responsabilidades e o fluxo de comunicação via APIs REST (RNF05).
+O Diagrama de Componentes (Figura \ref{fig:componentes}) oferece uma visão de alto nível da estrutura interna do sistema, ilustrando como os principais módulos lógicos interagem no \textit{Back-end}. Ele demonstra a separação de responsabilidades e o fluxo de comunicação via APIs REST.
 
 Os componentes são segregados em três camadas principais:
 
@@ -791,7 +794,7 @@ Os componentes são segregados em três camadas principais:
 \chapter{Viabilidade e Sustentabilidade do Projeto}
 \label{cap:viabilidade}
 
-O presente capítulo tem como objetivo demonstrar a viabilidade de execução do projeto CarneUp. Diferente de uma abordagem puramente contábil, esta análise foca na alocação eficiente de recursos, no uso estratégico de tecnologias acessíveis e na valorização do capital intelectual aplicado ao desenvolvimento do Produto Mínimo Viável (MVP).
+O presente capítulo tem como objetivo demonstrar a viabilidade de execução do projeto CarneUp. Diferente de uma abordagem puramente contábil, esta análise foca na alocação eficiente de recursos, no uso estratégico de tecnologias acessíveis e na valorização do capital intelectual aplicado ao desenvolvimento do software.
 
 A premissa central é desenvolver uma solução robusta para açougues de pequeno porte, minimizando barreiras de entrada financeiras e maximizando o uso de ferramentas de código aberto e infraestrutura escalável.
 
@@ -871,7 +874,7 @@ Com a entrega do Produto Mínimo Viável (MVP), o projeto demonstrou a viabilida
 
 Esta seção sintetiza os principais resultados alcançados, as decisões estratégicas tomadas e o alinhamento do projeto com sua proposta de valor.
 
-O CarneUp cumpriu seus requisitos técnicos, concentrando o foco em um sistema robusto e confiável. A decisão de utilizar o PostgreSQL foi fundamental para oferecer a robustez e a integridade transacional exigidas para dados financeiros e de estoque. %O Investimento Inicial total estimado para o desenvolvimento do MVP foi de R\$ 50.250,00.
+O CarneUp cumpriu seus requisitos técnicos, concentrando o foco em um sistema robusto e confiável. A decisão de utilizar o PostgreSQL foi fundamental para oferecer a robustez e a integridade transacional exigidas para dados financeiros e de estoque. 
 
 \subsection{Dificuldades e Lições Aprendidas}
 
@@ -883,21 +886,31 @@ O desenvolvimento foi marcado por desafios que exigiram adaptação metodológic
     \item \textbf{Modelagem de Dados Complexa:} A rastreabilidade por lote e validade demandou um esforço significativo na fase de modelagem, com refinamentos repetidos nos diagramas (MER/DER). Isso evidenciou a complexidade inerente à representação de processos de estoque perecível.
 \end{itemize}
 
-A adoção da Metodologia Scrum permitiu a entrega incremental em Sprints curtas, um fator que foi determinante para a conclusão do MVP dentro do prazo.
+A adoção da Metodologia Scrum permitiu a entrega incremental em Sprints curtas, um fator que foi determinante para a conclusão dentro do prazo.
 
 % ---
 \section{Limitações e Trabalhos Futuros}
 % ---
 
-As limitações impostas pelo prazo rigoroso resultaram em funcionalidades que foram deliberadamente postergadas, estabelecendo o escopo para a Fase 2 do projeto, que será objeto de Trabalhos Futuros.
+As limitações impostas pelo prazo rigoroso, e limitações financeiras do parceiro resultaram em funcionalidades que foram cogitadas, estudadas, e deliberadamente excluidas do desenvolvimento, estabelecendo o escopo para possiveis expansões do projeto, em trabalhos futuros.
 
 \begin{itemize}
-    \item \textbf{Módulo de Contabilidade Completa:} O foco foi mantido no \textit{core business} (Venda, Estoque e Custo da Peça). Módulos avançados de geração de balancetes ou integração contábil foram adiados.
+    \item \textbf{Módulo de Contabilidade Completa:} Módulos avançados de geração de balancetes ou integração contábil.
      
-    \item \textbf{Suporte a Múltiplas Filiais:} O sistema foi dimensionado inicialmente para um único açougue. A expansão para uma arquitetura multi-filial será o foco principal para a otimização da escalabilidade do produto no futuro.
+    \item \textbf{Suporte a Múltiplas Filiais:} Expansão para uma arquitetura multi-filial. 
+
+    \item \textbf{Emissão de NFe:} Emissão de notas fiscais integradas via API.
+
+    \item \textbf{Automação de Atendimento:} Automação do atendimento primário aos clientes via chatbot.
+
+    \item \textbf{Pagamentos:} Integração de API de pagamentos.
+
+    \item \textbf{Integração com Balança:} Integração com balança e código de barras.
+    
+    
 \end{itemize}
 
-O desenvolvimento subsequente deve incluir a implementação dessas funcionalidades e a otimização contínua da interface do usuário (UI) baseada em \textit{feedback} de clientes.
+O desenvolvimento subsequente poderá incluir a implementação dessas funcionalidades e a otimização contínua da interface do usuário (UI) baseada em \textit{feedback} de clientes.
 
 % ----------------------------------------------------------
 % ELEMENTOS PÓS-TEXTUAIS
@@ -916,7 +929,7 @@ O desenvolvimento subsequente deve incluir a implementação dessas funcionalida
 \begin{apendicesenv}
 
 % ----------------------------------------------------------
-% APÊNDICE A - PROJETO DE BANCO DE DADOS
+% APÊNDICE A - PROJETO DE BANCO DE DADOS E DICIONÁRIO DE DADOS
 % ----------------------------------------------------------
 \chapter{PROJETO DE BANCO DE DADOS E DICIONÁRIO DE DADOS}
 \label{apendice:banco_dados}
@@ -927,22 +940,22 @@ O presente anexo detalha o projeto do banco de dados relacional (PostgreSQL) do 
 \section{Modelo Conceitual (MER)}
 % ---
 
-É a representação de alto nível das entidades e seus relacionamentos, focado na regra de negócio.
+O modelo conceitual apresenta a representação de alto nível das entidades e seus relacionamentos, focando nas regras de negócio do sistema.
 
 \subsection{Entidades Principais}
 
-A Tabela \ref{tab:entidades_principais} descreve as entidades fundamentais do sistema, conforme apresentado no Diagrama Lógico.
+A Tabela \ref{tab:entidades_principais} descreve as entidades fundamentais do sistema conforme o modelo conceitual atualizado.
 
-\begin{longtable}{|>{\raggedright\arraybackslash}m{3cm}|>{\raggedright\arraybackslash}m{6cm}|>{\raggedright\arraybackslash}m{6cm}|}
+\begin{longtable}{|>{\raggedright\arraybackslash}m{4cm}|>{\raggedright\arraybackslash}m{5cm}|>{\raggedright\arraybackslash}m{6cm}|}
     \caption{Entidades Principais do Modelo Conceitual}
     \label{tab:entidades_principais}\\
     \hline
-    \textbf{Entidade} & \textbf{Descrição} & \textbf{Atributos Principais (Do Diagrama)} \\
+    \textbf{Entidade} & \textbf{Descrição} & \textbf{Atributos Principais} \\
     \hline
     \endfirsthead
     \multicolumn{3}{c}{{\bfseries \tablename\ \thetable{} -- continuação}} \\
     \hline
-    \textbf{Entidade} & \textbf{Descrição} & \textbf{Atributos Principais (Do Diagrama)} \\
+    \textbf{Entidade} & \textbf{Descrição} & \textbf{Atributos Principais} \\
     \hline
     \endhead
     \hline
@@ -950,19 +963,27 @@ A Tabela \ref{tab:entidades_principais} descreve as entidades fundamentais do si
     \hline
     \endlastfoot
 
-    PRODUTO & Itens comercializados no sistema. & id, nome, unidade\_medida, codigo. \\
+    PRODUTO & Itens comercializados no sistema. & id, nome, unidade\_medida, codigo, perecivel, preco\_venda. \\
     \hline
-    CATEGORIA & Agrupamento dos produtos. & id, nome. \\
+    CATEGORIA & Classificação dos produtos. & id, nome. \\
     \hline
-    MARCA & Fabricante ou marca do produto. & id, nome. \\
+    MARCA & Fabricante ou marca vinculada ao produto. & id, nome. \\
     \hline
-    USUARIO & Pessoas com acesso ao sistema (autenticação). & id, nome, senha, nivel\_acesso. \\
+    USUARIO & Colaboradores com acesso ao sistema. & id, nome, senha, nivel\_acesso, email, ultimo\_email\_alteracao. \\
     \hline
-    VENDA & Registro da operação de saída de mercadorias. & id, data, metodo\_pagamento, desconto. \\
+    VENDA & Registro de saída financeira e produtos. & id, data\_venda, valor\_total, metodo\_pagamento, desconto. \\
     \hline
-    COMPRA & Registro de aquisição ou entrada de estoque. & id, data. \\
+    COMPRA & Registro de entrada de estoque. & id, data\_compra. \\
     \hline
-    ITEM & Detalhes transacionais (liga produtos a compras ou vendas). & id, quantidade, preco\_unitario\_venda, data\_validade. \\
+    MOVIMENTACAO & Item transacional que compõe vendas, compras ou descartes. & id, quantidade, preco\_unitario\_compra, preco\_unitario\_venda, data\_validade, tipo\_movimentacao. \\
+    \hline
+    CLIENTE & Identificação simplificada para fidelização. & id, apelido. \\
+    \hline
+    DESCARTE & Registro de perda de produtos. & id, data\_descarte, motivo. \\
+    \hline
+    DESPESA & Lançamentos de custos fixos e variáveis. & id, data, valor, tipo. \\
+    \hline
+    RECUPERACAO SENHA TOKEN & Gestão de segurança para alteração de senha. & id, token, expiracao, utilizado, criado\_em. \\
     \hline
 \end{longtable}
 
@@ -970,91 +991,135 @@ A Tabela \ref{tab:entidades_principais} descreve as entidades fundamentais do si
 \section{Modelo Lógico - Dicionário de Dados}
 % ---
 
-O Dicionário de Dados detalha a estrutura de cada tabela, tipos de dados, chaves e restrições de integridade referencial.
+O Dicionário de Dados detalha a estrutura técnica de cada tabela, os tipos de dados nativos do PostgreSQL, chaves e restrições de integridade.
 
-% Tabela PRODUTO
-\subsection{Tabela PRODUTO}
-\begin{longtable}{|l|l|c|p{6cm}|}
-    \caption{Estrutura da Tabela PRODUTO} \label{tab:dic_produto} \\
-    \hline \textbf{Coluna} & \textbf{Tipo de Dado} & \textbf{Chave} & \textbf{Restrições} \\ \hline
-    \endhead
-    id & SERIAL & PK & NOT NULL, AUTO\_INCREMENT \\ \hline
-    nome & VARCHAR(255) & & NOT NULL \\ \hline
-    unidade\_medida & VARCHAR(2) & & NULL \\ \hline
-    codigo & INTEGER & & NULL \\ \hline
-    fk\_Categoria\_id & SERIAL & FK & NOT NULL (Referencia Tabela Categoria) \\ \hline
-    fk\_Marca\_id & SERIAL & FK & NOT NULL (Referencia Tabela Marca) \\ \hline
-\end{longtable}
-
-% Tabela CATEGORIA
-\subsection{Tabela CATEGORIA}
-\begin{longtable}{|l|l|c|p{6cm}|}
-    \caption{Estrutura da Tabela CATEGORIA} \label{tab:dic_categoria} \\
-    \hline \textbf{Coluna} & \textbf{Tipo de Dado} & \textbf{Chave} & \textbf{Restrições} \\ \hline
-    \endhead
-    id & SERIAL & PK & NOT NULL, AUTO\_INCREMENT \\ \hline
-    nome & VARCHAR(255) & & NOT NULL \\ \hline
-\end{longtable}
-
-% Tabela MARCA
-\subsection{Tabela MARCA}
-\begin{longtable}{|l|l|c|p{6cm}|}
-    \caption{Estrutura da Tabela MARCA} \label{tab:dic_marca} \\
-    \hline \textbf{Coluna} & \textbf{Tipo de Dado} & \textbf{Chave} & \textbf{Restrições} \\ \hline
-    \endhead
-    id & SERIAL & PK & NOT NULL, AUTO\_INCREMENT \\ \hline
-    nome & VARCHAR(255) & & NOT NULL \\ \hline
-\end{longtable}
-
-% Tabela USUARIO
 \subsection{Tabela USUARIO}
 \begin{longtable}{|l|l|c|p{6cm}|}
     \caption{Estrutura da Tabela USUARIO} \label{tab:dic_usuario} \\
     \hline \textbf{Coluna} & \textbf{Tipo de Dado} & \textbf{Chave} & \textbf{Restrições} \\ \hline
     \endhead
-    id & SERIAL & PK & NOT NULL, AUTO\_INCREMENT \\ \hline
+    id & SERIAL & PK & NOT NULL \\ \hline
     nome & VARCHAR(255) & & NOT NULL \\ \hline
-    senha & VARCHAR(60) & & NOT NULL \\ \hline
-    nivel\_acesso & VARCHAR(8) & & NOT NULL \\ \hline
+    senha & VARCHAR(60) & & NOT NULL (Armazenada com BCrypt) \\ \hline
+    nivel\_acesso & VARCHAR(3) & & NOT NULL (ADM, OPE) \\ \hline
+    email & VARCHAR(255) & & NOT NULL (Único) \\ \hline
+    ultimo\_email\_alteracao & TIMESTAMP & & NULL \\ \hline
 \end{longtable}
 
-% Tabela COMPRA
-\subsection{Tabela COMPRA}
+\subsection{Tabela PRODUTO}
 \begin{longtable}{|l|l|c|p{6cm}|}
-    \caption{Estrutura da Tabela COMPRA} \label{tab:dic_compra} \\
+    \caption{Estrutura da Tabela PRODUTO} \label{tab:dic_produto} \\
     \hline \textbf{Coluna} & \textbf{Tipo de Dado} & \textbf{Chave} & \textbf{Restrições} \\ \hline
     \endhead
-    id & SERIAL & PK & NOT NULL, AUTO\_INCREMENT \\ \hline
-    data & DATE & & NOT NULL \\ \hline
+    id & SERIAL & PK & NOT NULL \\ \hline
+    nome & VARCHAR(255) & & NOT NULL \\ \hline
+    unidade\_medida & VARCHAR(2) & & NOT NULL (KG, UN, etc.) \\ \hline
+    codigo & VARCHAR(6) & & NULL \\ \hline
+    perecivel & BOOLEAN & & NOT NULL \\ \hline
+    preco\_venda & NUMERIC(10,4) & & NOT NULL \\ \hline
+    fk\_Categoria\_id & SERIAL & FK & NOT NULL (Ref. CATEGORIA) \\ \hline
+    fk\_Marca\_id & SERIAL & FK & NOT NULL (Ref. MARCA) \\ \hline
 \end{longtable}
 
-% Tabela ITEM
-\subsection{Tabela ITEM}
+\subsection{Tabela MOVIMENTACAO}
 \begin{longtable}{|l|l|c|p{6cm}|}
-    \caption{Estrutura da Tabela ITEM} \label{tab:dic_item} \\
+    \caption{Estrutura da Tabela MOVIMENTACAO} \label{tab:dic_movimentacao} \\
     \hline \textbf{Coluna} & \textbf{Tipo de Dado} & \textbf{Chave} & \textbf{Restrições} \\ \hline
     \endhead
-    id & SERIAL & PK & NOT NULL, AUTO\_INCREMENT \\ \hline
+    id & SERIAL & PK & NOT NULL \\ \hline
     quantidade & NUMERIC(10,4) & & NOT NULL \\ \hline
-    preco\_unitario\_compra & NUMERIC(10,4) & & NOT NULL \\ \hline
-    preco\_unitario\_venda & NUMERIC(10,4) & & NOT NULL \\ \hline
-    data\_validade & DATE & & NOT NULL \\ \hline
-    fk\_Produto\_id & SERIAL & FK & NOT NULL (Referencia Tabela Produto) \\ \hline
-    fk\_Compra\_id & SERIAL & FK & NOT NULL (Referencia Tabela Compra) \\ \hline
-    fk\_Venda\_id & SERIAL & FK & NOT NULL (Referencia Tabela Venda) \\ \hline
+    preco\_unitario\_compra & NUMERIC(10,4) & & NULL \\ \hline
+    preco\_unitario\_venda & NUMERIC(10,4) & & NULL \\ \hline
+    data\_validade & DATE & & NULL \\ \hline
+    tipo\_movimentacao & VARCHAR(3) & & NOT NULL (ENT, SAI, DES) \\ \hline 
+    fk\_Produto\_id & SERIAL & FK & NOT NULL (Ref. PRODUTO) \\ \hline
+    fk\_Compra\_id & SERIAL & FK & NULL (Ref. COMPRA) \\ \hline
+    fk\_Descarte\_id & SERIAL & FK & NULL (Ref. DESCARTE) \\ \hline
+    fk\_Venda\_id & SERIAL & FK & NULL (Ref. VENDA) \\ \hline
 \end{longtable}
 
-% Tabela VENDA
 \subsection{Tabela VENDA}
 \begin{longtable}{|l|l|c|p{6cm}|}
     \caption{Estrutura da Tabela VENDA} \label{tab:dic_venda} \\
     \hline \textbf{Coluna} & \textbf{Tipo de Dado} & \textbf{Chave} & \textbf{Restrições} \\ \hline
     \endhead
-    id & SERIAL & PK & NOT NULL, AUTO\_INCREMENT \\ \hline
-    data & TIMESTAMP & & NOT NULL \\ \hline
-    metodo\_pagamento & VARCHAR(9) & & NOT NULL \\ \hline
-    desconto & NUMERIC(10,4) & & NULL \\ \hline
-    fk\_Usuario\_id & SERIAL & FK & NOT NULL (Referencia Tabela Usuario) \\ \hline
+    id & SERIAL & PK & NOT NULL \\ \hline
+    data\_venda & DATE & & NOT NULL \\ \hline
+    valor\_total & NUMERIC(10,4) & & NOT NULL \\ \hline
+    metodo\_pagamento & VARCHAR(3) & & NOT NULL (DIN, DEB, CRE) \\ \hline
+    desconto & BOOLEAN & & NULL \\ \hline
+    fk\_Usuario\_id & SERIAL & FK & NOT NULL (Ref. USUARIO) \\ \hline
+    fk\_cliente\_id & SERIAL & FK & NULL (Ref. CLIENTE) \\ \hline
+\end{longtable}
+
+\subsection{Tabela CLIENTE}
+\begin{longtable}{|l|l|c|p{6cm}|}
+    \caption{Estrutura da Tabela CLIENTE} \label{tab:dic_cliente} \\
+    \hline \textbf{Coluna} & \textbf{Tipo de Dado} & \textbf{Chave} & \textbf{Restrições} \\ \hline
+    \endhead
+    id & SERIAL & PK & NOT NULL \\ \hline
+    apelido & VARCHAR(255) & & NOT NULL (Anonimização p/ LGPD) \\ \hline
+\end{longtable}
+
+\subsection{Tabela RECUPERACAO SENHA TOKEN}
+\begin{longtable}{|l|l|c|p{6cm}|}
+    \caption{Estrutura da Tabela RECUPERACAO SENHA TOKEN} \label{tab:dic_token} \\
+    \hline \textbf{Coluna} & \textbf{Tipo de Dado} & \textbf{Chave} & \textbf{Restrições} \\ \hline
+    \endhead
+    id & BIG SERIAL & PK & NOT NULL \\ \hline
+    token & VARCHAR(255) & & NOT NULL \\ \hline
+    expiracao & TIMESTAMP & & NOT NULL \\ \hline
+    utilizado & BOOLEAN & & NOT NULL \\ \hline
+    criado\_em & TIMESTAMP & & NOT NULL \\ \hline
+    fk\_usuario\_id & BIGINT & FK & NOT NULL (Ref. USUARIO) \\ \hline
+\end{longtable}
+
+\subsection{Tabela DESPESA}
+\begin{longtable}{|l|l|c|p{6cm}|}
+    \caption{Estrutura da Tabela DESPESA} \label{tab:dic_despesa} \\
+    \hline \textbf{Coluna} & \textbf{Tipo de Dado} & \textbf{Chave} & \textbf{Restrições} \\ \hline
+    \endhead
+    id & SERIAL & PK & NOT NULL \\ \hline
+    data & DATE & & NOT NULL \\ \hline
+    valor & NUMERIC(10,4) & & NOT NULL \\ \hline
+    tipo & VARCHAR(255) & & NOT NULL \\ \hline
+\end{longtable}
+
+\subsection{Tabela DESCARTE}
+\begin{longtable}{|l|l|c|p{6cm}|}
+    \caption{Estrutura da Tabela DESCARTE} \label{tab:dic_descarte} \\
+    \hline \textbf{Coluna} & \textbf{Tipo de Dado} & \textbf{Chave} & \textbf{Restrições} \\ \hline
+    \endhead
+    id & SERIAL & PK & NOT NULL \\ \hline
+    data\_descarte & DATE & & NOT NULL \\ \hline
+    motivo & VARCHAR(255) & & NOT NULL \\ \hline
+\end{longtable}
+
+\subsection{Tabela COMPRA}
+\begin{longtable}{|l|l|c|p{6cm}|}
+    \caption{Estrutura da Tabela COMPRA} \label{tab:dic_compra} \\
+    \hline \textbf{Coluna} & \textbf{Tipo de Dado} & \textbf{Chave} & \textbf{Restrições} \\ \hline
+    \endhead
+    id & SERIAL & PK & NOT NULL \\ \hline
+    data\_compra & DATE & & NOT NULL \\ \hline
+\end{longtable}
+
+\subsection{Tabela CATEGORIA}
+\begin{longtable}{|l|l|c|p{6cm}|}
+    \caption{Estrutura da Tabela CATEGORIA} \label{tab:dic_categoria} \\
+    \hline \textbf{Coluna} & \textbf{Tipo de Dado} & \textbf{Chave} & \textbf{Restrições} \\ \hline
+    \endhead
+    id & SERIAL & PK & NOT NULL \\ \hline
+    nome & VARCHAR(255) & & NOT NULL \\ \hline
+\end{longtable}
+
+\subsection{Tabela MARCA}
+\begin{longtable}{|l|l|c|p{6cm}|}
+    \caption{Estrutura da Tabela MARCA} \label{tab:dic_marca} \\
+    \hline \textbf{Coluna} & \textbf{Tipo de Dado} & \textbf{Chave} & \textbf{Restrições} \\ \hline
+    \endhead
+    id & SERIAL & PK & NOT NULL \\ \hline
+    nome & VARCHAR(255) & & NOT NULL \\ \hline
 \end{longtable}
 
 \end{apendicesenv}
