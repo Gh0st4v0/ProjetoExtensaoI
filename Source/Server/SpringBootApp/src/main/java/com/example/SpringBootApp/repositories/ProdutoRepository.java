@@ -26,7 +26,10 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
                 p.id,
                 p.nome,
                 p.codigo,
-                p.marca.nome,
+                COALESCE(p.marca.nome, ''),
+                COALESCE(p.categoria.nome, ''),
+                p.unidadeMedida,
+                p.precoVenda,
                 (SELECT COALESCE(SUM(m.quantidade), 0) FROM Movimentacao m WHERE m.produto = p)
             )
             FROM Produto p
@@ -38,5 +41,37 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
             )
             """)
     Page<ProdutoQuantidadeEstoqueDTO> searchProductsWithStock(@Param("q") String query, Pageable pageable);
+
+    @Query("""
+            SELECT new com.example.SpringBootApp.DTOs.ProdutoQuantidadeEstoqueDTO(
+                p.id,
+                p.nome,
+                p.codigo,
+                COALESCE(p.marca.nome, ''),
+                COALESCE(p.categoria.nome, ''),
+                p.unidadeMedida,
+                p.precoVenda,
+                (SELECT COALESCE(SUM(m.quantidade), 0) FROM Movimentacao m WHERE m.produto = p)
+            )
+            FROM Produto p
+            ORDER BY p.nome ASC
+            """)
+    Page<ProdutoQuantidadeEstoqueDTO> findAllWithStock(Pageable pageable);
+
+    @Query("""
+            SELECT new com.example.SpringBootApp.DTOs.ProdutoQuantidadeEstoqueDTO(
+                p.id,
+                p.nome,
+                p.codigo,
+                COALESCE(p.marca.nome, ''),
+                COALESCE(p.categoria.nome, ''),
+                p.unidadeMedida,
+                p.precoVenda,
+                (SELECT COALESCE(SUM(m.quantidade), 0) FROM Movimentacao m WHERE m.produto = p)
+            )
+            FROM Produto p
+            ORDER BY p.nome ASC
+            """)
+    List<ProdutoQuantidadeEstoqueDTO> findAllWithStock();
 }
 

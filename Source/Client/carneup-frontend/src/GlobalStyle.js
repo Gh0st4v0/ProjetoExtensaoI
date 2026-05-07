@@ -19,4 +19,13 @@ export const GlobalStyle = createGlobalStyle`
     line-height: 1;
     font-size: 24px;
   }
+
+  /* Hide scrollbars globally (Chrome, Edge, Safari, Firefox, IE) */
+  *::-webkit-scrollbar {
+    display: none;
+  }
+  html, body {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE 10+ */
+  }
 `

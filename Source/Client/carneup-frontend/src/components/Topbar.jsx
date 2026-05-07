@@ -53,6 +53,10 @@ const TopbarContainer = styled.header`
 				}
 			}
 		}
+		/* hide any avatar images passed as children to keep Topbar standardized */
+		img {
+			display: none;
+		}
 		.brand-text {
 			font-family: 'Epilogue', sans-serif;
 			font-weight: 900;
@@ -60,6 +64,15 @@ const TopbarContainer = styled.header`
 			font-size: 14px;
 		}
 	}
+
+			img {
+				width: 32px;
+				height: 32px;
+				border-radius: 50%;
+				border: 1px solid #e7e5e4;
+				object-fit: cover;
+			}
+		}
 `
 
 export const Topbar = ({ searchQuery, onSearchChange, children }) => {
@@ -88,7 +101,7 @@ export const Topbar = ({ searchQuery, onSearchChange, children }) => {
 						<span className='material-symbols-outlined'>help_outline</span>
 					</button>
 				</div>
-				{children}
+				
 				<span className='brand-text'>CarneUp</span>
 			</div>
 		</TopbarContainer>

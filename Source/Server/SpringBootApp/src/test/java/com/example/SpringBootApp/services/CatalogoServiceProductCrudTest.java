@@ -80,6 +80,6 @@ class CatalogoServiceProductCrudTest {
         when(movimentacaoRepository.existsByProdutoId(1L)).thenReturn(true);
 
         BusinessException ex = assertThrows(BusinessException.class, () -> catalogService.deleteProduct(1L));
-        assertTrue(ex.getMessage().contains("linked"));
+        assertTrue(ex.getMessage().toLowerCase().contains("vincul"));
     }
 }

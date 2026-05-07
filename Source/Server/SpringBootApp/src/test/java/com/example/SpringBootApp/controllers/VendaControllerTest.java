@@ -61,12 +61,11 @@ class VendaControllerTest {
     @Test
     void createSale_ShouldReturn201_WhenValidInput() throws Exception {
         // Arrange
-        VendItemDTO itemDTO = new VendItemDTO(1L, 1L, new BigDecimal("2.5"));
+        VendItemDTO itemDTO = new VendItemDTO(1L, 1L, new BigDecimal("2.5"), null);
         List<VendItemDTO> items = List.of(itemDTO);
         
         VendCreateDTO request = new VendCreateDTO(
                 LocalDate.now(),
-                new BigDecimal("100.00"),
                 PaymentMethod.DINHEIRO,
                 false,
                 1L,
@@ -91,12 +90,11 @@ class VendaControllerTest {
     @Test
     void createSale_ShouldReturn404_WhenUsuarioNotFound() throws Exception {
         // Arrange
-        VendItemDTO itemDTO = new VendItemDTO(1L, 1L, new BigDecimal("2.5"));
+        VendItemDTO itemDTO = new VendItemDTO(1L, 1L, new BigDecimal("2.5"), null);
         List<VendItemDTO> items = List.of(itemDTO);
         
         VendCreateDTO request = new VendCreateDTO(
                 LocalDate.now(),
-                new BigDecimal("100.00"),
                 PaymentMethod.DINHEIRO,
                 false,
                 999L,
@@ -119,12 +117,11 @@ class VendaControllerTest {
     @Test
     void createSale_ShouldReturn404_WhenProdutoNotFound() throws Exception {
         // Arrange
-        VendItemDTO itemDTO = new VendItemDTO(999L, 1L, new BigDecimal("2.5"));
+        VendItemDTO itemDTO = new VendItemDTO(999L, 1L, new BigDecimal("2.5"), null);
         List<VendItemDTO> items = List.of(itemDTO);
         
         VendCreateDTO request = new VendCreateDTO(
                 LocalDate.now(),
-                new BigDecimal("100.00"),
                 PaymentMethod.DINHEIRO,
                 false,
                 1L,
@@ -147,7 +144,7 @@ class VendaControllerTest {
     @Test
     void createSale_ShouldReturn400_WhenInvalidInput() throws Exception {
         // Arrange
-        String invalidJson = "{\"totalValue\": -100}";
+        String invalidJson = "{}";
 
         // Act & Assert
         mockMvc.perform(post("/sales")
@@ -165,7 +162,7 @@ class VendaControllerTest {
         VendReportDTO reportDTO = new VendReportDTO();
         reportDTO.setId(1L);
         reportDTO.setSaleDate(LocalDate.of(2026, 1, 15));
-        reportDTO.setPaymentMethod("CASH");
+        reportDTO.setPaymentMethod("DINHEIRO");
         reportDTO.setSalesmanName("Test User");
         reportDTO.setHasDiscount(false);
         reportDTO.setTotalPrice(new BigDecimal("150.00"));
@@ -182,7 +179,7 @@ class VendaControllerTest {
                         .param("endDate", endDate.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1))
-                .andExpect(jsonPath("$[0].paymentMethod").value("CASH"))
+                .andExpect(jsonPath("$[0].paymentMethod").value("DINHEIRO"))
                 .andExpect(jsonPath("$[0].salesmanName").value("Test User"))
                 .andExpect(jsonPath("$[0].totalPrice").value(150.00))
                 .andExpect(jsonPath("$[0].totalCost").value(100.00));

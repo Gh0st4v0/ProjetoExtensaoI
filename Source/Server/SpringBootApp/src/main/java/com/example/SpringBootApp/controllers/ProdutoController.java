@@ -6,7 +6,7 @@ import com.example.SpringBootApp.DTOs.ProdutoQuantidadeEstoqueDTO;
 import com.example.SpringBootApp.models.Produto;
 import com.example.SpringBootApp.services.CatalogoService;
 import com.example.SpringBootApp.services.InventarioService;
-import com.example.SpringBootApp.DTOs.ProdutoResponseDTO;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -48,8 +48,8 @@ public class ProdutoController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ProdutoResponseDTO>> getAllProducts() {
-        List<ProdutoResponseDTO> products = CatalogoService.getAllProducts();
+    public ResponseEntity<Page<ProdutoQuantidadeEstoqueDTO>> getAllProducts(@RequestParam(value = "page", defaultValue = "0") int page) {
+        Page<ProdutoQuantidadeEstoqueDTO> products = CatalogoService.getAllProducts(page);
         return ResponseEntity.ok(products);
     }
 
@@ -64,6 +64,12 @@ public class ProdutoController {
     @PutMapping("/{id}")
     public ResponseEntity<?> updateProduct(@PathVariable Long id, @Valid @RequestBody ProdutoCreateDTO productDTO) {
         Produto updated = CatalogoService.updateProduct(id, productDTO);
+        return ResponseEntity.ok().location(URI.create("/products/" + updated.getId())).build();
+    }
+
+    @PatchMapping("/{id}/price")
+    public ResponseEntity<?> updateProductPrice(@PathVariable Long id, @Valid @RequestBody com.example.SpringBootApp.DTOs.ProdutoPrecoUpdateDTO priceDTO) {
+        Produto updated = CatalogoService.updateProductPrice(id, priceDTO.getPrecoVenda());
         return ResponseEntity.ok().location(URI.create("/products/" + updated.getId())).build();
     }
 

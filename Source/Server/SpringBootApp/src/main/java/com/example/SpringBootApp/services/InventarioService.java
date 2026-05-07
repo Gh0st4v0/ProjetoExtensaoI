@@ -56,6 +56,13 @@ public class InventarioService {
                 }
             }
 
+            // validação: se o produto for UN, quantidade deve ser inteira
+            if (Produto.getUnidadeMedida() == UnitMeasurement.UN) {
+                if (itemDTO.getQuantity() == null || itemDTO.getQuantity().stripTrailingZeros().scale() > 0) {
+                    throw new BusinessException("Quantidade deve ser inteira para produto com unidade UN id: " + Produto.getId());
+                }
+            }
+
             Movimentacao Movimentacao = new Movimentacao();
             Movimentacao.setQuantidade(itemDTO.getQuantity());
             Movimentacao.setPrecoUnitarioCompra(itemDTO.getUnitPurchasePrice());
@@ -138,7 +145,7 @@ public class InventarioService {
                 .toList();
     }
 
-    public Movimentacao updatePurchaseItem(Long purchaseId, Long productId, BigDecimal newQuantity) {
+    public Movimentacao updatePurchaseItem(Long purchaseId, Long productId, BigDecimal newQuantity, BigDecimal newUnitPurchasePrice, LocalDate newExpiringDate) {
         if (newQuantity == null || newQuantity.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException("Quantity must be positive");
         }
@@ -165,56 +172,112 @@ public class InventarioService {
             throw new BusinessException("Stock would become negative");
         }
 
+        // Validate and apply expiring date changes (do not allow making an expired product having been sold)
+        Produto produto = purchaseMov.getProduto();
+
+        // validação: se o produto for UN, nova quantidade deve ser inteira
+        if (produto != null && produto.getUnidadeMedida() == UnitMeasurement.UN) {
+            if (newQuantity == null || newQuantity.stripTrailingZeros().scale() > 0) {
+                throw new BusinessException("Quantidade deve ser inteira para produto com unidade UN id: " + produto.getId());
+            }
+        }
+
+        if (newExpiringDate != null) {
+            if (!Boolean.TRUE.equals(produto.getPerecivel())) {
+                throw new BusinessException("Expiring date must not be provided for non-perishable product with id: " + produto.getId());
+            }
+            for (Movimentacao m : group) {
+                if (m.getVenda() != null && m.getVenda().getDataVenda() != null) {
+                    LocalDate saleDate = m.getVenda().getDataVenda();
+                    if (newExpiringDate.isBefore(saleDate)) {
+                        throw new BusinessException("Cannot set expiration date before existing sale date: " + saleDate);
+                    }
+                }
+            }
+        }
+
+        // Apply unit purchase price if provided
+        if (newUnitPurchasePrice != null) {
+            if (newUnitPurchasePrice.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new BusinessException("Unit purchase price must be positive");
+            }
+            purchaseMov.setPrecoUnitarioCompra(newUnitPurchasePrice);
+        }
+
         purchaseMov.setQuantidade(newQuantity);
+        if (newExpiringDate != null) purchaseMov.setDataValidade(newExpiringDate);
         return movimentacaoRepository.save(purchaseMov);
     }
 
-    public Movimentacao discardPurchaseItem(Long purchaseId, Long productId, BigDecimal quantity, DescarteType type, String description) {
-        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException("Quantity must be positive");
+    public Descarte createDiscard(com.example.SpringBootApp.DTOs.DescarteCreateDTO discardDTO) {
+        if (discardDTO == null || discardDTO.getItems() == null || discardDTO.getItems().isEmpty()) {
+            throw new BusinessException("Discard must contain at least one item");
         }
 
-        Movimentacao purchaseMov = movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(purchaseId, productId);
-        if (purchaseMov == null) {
-            throw new ResourceNotFoundException("Purchase item not found");
+        // Validate each lot (purchase) individually and build total map per product
+        java.util.Map<Long, java.math.BigDecimal> totalByProduct = new java.util.HashMap<>();
+        for (com.example.SpringBootApp.DTOs.DescarteItemDTO item : discardDTO.getItems()) {
+            if (item.getQuantity() == null || item.getQuantity().compareTo(java.math.BigDecimal.ZERO) <= 0) {
+                throw new BusinessException("Quantity must be positive");
+            }
+
+            Movimentacao purchaseMov = movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(item.getPurchaseId(), item.getProductId());
+            if (purchaseMov == null) {
+                throw new ResourceNotFoundException("Purchase item not found");
+            }
+
+            // validação: se o produto for UN, quantidade do descarte deve ser inteira
+            Produto produto = purchaseMov.getProduto();
+            if (produto != null && produto.getUnidadeMedida() == UnitMeasurement.UN) {
+                if (item.getQuantity() == null || item.getQuantity().stripTrailingZeros().scale() > 0) {
+                    throw new BusinessException("Quantidade deve ser inteira para produto com unidade UN id: " + produto.getId());
+                }
+            }
+
+            java.util.List<Movimentacao> group = movimentacaoRepository.findByCompraIdAndProdutoId(item.getPurchaseId(), item.getProductId());
+            java.math.BigDecimal groupSum = group.stream().map(m -> m.getQuantidade() != null ? m.getQuantidade() : java.math.BigDecimal.ZERO).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+            java.math.BigDecimal groupAfter = groupSum.subtract(item.getQuantity());
+            if (groupAfter.compareTo(java.math.BigDecimal.ZERO) < 0) {
+                throw new BusinessException("Cannot discard more than available in this lot");
+            }
+
+            totalByProduct.merge(item.getProductId(), item.getQuantity(), java.math.BigDecimal::add);
         }
 
-        List<Movimentacao> group = movimentacaoRepository.findByCompraIdAndProdutoId(purchaseId, productId);
-        BigDecimal groupSum = group.stream().map(m -> m.getQuantidade() != null ? m.getQuantidade() : BigDecimal.ZERO).reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal groupAfter = groupSum.subtract(quantity);
-        if (groupAfter.compareTo(BigDecimal.ZERO) < 0) {
-            throw new BusinessException("Cannot discard more than available in this lot");
+        // Validate global stock per product (considering all items in this discard)
+        for (java.util.Map.Entry<Long, java.math.BigDecimal> e : totalByProduct.entrySet()) {
+            Long productId = e.getKey();
+            java.math.BigDecimal totalSum = movimentacaoRepository.sumQuantityByProdutoId(productId);
+            if (totalSum == null) totalSum = java.math.BigDecimal.ZERO;
+            java.math.BigDecimal totalAfter = totalSum.subtract(e.getValue());
+            if (totalAfter.compareTo(java.math.BigDecimal.ZERO) < 0) {
+                throw new BusinessException("Stock would become negative");
+            }
         }
 
-        BigDecimal totalSum = movimentacaoRepository.sumQuantityByProdutoId(productId);
-        if (totalSum == null) totalSum = BigDecimal.ZERO;
-        BigDecimal totalAfter = totalSum.subtract(quantity);
-        if (totalAfter.compareTo(BigDecimal.ZERO) < 0) {
-            throw new BusinessException("Stock would become negative");
-        }
-
+        // Create Descarte record (single group)
         Descarte descarte = new Descarte();
-        descarte.setDisposalDate(LocalDate.now());
-        String reasonString = type != null ? type.name() : DescarteType.OUTRO.name();
-        if (description != null && !description.isBlank()) {
-            reasonString += " - " + description;
-        }
-        descarte.setReason(reasonString);
+        descarte.setDisposalDate(discardDTO.getDate() != null ? discardDTO.getDate() : LocalDate.now());
+        descarte.setMotivo(discardDTO.getType() != null ? discardDTO.getType() : DescarteType.OUTRO);
         Descarte savedDescarte = decarteRepository.save(descarte);
 
-        Movimentacao discardMov = new Movimentacao();
-        discardMov.setQuantidade(quantity.negate());
-        discardMov.setPrecoUnitarioCompra(null);
-        discardMov.setPrecoUnitarioVenda(null);
-        discardMov.setDataValidade(null);
-        discardMov.setProduto(purchaseMov.getProduto());
-        discardMov.setCompra(purchaseMov.getCompra());
-        discardMov.setVenda(null);
-        discardMov.setTipoMovimentacao(MovementType.DESCARTE);
-        discardMov.setDescarte(savedDescarte);
+        // Create a Movimentacao (negative) for each item in the discard
+        for (com.example.SpringBootApp.DTOs.DescarteItemDTO item : discardDTO.getItems()) {
+            Movimentacao purchaseMov = movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(item.getPurchaseId(), item.getProductId());
+            Movimentacao discardMov = new Movimentacao();
+            discardMov.setQuantidade(item.getQuantity().negate());
+            discardMov.setPrecoUnitarioCompra(null);
+            discardMov.setPrecoUnitarioVenda(null);
+            discardMov.setDataValidade(null);
+            discardMov.setProduto(purchaseMov.getProduto());
+            discardMov.setCompra(purchaseMov.getCompra());
+            discardMov.setVenda(null);
+            discardMov.setTipoMovimentacao(MovementType.DESCARTE);
+            discardMov.setDescarte(savedDescarte);
+            movimentacaoRepository.save(discardMov);
+        }
 
-        return movimentacaoRepository.save(discardMov);
+        return savedDescarte;
     }
 
 }

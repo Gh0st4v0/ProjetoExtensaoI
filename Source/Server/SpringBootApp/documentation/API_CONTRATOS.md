@@ -117,15 +117,18 @@ POST /products
   - 404 Not Found se categoryId ou brandId não existirem
   - 400 Bad Request para violações de validação (formato do código, campos obrigatórios, etc.)
 
-GET /products
-- Lista todos products (ProdutoResponseDTO)
+GET /products?page={page}
+- Lista paginada de produtos (ProdutoQuantidadeEstoqueDTO)
+- Request params: page (default 0)
+- Response Page<ProdutoQuantidadeEstoqueDTO>
+  - Fields: id, name, code, brandName, unitMeasurement, stockQuantity
 - 200 OK
 
 GET /products/search?q={query}&page={page}
-- Busca paginada que também retorna quantidade em estoque por produto (ProdutoQuantidadeEstoqueDTO)
-- Request params: q (opcional), page (default 0)
+- Busca paginada que retorna quantidade e unidade de medida por produto (ProdutoQuantidadeEstoqueDTO)
+- Request params: q (opcional, mínimo 2 caracteres), page (default 0)
 - Response Page<ProdutoQuantidadeEstoqueDTO>
-  - Fields: id, name, code, brandName, stockQuantity
+  - Fields: id, name, code, brandName, unitMeasurement, stockQuantity
 - 200 OK
 
 GET /products/purchases
@@ -143,8 +146,45 @@ DELETE /products/{id}
 - 204 No Content se não houver movimentação (Movimentacao) associada ao produto
 - 422 Unprocessable Entity se existir qualquer movimentação (compra/venda) — neste caso apenas edição é permitida
 
+PATCH /products/{id}/price
+- Atualiza o campo `preco_venda` do produto identificado por `{id}` (ProdutoPrecoUpdateDTO)
+- Request (JSON):
+{
+  "precoVenda": 12.50
+}
+- Validação: `precoVenda` obrigatório e >= 0
+- Respostas:
+  - 200 OK — Atualização executada. Retorna header `Location: /products/{id}`.
+  - 404 Not Found — Produto não encontrado (ErrorResponse).
+  - 400 Bad Request — Erro de validação (ErrorResponse).
+
+Exemplos de curl:
+# Atualizar preco do produto (requer autenticação)
+curl -i -X PATCH "http://localhost:8080/products/1/price" \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer <token>' \
+  -d '{"precoVenda":12.50}'
+
+# Atualizar preco sem token (pode retornar 401/403 dependendo da configuração)
+curl -i -X PATCH "http://localhost:8080/products/1/price" \
+  -H 'Content-Type: application/json' \
+  -d '{"precoVenda":12.50}'
+
+
 5) Compras (purchases)
 Base: /purchases
+
+GET /purchases?page={page}
+- Lista paginada de compras (CompraResponseDTO)
+- Request params: page (default 0)
+- Response Page<CompraResponseDTO>
+  - Fields:
+    - id (Long)
+    - date (ISO-8601 string)
+    - items: [ { productId: Long, quantity: number, unitPurchasePrice: number, expiringDate: ISO-8601|null } ]
+    - totalValue: number  // soma de (quantity * unitPurchasePrice) por item
+- Paging: 10 compras por página, ordenado por dataCompra (desc)
+- 200 OK
 
 POST /purchases
 - Cria uma compra com itens (CompraCreateDTO)
@@ -173,50 +213,66 @@ POST /purchases
   - 422 Unprocessable Entity para regras de negócio (ex.: expiringDate faltando quando necessário)
 
 PUT /purchases/{purchaseId}/items/{productId}
-- Ajuste (edição) de quantidade de um item de compra (CompraItemUpdateDTO)
-- Request body: { "quantity": 5.0 }
-- Regras:
-  - Quantity obrigatória e positiva (> 0)
-  - Localiza a Movimentacao correspondente ao lote (compraId + produtoId onde venda == null)
-  - Verifica que, após alteração:
-    - Soma das movimentações do lote (compras e vendas atreladas ao mesmo lote) não fica negativa (não vendeu mais do que o lote terá)
-    - Estoque global do produto (soma de todas movimentações) não fica negativo
-- Responses:
-  - 200 OK no sucesso
-  - 404 Not Found se o item/lote não for encontrado
-  - 422 Unprocessable Entity se a alteração causaria estoque negativo (regra de negócio)
-
-POST /purchases/{purchaseId}/items/{productId}/discard
-- Cria um descarte (movimentação negativa) ligado ao lote (compra)
-- Request body (CompraItemDiscardDTO):
+- Ajuste (edição) de um item de compra (CompraItemUpdateDTO)
+- Request body (aceita campos abaixo; enviar apenas os campos a alterar):
 {
-  "quantity": 2.0,
-  "type": "PERDA_PESO",   // Valores aceitos: ROUBO, VENCIMENTO, CONSUMO_PESSOAL, DANO, OUTRO, PERDA_PESO
-  "description": "opcional, texto explicando o descarte (até 255 chars)"
+  "quantity": 5.0,               // (opcional) quantidade do lote; se fornecida deve ser > 0
+  "unitPurchasePrice": 45.90,    // (opcional) preço de compra por unidade; se fornecido deve ser > 0
+  "expiringDate": "2026-07-01" // (opcional) nova data de validade (ISO-8601); somente para produtos perecíveis
+}
+- Regras de validação/negócio:
+  - Se 'quantity' for fornecida, deve ser positiva (> 0).
+  - Se 'unitPurchasePrice' for fornecido, deve ser positiva (> 0).
+  - Para produtos perecíveis: 'expiringDate' pode ser fornecida para atualizar a data de validade do lote; para não-perecíveis, não deve ser fornecida.
+  - O método localiza a Movimentacao correspondente ao lote (compraId + produtoId onde venda == null).
+  - Após a alteração, valida-se que:
+    - A soma das movimentações do lote (compras e vendas atreladas ao mesmo lote) não fique negativa (ou seja, não foi vendido mais do que o lote terá).
+    - O estoque global do produto (soma de todas movimentações) não fique negativo.
+  - Não é permitido definir 'expiringDate' anterior a qualquer data de venda já registrada para esse lote (prevenir vendas com produto vencido).
+- Responses:
+  - 200 OK no sucesso (retorna a Movimentacao atualizada)
+  - 404 Not Found se o item/lote não for encontrado
+  - 400 Bad Request para payload inválido
+  - 422 Unprocessable Entity se a alteração causaria estoque negativo ou violar regras de validade/preço
+
+POST /discards
+- Cria um descarte (grupo) com múltiplas movimentações (DescarteCreateDTO)
+- Request body (DescarteCreateDTO):
+{
+  "date": "2026-05-03",       // opcional
+  "type": "PERDA_PESO",       // motivo do descarte (enum: ROUBO, VENCIMENTO, CONSUMO_PESSOAL, DANO, OUTRO, PERDA_PESO)
+  "items": [
+    { "purchaseId": 1, "productId": 10, "quantity": 2.0 }
+  ]
 }
 - Regras:
-  - quantity obrigatória e positiva (>0)
-  - Cria um registro de Descarte (tabela legacy) com motivo igual ao nome do enum e descrição opcional
-  - Validações:
-    - A quantidade a descartar não pode exceder a quantidade disponível no lote (compra)
-    - O estoque global do produto não pode ficar negativo após o descarte
+  - Cada item deve conter purchaseId, productId e quantity (>0)
+  - O motivo (type) é obrigatório e deve ser um dos valores do enum
+  - Validações server-side:
+    - Para cada item, a quantidade a descartar não pode exceder a quantidade disponível no lote (compra)
+    - O estoque global do produto não pode ficar negativo considerando a soma de todos os itens do mesmo produto dentro do mesmo request
 - Responses:
-  - 201 Created no sucesso
-  - 404 Not Found se o item/lote não for encontrado
-  - 422 Unprocessable Entity se o descarte levaria o estoque a ficar negativo
+  - 201 Created + Location: /discards/{id} no sucesso
+  - 400 Bad Request para payload inválido
+  - 404 Not Found se algum item/lote não for encontrado
+  - 422 Unprocessable Entity se o descarte levaria o estoque a ficar negativo (regra de negócio)
 
-Exemplo de curl (criar + ajustar):
+Exemplo de curl:
+# List purchases (first page)
+curl -X GET "http://localhost:8080/purchases?page=0" \
+  -H "Authorization: Bearer <token>"
+
 # Criar compra
 curl -X POST http://localhost:8080/purchases \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <token>" \
-  -d '{"date":"2026-04-10","items":[{"productId":10,"quantity":10,"unitPurchasePrice":40.00,"expiringDate":"2026-07-01"}]}'
+  -d '{"date":"2026-04-10","items":[{"productId":10,"quantity":10,"unitPurchasePrice":40.00,"expiringDate":"2026-07-01" }]}'
 
-# Ajustar quantidade do item de compra (produto 10 na compra 1)
+# Ajustar item de compra (produto 10 na compra 1) — exemplo atualizando quantidade, preço e validade
 curl -X PUT http://localhost:8080/purchases/1/items/10 \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <token>" \
-  -d '{"quantity":5}'
+  -d '{"quantity":5, "unitPurchasePrice":45.00, "expiringDate":"2026-07-01" }'
 
 6) Vendas (sales)
 Base: /sales
@@ -226,15 +282,22 @@ POST /sales
 - Request example
 {
   "saleDate": "2026-04-12",
-  "totalValue": 250.00,
-  "paymentMethod": "CASH", // enum
+  "paymentMethod": "DINHEIRO", // enum (PIX, CREDITO, DEBITO, DINHEIRO)
   "hasDiscount": false,
   "userId": 1,
   "clienteId": 2,
   "items": [
-    { "purchaseId": 1, "productId": 10, "quantity": 1.0 }
+    { "purchaseId": 1, "productId": 10, "quantity": "1.0000", "precoUnitarioVenda": "12.75" }
   ]
 }
+
+Note: If provided, 'purchaseId' in items will be ignored by the backend — allocation is always FIFO.
+- Observações importantes:
+  - Nota: O campo 'totalValue' foi removido do payload. O servidor calcula o total da venda automaticamente e ignora qualquer valor fornecido pelo cliente.
+  - purchaseId: o backend IGNORA o campo purchaseId enviado pelo cliente. A alocação é sempre feita pelo modelo FIFO entre lotes (compras) em estoque; o frontend NÃO deve enviar purchaseId.
+  - productId: obrigatório
+  - quantity: BigDecimal com escala 4 (ex.: "1.0000"). Para unidade (UN), frontend deve enviar inteiro com escala 4 (ex.: "2.0000"); para KG enviar com 4 casas decimais.
+  - precoUnitarioVenda (opcional): override do preço de venda por unidade para esta venda. Se fornecido, será gravado em Movimentacao.precoUnitarioVenda e usado no cálculo do total da venda. NÃO atualiza o produto.precoVenda.
 - Responses:
   - 201 Created + Location: /sales/{id}
   - 404 Not Found se compra/produto/usuario não existir
@@ -274,9 +337,44 @@ GET /sales?startDate={YYYY-MM-DD}&endDate={YYYY-MM-DD}
   POST /purchases -> { date, items: [{ productId, quantity, unitPurchasePrice, expiringDate? }] } -> 201 Location: /purchases/12
 
 - Editar item de compra
-  PUT /purchases/{purchaseId}/items/{productId} -> { quantity } -> 200 (ou 422)
+  PUT /purchases/{purchaseId}/items/{productId} -> { quantity?, unitPurchasePrice?, expiringDate? } -> 200 (ou 422)
 
-10) Contatos / Observações finais
+10) Clientes (clients)
+Base: /clients
+
+POST /clients
+- Cria um cliente simples (ClienteCreateDTO)
+- Request (JSON):
+{
+  "nickname": "Joao123"
+}
+- Respostas:
+  - 201 Created + Location: /clients/{id}
+  - 400 Bad Request — validação (ErrorResponse)
+
+GET /clients/search?q={q}&page={page}
+- Pesquisa clientes por apelido (case-insensitive) com paginação
+- Parâmetros:
+  - q (opcional): termo de busca; se ausente ou menor que 2 caracteres, retorna página vazia
+  - page (opcional, default 0): número da página
+- Resposta: Page<ClienteResponseDTO> (fields: id, nickname)
+- 200 OK
+
+Exemplos de curl:
+# Criar cliente (quick-create)
+curl -i -X POST "http://localhost:8080/clients" \
+  -H 'Content-Type: application/json' \
+  -d '{"nickname":"Joao123"}'
+
+# Buscar clientes (pagina 0, termo 'jo')
+curl -s "http://localhost:8080/clients/search?q=jo&page=0"
+
+Observações:
+- Tamanho de página padrão = 10
+- DTOs: ClienteCreateDTO{nickname}, ClienteResponseDTO{id,nickname}
+- Testes TDD: ClienteServiceTest, ClienteControllerTest
+
+11) Contatos / Observações finais
 - Se o frontend precisar de campos adicionais (ex.: nome da categoria/brand embutido nas respostas) podemos adicionar ou ampliar DTOs; posso ajudar adaptando os contratos caso a equipe prefira outro formato.
 
 ---

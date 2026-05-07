@@ -1,7 +1,7 @@
 package com.example.SpringBootApp.DTOs;
 
 import com.example.SpringBootApp.models.PaymentMethod;
-import jakarta.validation.constraints.PositiveOrZero;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -10,7 +10,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.NotEmpty;
 
-import java.math.BigDecimal;
+
 import java.time.LocalDate;
 import java.util.List;
 
@@ -21,15 +21,14 @@ public class VendCreateDTO {
 
     private LocalDate saleDate;
 
-    @NotNull(message = "Total value is required")
-    private BigDecimal totalValue;
+
 
     @NotNull(message = "Payment method is required")
     private PaymentMethod paymentMethod;
 
     private Boolean hasDiscount;
 
-    @NotNull(message = "Usuario ID is required")
+    // userId will be filled from authenticated principal on the server side when missing in the request
     private Long userId;
 
     private Long clienteId;

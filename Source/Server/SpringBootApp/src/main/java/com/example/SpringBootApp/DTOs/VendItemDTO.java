@@ -14,7 +14,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class VendItemDTO {
 
-    @NotNull(message = "Compra ID is required")
+    // purchaseId is optional for PDV auto-allocation
     private Long purchaseId;
 
     @NotNull(message = "Produto ID is required")
@@ -23,5 +23,8 @@ public class VendItemDTO {
     @NotNull(message = "Quantity is required")
     @Positive(message = "Quantity must be positive")
     private BigDecimal quantity;
+
+    // optional override sale unit price
+    private BigDecimal precoUnitarioVenda;
 }
 

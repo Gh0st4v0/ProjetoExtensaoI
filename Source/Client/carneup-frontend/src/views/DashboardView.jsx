@@ -1,5 +1,7 @@
 import styled from 'styled-components'
 import { Sidebar } from '../components/Sidebar'
+import { Topbar } from '../components/Topbar'
+import { useState } from 'react'
 
 // ==========================================
 // ESTILOS
@@ -20,92 +22,6 @@ const MainContent = styled.main`
 	min-width: 0;
 `
 
-const TopBar = styled.header`
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding: 0 24px;
-	width: 100%;
-	height: 64px;
-	position: sticky;
-	top: 0;
-	z-index: 40;
-	background-color: #ffffff;
-	border-bottom: 1px solid #e7e5e4;
-`
-
-const TopBarLeft = styled.div`
-	display: flex;
-	align-items: center;
-	gap: 16px;
-
-	.logo-text {
-		font-family: 'Epilogue', sans-serif;
-		text-transform: uppercase;
-		letter-spacing: 0.1em;
-		font-size: 12px;
-		color: #b91c1c;
-		font-weight: 700;
-	}
-	.divider {
-		height: 16px;
-		width: 1px;
-		background-color: #d6d3d1;
-	}
-
-	.search-box {
-		display: flex;
-		align-items: center;
-		background-color: #f3f3f3;
-		padding: 6px 12px;
-		border-radius: 4px;
-
-		input {
-			background: transparent;
-			border: none;
-			outline: none;
-			font-size: 12px;
-			width: 256px;
-			margin-left: 8px;
-			color: #1a1c1c;
-			&::placeholder {
-				color: #a8a29e;
-			}
-		}
-	}
-`
-
-const TopBarRight = styled.div`
-	display: flex;
-	align-items: center;
-	gap: 24px;
-
-	.icons {
-		display: flex;
-		gap: 16px;
-		color: #78716c;
-		span {
-			cursor: pointer;
-			transition: color 0.2s;
-			&:hover {
-				color: #dc2626;
-			}
-		}
-	}
-
-	.divider {
-		height: 32px;
-		width: 1px;
-		background-color: #e7e5e4;
-	}
-	img {
-		width: 32px;
-		height: 32px;
-		border-radius: 50%;
-		border: 1px solid #e7e5e4;
-		object-fit: cover;
-	}
-`
 
 const Canvas = styled.div`
 	padding: 32px;
@@ -483,41 +399,13 @@ const BottomFooter = styled.footer`
 // ==========================================
 
 export const DashboardView = ({ navigate }) => {
+	const [searchQuery, setSearchQuery] = useState('')
 	return (
 		<Wrapper>
 			<Sidebar navigate={navigate} activeView='dashboard' />
 
 			<MainContent>
-				<TopBar>
-					<TopBarLeft>
-						<span className='logo-text'>CarneUp</span>
-						<div className='divider' />
-						<div className='search-box'>
-							<span
-								className='material-symbols-outlined'
-								style={{ color: '#a8a29e', fontSize: '18px' }}
-							>
-								search
-							</span>
-							<input type='text' placeholder='Pedidos de pesquisa...' />
-						</div>
-					</TopBarLeft>
-
-					<TopBarRight>
-						<div className='icons'>
-							<span className='material-symbols-outlined'>notifications</span>
-							<span className='material-symbols-outlined'>
-								account_balance_wallet
-							</span>
-							<span className='material-symbols-outlined'>help_outline</span>
-						</div>
-						<div className='divider' />
-						<img
-							src='https://lh3.googleusercontent.com/aida-public/AB6AXuCTGDET6R-jETVAYB30MPXMY04z8qe7TfQ5-Gknb7f9DNjB3vTljCYK9S98wIMMzts1QUxQrhyA5QikGHhWJgZexoSjNW9z8eYF4V7jzJ9azygNtKhwrSF_2Qn02kBSgcMeJz9VkSoOnwlMSHp8akDZOh4VHuN7Q0julVLBp0-DIGE3Mojxv596sMsxiY4fjO12j0QhzzTguIsVuf2UxB8kmAxyT77AcAZ85yYWEpASKeQyb79krDF9Mu9qDy_cAmRxBfjYPwBL0Dw'
-							alt='Avatar'
-						/>
-					</TopBarRight>
-				</TopBar>
+				<Topbar searchQuery={searchQuery} onSearchChange={setSearchQuery} />
 
 				<Canvas>
 					<BentoSection>
@@ -580,23 +468,10 @@ export const DashboardView = ({ navigate }) => {
 							</div>
 							<div
 								style={{
-									marginTop: '16px',
-									height: '4px',
-									width: '100%',
-									backgroundColor: '#eeeeee',
-									borderRadius: '4px',
-									overflow: 'hidden',
-								}}
-							>
-								<div
-									style={{
-										backgroundColor: '#610005',
-										height: '100%',
-										width: '75%',
-									}}
-								/>
-							</div>
-							<p className='footer-text'>75% do objetivo diário atingido</p>
+									marginTop: '16px', height: '4px', width: '100%', backgroundColor: '#eeeeee', borderRadius: '4px', overflow: 'hidden' }}>
+					<div style={{ backgroundColor: '#610005', height: '100%', width: '75%' }} />
+					</div>
+					<p className='footer-text'>75% do objetivo diário atingido</p>
 						</MetricBox>
 
 						<MetricBox $borderColor='#00178d'>
@@ -828,3 +703,9 @@ export const DashboardView = ({ navigate }) => {
 		</Wrapper>
 	)
 }
+
+
+
+
+
+

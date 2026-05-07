@@ -21,5 +21,5 @@ public class CompraItemDiscardDTO {
     @NotBlank(message = "Type is required")
     private String type; // should match DescarteType values
 
-    private String description;
+
 }

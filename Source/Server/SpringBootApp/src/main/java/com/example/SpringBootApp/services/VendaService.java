@@ -10,12 +10,18 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.SpringBootApp.DTOs.VendCreateDTO;
 import com.example.SpringBootApp.DTOs.VendItemDTO;
 import com.example.SpringBootApp.exceptions.ResourceNotFoundException;
+import com.example.SpringBootApp.exceptions.BusinessException;
 import com.example.SpringBootApp.models.*;
 import com.example.SpringBootApp.repositories.MovimentacaoRepository;
 import com.example.SpringBootApp.repositories.ProdutoRepository;
 import com.example.SpringBootApp.repositories.CompraRepository;
 import com.example.SpringBootApp.repositories.VendaRepository;
 import com.example.SpringBootApp.repositories.UsuarioRepository;
+import com.example.SpringBootApp.DTOs.DescarteCreateDTO;
+import com.example.SpringBootApp.DTOs.DescarteItemDTO;
+import com.example.SpringBootApp.models.DescarteType;
+import java.util.HashSet;
+import java.util.Set;
 
 import lombok.RequiredArgsConstructor;
 
@@ -29,13 +35,16 @@ public class VendaService {
     private final UsuarioRepository usuarioRepository;
     private final ProdutoRepository produtoRepository;
     private final CompraRepository compraRepository;
+    private final com.example.SpringBootApp.repositories.ClienteRepository clienteRepository;
+    private final com.example.SpringBootApp.services.InventarioService inventarioService;
+    private static final java.math.BigDecimal AUTO_DISCARD_THRESHOLD_KG = new java.math.BigDecimal("0.1000");
     
     public Venda createSale(VendCreateDTO saleDTO) {
-        Usuario usuario = usuarioRepository.findById(saleDTO.getUserId()).orElseThrow(() -> new ResourceNotFoundException("Usuario not found"));
+        Usuario usuario = usuarioRepository.findById(saleDTO.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario not found"));
 
         Venda venda = new Venda();
         venda.setDataVenda(saleDTO.getSaleDate());
-        venda.setValorTotal(saleDTO.getTotalValue());
         venda.setMetodoPagamento(saleDTO.getPaymentMethod());
         venda.setTemDesconto(saleDTO.getHasDiscount());
         venda.setUsuario(usuario);
@@ -43,33 +52,109 @@ public class VendaService {
         Venda savedSale = vendaRepository.save(venda);
 
         List<Movimentacao> items = new ArrayList<>();
+        java.util.Set<Long> purchasesDiscarded = new java.util.HashSet<>();
+        BigDecimal computedTotal = BigDecimal.ZERO;
+
+        if (saleDTO.getClienteId() != null) {
+            Cliente cliente = clienteRepository.findById(saleDTO.getClienteId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Cliente not found with id: " + saleDTO.getClienteId()));
+            savedSale.setCliente(cliente);
+        }
+
         for (VendItemDTO itemDTO : saleDTO.getItems()) {
             Produto produto = produtoRepository.findById(itemDTO.getProductId())
                     .orElseThrow(() -> new ResourceNotFoundException("Produto not found with id: " + itemDTO.getProductId()));
-            Compra compra = compraRepository.findById(itemDTO.getPurchaseId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Compra not found with id: " + itemDTO.getPurchaseId()));
 
-            Movimentacao stockItem = movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(compra.getId(), produto.getId());
-            
-            if (stockItem == null) {
-                throw new ResourceNotFoundException("Lote de estoque não encontrado para a compra ID: " + compra.getId());
+            BigDecimal requiredQty = itemDTO.getQuantity() != null ? itemDTO.getQuantity() : BigDecimal.ZERO;
+
+            if (produto.getUnidadeMedida() == UnitMeasurement.UN) {
+                if (requiredQty == null || requiredQty.stripTrailingZeros().scale() > 0) {
+                    throw new BusinessException("Quantidade deve ser inteira para produto com unidade UN id: " + produto.getId());
+                }
             }
 
-            Movimentacao movimentacao = new Movimentacao();
-            movimentacao.setProduto(produto);
-            movimentacao.setCompra(compra);
-            movimentacao.setVenda(savedSale);
-            movimentacao.setQuantidade(itemDTO.getQuantity().multiply(BigDecimal.valueOf(-1)));
-            movimentacao.setTipoMovimentacao(MovementType.VENDA);
+            BigDecimal totalAvailable = movimentacaoRepository.sumQuantityByProdutoId(produto.getId());
+            if (totalAvailable == null) totalAvailable = BigDecimal.ZERO;
+            if (totalAvailable.compareTo(requiredQty) < 0) {
+                throw new BusinessException("Quantidade insuficiente em estoque para o produto id: " + produto.getId());
+            }
 
-            movimentacao.setPrecoUnitarioVenda(stockItem.getPrecoUnitarioVenda());
-            movimentacao.setPrecoUnitarioCompra(stockItem.getPrecoUnitarioCompra());
+            List<Compra> allCompras = new ArrayList<>(compraRepository.findAll());
+            allCompras.sort((a, b) -> {
+                if (a.getDataCompra() == null && b.getDataCompra() == null) return 0;
+                if (a.getDataCompra() == null) return 1;
+                if (b.getDataCompra() == null) return -1;
+                return a.getDataCompra().compareTo(b.getDataCompra());
+            });
 
-            items.add(movimentacaoRepository.save(movimentacao));
+            BigDecimal remaining = requiredQty;
+            for (Compra compra : allCompras) {
+                if (remaining.compareTo(BigDecimal.ZERO) <= 0) break;
+                BigDecimal available = movimentacaoRepository.sumQuantityByPurchaseId(compra.getId());
+                if (available == null) available = BigDecimal.ZERO;
+                if (available.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+                List<Movimentacao> movs = movimentacaoRepository.findByCompraIdAndProdutoId(compra.getId(), produto.getId());
+                if (movs == null || movs.isEmpty()) continue;
+                Movimentacao stockItem = movs.get(0);
+
+                BigDecimal allocate = available.min(remaining);
+
+                Movimentacao movimentacao = new Movimentacao();
+                movimentacao.setProduto(produto);
+                movimentacao.setCompra(compra);
+                movimentacao.setVenda(savedSale);
+                movimentacao.setQuantidade(allocate.multiply(BigDecimal.valueOf(-1)));
+                movimentacao.setTipoMovimentacao(MovementType.VENDA);
+
+                BigDecimal salePrice = itemDTO.getPrecoUnitarioVenda() != null ? itemDTO.getPrecoUnitarioVenda()
+                        : ((stockItem != null && stockItem.getPrecoUnitarioVenda() != null) ? stockItem.getPrecoUnitarioVenda()
+                                : (produto.getPrecoVenda() != null ? produto.getPrecoVenda() : BigDecimal.ZERO));
+                movimentacao.setPrecoUnitarioVenda(salePrice);
+                movimentacao.setPrecoUnitarioCompra(stockItem.getPrecoUnitarioCompra());
+
+                items.add(movimentacaoRepository.save(movimentacao));
+
+                if (produto.getUnidadeMedida() == UnitMeasurement.KG) {
+                    BigDecimal leftover = movimentacaoRepository.sumQuantityByPurchaseId(compra.getId());
+                    if (leftover == null) leftover = BigDecimal.ZERO;
+                    if (leftover.compareTo(BigDecimal.ZERO) > 0 && leftover.compareTo(AUTO_DISCARD_THRESHOLD_KG) < 0
+                            && !purchasesDiscarded.contains(compra.getId())) {
+                        DescarteItemDTO discardItem = new DescarteItemDTO(compra.getId(), produto.getId(), leftover);
+                        DescarteCreateDTO discardDTO = new DescarteCreateDTO(null, DescarteType.PERDA_PESO,
+                                java.util.List.of(discardItem));
+                        inventarioService.createDiscard(discardDTO);
+                        purchasesDiscarded.add(compra.getId());
+                    }
+                }
+
+                computedTotal = computedTotal.add(salePrice.multiply(allocate));
+                remaining = remaining.subtract(allocate);
+            }
+
+            if (remaining.compareTo(BigDecimal.ZERO) > 0) {
+                throw new BusinessException("Quantidade insuficiente em estoque para o produto id: " + produto.getId());
+            }
         }
 
+        if (saleDTO.getHasDiscount() != null && saleDTO.getHasDiscount()) {
+            computedTotal = computedTotal.multiply(new BigDecimal("0.95"));
+        }
+
+        savedSale.setValorTotal(computedTotal);
         savedSale.setItens(items);
         return savedSale;
+    }
+
+    public org.springframework.data.domain.Page<com.example.SpringBootApp.DTOs.VendaResponseDTO> listSales(int page, int size) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, org.springframework.data.domain.Sort.by("dataVenda").descending());
+        org.springframework.data.domain.Page<Venda> vendas = vendaRepository.findAll(pageable);
+        return vendas.map(com.example.SpringBootApp.mappers.VendaMapper::toResponse);
+    }
+
+    public com.example.SpringBootApp.DTOs.VendaResponseDTO getSaleById(Long id) {
+        Venda venda = vendaRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Venda not found"));
+        return com.example.SpringBootApp.mappers.VendaMapper.toResponse(venda);
     }
 }
 

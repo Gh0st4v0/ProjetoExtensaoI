@@ -29,9 +29,12 @@ public class MarcaController {
             @ApiResponse(responseCode = "400", description = "Invalid input data")
     })
     @PostMapping
-    public ResponseEntity<?> createBrand(@Valid @RequestBody MarcaCreateDTO MarcaDTO) {
+    public ResponseEntity<MarcaDTO> createBrand(@Valid @RequestBody MarcaCreateDTO MarcaDTO) {
         Marca Marca = CatalogoService.createBrand(MarcaDTO);
-        return ResponseEntity.created(URI.create("/brands/" + Marca.getId())).build();
+        MarcaDTO response = new MarcaDTO();
+        response.setId(Marca.getId());
+        response.setBrandName(Marca.getNome());
+        return ResponseEntity.created(URI.create("/brands/" + Marca.getId())).body(response);
     }
 
     @GetMapping

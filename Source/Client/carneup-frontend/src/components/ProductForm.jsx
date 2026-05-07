@@ -62,7 +62,7 @@ const FormContainer = styled.div`
 	}
 `
 
-export const ProductForm = ({ onSubmit }) => {
+export const ProductForm = ({ onSubmit, brands: propBrands = [], categories: propCategories = [], onQuickCreate }) => {
 	const [formData, setFormData] = useState({
 		name: '',
 		code: '',
@@ -72,8 +72,11 @@ export const ProductForm = ({ onSubmit }) => {
 		price: ''
 	})
 
-	const [brands, setBrands] = useState(['Heritage Farms','PrimeCuts','Local Ranch'])
-	const [categories, setCategories] = useState(['Bovine','Porcine','Poultry','Lamb','Processed'])
+	const [localBrands, setLocalBrands] = useState([])
+	const [localCategories, setLocalCategories] = useState([])
+	const brandsList = propBrands && propBrands.length ? propBrands : (localBrands.length ? localBrands : ['Heritage Farms','PrimeCuts','Local Ranch'])
+	const categoriesList = propCategories && propCategories.length ? propCategories : (localCategories.length ? localCategories : ['Bovine','Porcine','Poultry','Lamb','Processed'])
+
 	const [quickOpen, setQuickOpen] = useState({ open: false, type: null })
 	const [errors, setErrors] = useState({})
 
@@ -102,19 +105,13 @@ export const ProductForm = ({ onSubmit }) => {
 	}
 
 	const handleQuickCreate = (type, value) => {
-		if (type === 'brand') {
-			setBrands(prev => {
-				const next = [...prev, value]
-				return next
-			})
-			setFormData(prev => ({ ...prev, brand: value }))
-		} else if (type === 'category') {
-			setCategories(prev => {
-				const next = [...prev, value]
-				return next
-			})
-			setFormData(prev => ({ ...prev, category: value }))
+		if (onQuickCreate) {
+			onQuickCreate(type, value)
+		} else {
+			if (type === 'brand') setLocalBrands(prev => [...prev, value])
+			if (type === 'category') setLocalCategories(prev => [...prev, value])
 		}
+		setFormData(prev => ({ ...prev, [type === 'brand' ? 'brand' : 'category']: value }))
 		setQuickOpen({ open: false, type: null })
 	}
 
@@ -140,7 +137,7 @@ export const ProductForm = ({ onSubmit }) => {
 						<div style={{display:'flex',gap:8,alignItems:'center'}}>
 							<select name='brand' value={formData.brand} onChange={handleChange} style={{flex:1,padding:12,border:'1px solid #e7e5e4',borderRadius:8}} required>
 								<option value=''>Selecionar Marca</option>
-								{brands.map(b => <option key={b} value={b}>{b}</option>)}
+								{brandsList.map(b => <option key={b} value={b}>{b}</option>)}
 							</select>
 							<Button type='button' full={false} small onClick={() => setQuickOpen({ open: true, type: 'brand' })}>+</Button>
 						</div>
@@ -153,7 +150,7 @@ export const ProductForm = ({ onSubmit }) => {
 						<div style={{display:'flex',gap:8,alignItems:'center'}}>
 							<select name='category' value={formData.category} onChange={handleChange} style={{flex:1,padding:12,border:'1px solid #e7e5e4',borderRadius:8}} required>
 								<option value=''>Selecionar Categoria</option>
-								{categories.map(c => <option key={c} value={c}>{c}</option>)}
+								{categoriesList.map(c => <option key={c} value={c}>{c}</option>)}
 							</select>
 							<Button type='button' full={false} small onClick={() => setQuickOpen({ open: true, type: 'category' })}>+</Button>
 						</div>

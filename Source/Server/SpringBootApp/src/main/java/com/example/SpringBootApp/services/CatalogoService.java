@@ -120,18 +120,9 @@ public class CatalogoService {
 		return categoriesDTO;
 	}
 
-	public List<ProdutoResponseDTO> getAllProducts() {
-		List<Produto> products = ProdutoRepository.findAll();
-
-		return products.stream().map(Produto -> {
-			ProdutoResponseDTO dto = new ProdutoResponseDTO();
-			dto.setId(Produto.getId());
-			dto.setName(Produto.getNome());
-			dto.setCode(Produto.getCodigo());
-			dto.setBrandName(Produto.getMarca().getNome());
-			dto.setUnitMeasurement(Produto.getUnidadeMedida() != null ? Produto.getUnidadeMedida().name() : null);
-			return dto;
-		}).collect(Collectors.toList());
+	public Page<ProdutoQuantidadeEstoqueDTO> getAllProducts(int page) {
+		Pageable pageable = PageRequest.of(page, 10, Sort.by("nome").ascending());
+		return ProdutoRepository.findAllWithStock(pageable);
 	}
 
 	public Page<ProdutoQuantidadeEstoqueDTO> searchProductsWithStock(String query, int page) {
@@ -181,7 +172,7 @@ public class CatalogoService {
 
 		boolean used = MovimentacaoRepository.existsByProdutoId(id);
 		if (used) {
-			throw new BusinessException("Product is linked to movimentacoes and cannot be deleted");
+			throw new BusinessException("Produto vinculado a movimentações e não pode ser excluído");
 		}
 
 		ProdutoRepository.delete(produto);
@@ -226,7 +217,7 @@ public class CatalogoService {
 		boolean used = ProdutoRepository.findAll().stream().anyMatch(p ->
 				p.getCategoria() != null && p.getCategoria().getId().equals(id));
 		if (used) {
-			throw new BusinessException("Category is linked to products and cannot be deleted");
+			throw new BusinessException("Categoria vinculada a produtos e não pode ser excluída");
 		}
 
 		CategoriaRepository.delete(categoria);
@@ -239,7 +230,7 @@ public class CatalogoService {
 		boolean used = ProdutoRepository.findAll().stream().anyMatch(p ->
 				p.getMarca() != null && p.getMarca().getId().equals(id));
 		if (used) {
-			throw new BusinessException("Brand is linked to products and cannot be deleted");
+			throw new BusinessException("Marca vinculada a produtos e não pode ser excluída");
 		}
 
 		MarcaRepository.delete(marca);
@@ -250,6 +241,22 @@ public class CatalogoService {
 		String normalized = java.text.Normalizer.normalize(input, java.text.Normalizer.Form.NFD);
 		normalized = normalized.replaceAll("\\p{M}", "");
 		return normalized.toLowerCase().trim();
+	}
+
+	public Produto updateProductPrice(Long id, java.math.BigDecimal novoPreco) {
+		Produto produto = ProdutoRepository.findById(id)
+				.orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+
+		if (novoPreco == null) {
+			throw new BusinessException("PrecoVenda is required");
+		}
+
+		if (novoPreco.compareTo(java.math.BigDecimal.ZERO) < 0) {
+			throw new BusinessException("PrecoVenda must be >= 0");
+		}
+
+		produto.setPrecoVenda(novoPreco);
+		return ProdutoRepository.save(produto);
 	}
 }
 
