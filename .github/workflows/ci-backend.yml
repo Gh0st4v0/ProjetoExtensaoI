@@ -5,7 +5,7 @@ on:
   push:
     branches:
       - main
-      - ci-cd-pipeline
+      - pipeline-only
     paths:
       - 'Source/Server/SpringBootApp/**'
       - '.github/workflows/ci-backend.yml'
@@ -79,7 +79,7 @@ jobs:
             -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY_BACKEND }} \
             -Dsonar.organization=${{ env.SONAR_ORGANIZATION }} \
             -Dsonar.host.url=https://sonarcloud.io \
-            -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
+            -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
             -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
 
       - name: Login no GitHub Container Registry
