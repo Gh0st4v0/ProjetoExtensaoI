@@ -461,7 +461,7 @@ export const SalesView = ({ navigate }) => {
 	const [searchQuery, setSearchQuery] = useState('')
 	const [products, setProducts] = useState([])
 	const [cart, setCart] = useState([])
-	const [selectedCategory, setSelectedCategory] = useState('TODOS')
+	const [selectedCategory] = useState('TODOS')
 	const [editingProductId, setEditingProductId] = useState(null)
 	const [editingQty, setEditingQty] = useState('')
 	const [editingPrice, setEditingPrice] = useState('')
@@ -481,11 +481,6 @@ export const SalesView = ({ navigate }) => {
 		load()
 		return () => { mounted = false }
 	}, [])
-
-	const categories = useMemo(() => {
-		const set = new Set((products || []).map(p => p.categoryName || p.category || 'OUTROS'))
-		return ['TODOS', ...Array.from(set)]
-	}, [products])
 
 	const displayedProducts = useMemo(() => {
 		let list = products || []
@@ -538,8 +533,6 @@ export const SalesView = ({ navigate }) => {
 	const updateQty = (id, newQty) => {
 		setCart(prev => prev.map(it => it.id === id ? { ...it, qty: newQty } : it).filter(it => it.qty > 0))
 	}
-
-	const removeFromCart = (id) => setCart(prev => prev.filter(it => it.id !== id))
 
 	const total = cart.reduce((s, it) => s + (Number(it.precoUnitarioVenda || it.price || 0) * Number(it.qty || 0)), 0)
 

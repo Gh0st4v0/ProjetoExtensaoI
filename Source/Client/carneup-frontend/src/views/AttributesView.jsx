@@ -6,7 +6,7 @@ import DataTable from '../components/DataTable'
 import { Button } from '../components/Button'
 import QuickCreateModal from '../components/QuickCreateModal'
 import ConfirmModal from '../components/ConfirmModal'
-import { useAttributes } from '../context/AttributesContext'
+import { useAttributes } from '../context/attributes'
 
 const Page = styled.div`
   display:flex;
@@ -61,7 +61,7 @@ export default function AttributesView({ navigate }) {
 
   const handleDelete = (type, id, name) => {
     const linked = products.find(p => (type === 'brand' && p.brand === name) || (type === 'category' && p.category === name))
-    setDeleteConfirm({ open:true, type, id, name, linked: !!linked, error:null, loading:false, message: !!linked ? `Não é possível excluir "${name}" pois existem produtos vinculados.` : null })
+    setDeleteConfirm({ open:true, type, id, name, linked: Boolean(linked), error:null, loading:false, message: linked ? `Não é possível excluir "${name}" pois existem produtos vinculados.` : null })
   }
 
   const confirmDelete = async () => {

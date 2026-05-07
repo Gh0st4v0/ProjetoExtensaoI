@@ -1,7 +1,6 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import * as attributesApi from '../services/attributesApi'
-
-const AttributesContext = createContext()
+import { AttributesContext } from './attributes'
 
 export const AttributesProvider = ({ children }) => {
 	const [brands, setBrands] = useState([])
@@ -77,5 +76,3 @@ export const AttributesProvider = ({ children }) => {
 		</AttributesContext.Provider>
 	)
 }
-
-export const useAttributes = () => useContext(AttributesContext)

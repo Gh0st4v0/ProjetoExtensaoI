@@ -1,0 +1,75 @@
+name: CI Frontend
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - pipeline-only
+    paths:
+      - 'Source/Client/carneup-frontend/**'
+      - '.github/workflows/ci-frontend.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'Source/Client/carneup-frontend/**'
+      - '.github/workflows/ci-frontend.yml'
+
+permissions:
+  contents: read
+
+env:
+  FRONTEND_DIR: Source/Client/carneup-frontend
+  SONAR_PROJECT_KEY_FRONTEND: Gh0st4v0_ProjetoExtensaoI_frontend
+  SONAR_ORGANIZATION: gh0st4v0
+
+jobs:
+  pipeline:
+    name: Validate and analyze frontend
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ${{ env.FRONTEND_DIR }}
+
+    steps:
+      - name: Checkout do codigo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ${{ env.FRONTEND_DIR }}/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Validar lint
+        run: npm run lint
+
+      - name: Validar build
+        run: npm run build
+
+      - name: Analise SonarCloud
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          test -n "$SONAR_TOKEN"
+          COVERAGE_ARG=""
+          if [ -f coverage/lcov.info ]; then
+            COVERAGE_ARG="-Dsonar.javascript.lcov.reportPaths=coverage/lcov.info"
+          fi
+          npx --yes sonar-scanner \
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY_FRONTEND }} \
+            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }} \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
+            -Dsonar.sources=src \
+            -Dsonar.exclusions=dist/**,node_modules/** \
+            -Dsonar.sourceEncoding=UTF-8 \
+            $COVERAGE_ARG
