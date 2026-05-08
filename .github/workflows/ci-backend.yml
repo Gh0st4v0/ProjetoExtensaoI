@@ -1,0 +1,112 @@
+name: CI Backend
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - pipeline-only
+    paths:
+      - 'Source/Server/SpringBootApp/**'
+      - '.github/workflows/ci-backend.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'Source/Server/SpringBootApp/**'
+      - '.github/workflows/ci-backend.yml'
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  BACKEND_DIR: Source/Server/SpringBootApp
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/projeto-backend
+  SONAR_PROJECT_KEY_BACKEND: Gh0st4v0_ProjetoExtensaoI
+  SONAR_ORGANIZATION: gh0st4v0
+  DB_PATH: jdbc:postgresql://localhost:5432/juniorprimebeef_ci
+  DB_USERNAME: postgres
+  DB_PASSWORD: postgres
+  RESEND_API_KEY: test-key
+
+jobs:
+  pipeline:
+    name: Validate, analyze and package backend
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: juniorprimebeef_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d juniorprimebeef_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: ${{ env.BACKEND_DIR }}
+
+    steps:
+      - name: Checkout do codigo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Validar build e testes com cobertura
+        run: mvn --batch-mode clean verify
+
+      - name: Analise SonarCloud
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          test -n "$SONAR_TOKEN"
+          mvn --batch-mode org.sonarsource.scanner.maven:sonar-maven-plugin:5.6.0.6792:sonar \
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY_BACKEND }} \
+            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }} \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
+            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+
+      - name: Login no GitHub Container Registry
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Gerar metadados da imagem
+        if: github.event_name == 'push'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+            type=sha,prefix=sha-
+
+      - name: Build e push da imagem Docker
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ env.BACKEND_DIR }}
+          file: ${{ env.BACKEND_DIR }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
