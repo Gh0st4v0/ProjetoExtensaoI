@@ -23,6 +23,7 @@ env:
   FRONTEND_DIR: Source/Client/carneup-frontend
   SONAR_PROJECT_KEY_FRONTEND: Gh0st4v0_ProjetoExtensaoI_frontend
   SONAR_ORGANIZATION: gh0st4v0
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   pipeline:
@@ -49,8 +50,14 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
+      - name: Auditar dependencias
+        run: npm audit --audit-level=moderate
+
       - name: Validar lint
         run: npm run lint
+
+      - name: Validar testes e cobertura
+        run: npm run test:coverage
 
       - name: Validar build
         run: npm run build
@@ -60,16 +67,15 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           test -n "$SONAR_TOKEN"
-          COVERAGE_ARG=""
-          if [ -f coverage/lcov.info ]; then
-            COVERAGE_ARG="-Dsonar.javascript.lcov.reportPaths=coverage/lcov.info"
-          fi
+          test -f coverage/lcov.info
           npx --yes sonar-scanner \
             -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY_FRONTEND }} \
             -Dsonar.organization=${{ env.SONAR_ORGANIZATION }} \
             -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
             -Dsonar.sources=src \
-            -Dsonar.exclusions=dist/**,node_modules/** \
-            -Dsonar.sourceEncoding=UTF-8 \
-            $COVERAGE_ARG
+            -Dsonar.tests=src \
+            -Dsonar.test.inclusions=src/**/*.test.js,src/**/*.test.jsx \
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
+            -Dsonar.exclusions=dist/**,node_modules/**,src/**/*.test.js,src/**/*.test.jsx \
+            -Dsonar.sourceEncoding=UTF-8
