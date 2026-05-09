@@ -1,20 +1,22 @@
-import React, { useState } from 'react'
+import React from 'react'
 import styled from 'styled-components'
-import { Button } from './Button'
 
 const TableContainer = styled.div`
 	background-color: #ffffff;
 	border-radius: 4px;
 	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 	overflow: hidden;
+	border: 1px solid #eeeeee;
 
 	.table-toolbar {
-		padding: 24px;
+		padding: 16px 20px;
 		border-bottom: 1px solid #eeeeee;
-		background-color: #f3f3f3;
+		background-color: #ffffff;
 		display: flex;
+		gap: 16px;
 		justify-content: space-between;
 		align-items: center;
+		flex-wrap: wrap;
 		span.result-count {
 			font-size: 12px;
 			font-weight: 700;
@@ -26,27 +28,39 @@ const TableContainer = styled.div`
 		}
 	}
 
+	.table-scroll {
+		width: 100%;
+		overflow-x: auto;
+	}
+
 	table {
 		width: 100%;
+		min-width: 920px;
 		text-align: left;
 		border-collapse: collapse;
 	}
 	th {
-		padding: 16px 24px;
-		background-color: #f5f5f4;
+		padding: 14px 20px;
+		background-color: #f9f9f9;
 		font-family: 'Epilogue', sans-serif;
 		font-size: 10px;
 		font-weight: 900;
 		text-transform: uppercase;
 		letter-spacing: 0.1em;
 		color: #5a403c;
-	}
-	td {
-		padding: 16px 24px;
+		white-space: nowrap;
 		border-bottom: 1px solid #eeeeee;
 	}
+	td {
+		padding: 14px 20px;
+		border-bottom: 1px solid #eeeeee;
+		vertical-align: middle;
+	}
+	tbody tr:last-child td {
+		border-bottom: none;
+	}
 	tr:hover {
-		background-color: #f3f3f3;
+		background-color: #fff8f7;
 	}
 
 	.product-info {
@@ -67,11 +81,14 @@ const TableContainer = styled.div`
 			font-family: 'Epilogue', sans-serif;
 			font-weight: 700;
 			font-size: 14px;
+			color: #1a1c1c;
+			margin: 0;
 		}
 		p {
 			font-size: 10px;
 			color: #78716c;
 			text-transform: uppercase;
+			margin: 2px 0 0;
 		}
 	}
 	.text-highlight {
@@ -80,14 +97,15 @@ const TableContainer = styled.div`
 		color: #1a1c1c;
 	}
 	.category-badge {
-		background-color: #dfe0ff;
-		color: #0d2ccc;
-		padding: 4px 12px;
-		border-radius: 999px;
+		background-color: #ffdad6;
+		color: #610005;
+		padding: 5px 10px;
+		border-radius: 4px;
 		font-size: 10px;
 		font-weight: 700;
 		text-transform: uppercase;
 		letter-spacing: 0.1em;
+		white-space: nowrap;
 	}
 
 	.stock-indicator {
@@ -111,15 +129,34 @@ const TableContainer = styled.div`
 		}
 	}
 
-	.row-actions button {
-		background: none;
-		border: none;
-		color: #a8a29e;
-		padding: 8px;
-		cursor: pointer;
-		transition: color 0.2s;
-		&:hover {
-			color: #610005;
+	.actions-header,
+	.row-actions {
+		text-align: right;
+		width: 1%;
+		white-space: nowrap;
+	}
+
+	.row-actions {
+		button {
+			width: 32px;
+			height: 32px;
+			background: #ffffff;
+			border: 1px solid #e7e5e4;
+			border-radius: 4px;
+			color: #78716c;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			cursor: pointer;
+			transition: all 0.2s;
+			&:hover {
+				border-color: #610005;
+				color: #610005;
+				background-color: #fff8f7;
+			}
+			span {
+				font-size: 18px;
+			}
 		}
 	}
 
@@ -188,70 +225,74 @@ const DataTable = ({
 				<div className='toolbar-actions'>{toolbarActions}</div>
 			</div>
 
-			<table>
-				<thead>
-					<tr>
-						{columns.map((col, index) => (
-							<th key={index} style={col.style}>
-								{col.header}
-							</th>
-						))}
-					</tr>
-				</thead>
-				<tbody>
-					{loading ? (
+			<div className='table-scroll'>
+				<table>
+					<thead>
 						<tr>
-							<td
-								colSpan={columns.length}
-								style={{
-									textAlign: 'center',
-									padding: '32px',
-									color: '#a8a29e',
-								}}
-							>
-								Carregando dados...
-							</td>
+							{columns.map((col, index) => (
+								<th key={index} style={col.style}>
+									{col.header}
+								</th>
+							))}
+							{actions && <th className='actions-header'>Ações</th>}
 						</tr>
-					) : data.length > 0 ? (
-						data.map((item, index) => (
-							<tr key={item.id || index}>
-								{columns.map((col, colIndex) => (
-									<td key={colIndex} style={col.style}>
-										{col.render ? col.render(item) : item[col.key]}
-									</td>
-								))}
-								{actions && (
-									<td className='row-actions'>
-										{actions.map((action, actionIndex) => (
-											<button
-												key={actionIndex}
-												onClick={() => action.onClick(item)}
-											>
-												<span className='material-symbols-outlined'>
-													{action.icon}
-												</span>
-											</button>
-										))}
-									</td>
-								)}
+					</thead>
+					<tbody>
+						{loading ? (
+							<tr>
+								<td
+									colSpan={columns.length + (actions ? 1 : 0)}
+									style={{
+										textAlign: 'center',
+										padding: '32px',
+										color: '#a8a29e',
+									}}
+								>
+									Carregando dados...
+								</td>
 							</tr>
-						))
-					) : (
-						<tr>
-							<td
-								colSpan={columns.length + (actions ? 1 : 0)}
-								style={{
-									textAlign: 'center',
-									padding: '32px',
-									color: '#a8a29e',
-								}}
-							>
-								{emptyMessage}
-							</td>
-						</tr>
-					)}
-				</tbody>
-			</table>
+						) : data.length > 0 ? (
+							data.map((item, index) => (
+								<tr key={item.id || index}>
+									{columns.map((col, colIndex) => (
+										<td key={colIndex} style={col.style}>
+											{col.render ? col.render(item) : item[col.key]}
+										</td>
+									))}
+									{actions && (
+										<td className='row-actions'>
+											{actions.map((action, actionIndex) => (
+												<button
+													key={actionIndex}
+													type='button'
+													onClick={() => action.onClick(item)}
+												>
+													<span className='material-symbols-outlined'>
+														{action.icon}
+													</span>
+												</button>
+											))}
+										</td>
+									)}
+								</tr>
+							))
+						) : (
+							<tr>
+								<td
+									colSpan={columns.length + (actions ? 1 : 0)}
+									style={{
+										textAlign: 'center',
+										padding: '32px',
+										color: '#a8a29e',
+									}}
+								>
+									{emptyMessage}
+								</td>
+							</tr>
+						)}
+					</tbody>
+				</table>
+			</div>
 
 			{totalPages > 1 && (
 				<div className='pagination'>

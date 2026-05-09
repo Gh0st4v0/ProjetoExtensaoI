@@ -8,29 +8,34 @@ const TopbarContainer = styled.header`
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+	gap: 24px;
 	padding: 0 24px;
 	position: sticky;
 	top: 0;
 	z-index: 40;
 
-	.search-container {
+	.title-container {
 		display: flex;
-		align-items: center;
-		gap: 16px;
-		flex: 1;
-		max-width: 600px;
-		span.icon {
-			color: #a8a29e;
-		}
-		input {
-			border: none;
-			background: transparent;
-			outline: none;
-			font-size: 12px;
-			font-family: 'Work Sans', sans-serif;
+		flex-direction: column;
+		justify-content: center;
+		min-width: 0;
+
+		.eyebrow {
+			font-size: 10px;
+			font-weight: 800;
+			letter-spacing: 0.12em;
 			text-transform: uppercase;
-			letter-spacing: 0.1em;
-			width: 100%;
+			color: #8a7a76;
+		}
+
+		.title {
+			font-family: 'Epilogue', sans-serif;
+			font-size: 16px;
+			font-weight: 900;
+			color: #610005;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
 		}
 	}
 
@@ -38,25 +43,30 @@ const TopbarContainer = styled.header`
 		display: flex;
 		align-items: center;
 		gap: 24px;
+		flex-shrink: 0;
+
 		.icon-group {
 			display: flex;
 			gap: 16px;
 			border-right: 1px solid #e7e5e4;
 			padding-right: 24px;
+
 			button {
 				background: none;
 				border: none;
 				color: #78716c;
 				cursor: pointer;
+				padding: 4px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+
 				&:hover {
-					color: #dc2626;
+					color: #610005;
 				}
 			}
 		}
-		/* hide any avatar images passed as children to keep Topbar standardized */
-		img {
-			display: none;
-		}
+
 		.brand-text {
 			font-family: 'Epilogue', sans-serif;
 			font-weight: 900;
@@ -64,44 +74,30 @@ const TopbarContainer = styled.header`
 			font-size: 14px;
 		}
 	}
-
-			img {
-				width: 32px;
-				height: 32px;
-				border-radius: 50%;
-				border: 1px solid #e7e5e4;
-				object-fit: cover;
-			}
-		}
 `
 
-export const Topbar = ({ searchQuery, onSearchChange, children }) => {
+export const Topbar = ({ title = 'Painel Operacional', children }) => {
 	return (
 		<TopbarContainer>
-			<div className='search-container'>
-				<span className='material-symbols-outlined icon'>search</span>
-				<input
-					type='text'
-					placeholder='PESQUISAR POR NOME, CÓDIGO, MARCA OU CATEGORIA...'
-					value={searchQuery}
-					onChange={(e) => onSearchChange(e.target.value)}
-				/>
+			<div className='title-container'>
+				<span className='eyebrow'>CarneUp</span>
+				<span className='title'>{title}</span>
 			</div>
 			<div className='action-container'>
 				<div className='icon-group'>
-					<button>
+					<button type='button'>
 						<span className='material-symbols-outlined'>notifications</span>
 					</button>
-					<button>
+					<button type='button'>
 						<span className='material-symbols-outlined'>
 							account_balance_wallet
 						</span>
 					</button>
-					<button>
+					<button type='button'>
 						<span className='material-symbols-outlined'>help_outline</span>
 					</button>
 				</div>
-				
+				{children}
 				<span className='brand-text'>CarneUp</span>
 			</div>
 		</TopbarContainer>

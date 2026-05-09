@@ -86,63 +86,62 @@ const NavItem = styled.a`
 `
 
 const SidebarFooter = styled.div`
-	padding: 20px 20px 28px 20px;
+	padding: 10px 16px 14px;
 	border-top: 1px solid #e7e5e4;
 	margin-top: auto;
-	display: flex;
-	flex-direction: column;
-	gap: 12px;
 	flex-shrink: 0;
-`
-
-const NovaVendaBtn = styled.button`
-	width: 100%;
-	background-color: #610005;
-	color: #ffffff;
-	padding: 12px 14px;
-	border-radius: 8px;
-	font-family: 'Epilogue', sans-serif;
-	font-weight: 800;
-	border: none;
-	cursor: pointer;
-	transition: transform 0.12s, opacity 0.12s;
-	box-shadow: 0 6px 18px rgba(97,0,5,0.08);
-
-	&:hover {
-		opacity: 0.95;
-	}
-	&:active {
-		transform: translateY(1px) scale(0.995);
-	}
 `
 
 const UserProfile = styled.div`
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	gap: 8px;
+	min-height: 36px;
 
-	img {
-		width: 40px;
-		height: 40px;
-		border-radius: 50%;
-		object-fit: cover;
-		border: 2px solid rgba(97,0,5,0.08);
+	.avatar {
+		width: 32px;
+		height: 32px;
+		border-radius: 6px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background-color: #ffdad6;
+		color: #610005;
+		font-family: 'Epilogue', sans-serif;
+		font-size: 12px;
+		font-weight: 900;
+		text-transform: uppercase;
+		flex-shrink: 0;
 	}
 
 	.info {
 		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		gap: 1px;
+
 		p.name {
-			font-size: 13px;
+			font-size: 12px;
+			line-height: 1.1;
 			font-weight: 800;
 			color: #1a1c1c;
 			font-family: 'Epilogue', sans-serif;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			margin: 0;
 		}
+
 		p.role {
-			font-size: 10px;
+			font-size: 9px;
+			line-height: 1.1;
 			color: #78716c;
 			font-family: 'Epilogue', sans-serif;
 			text-transform: uppercase;
 			opacity: 0.7;
+			margin: 0;
 		}
 	}
 
@@ -152,9 +151,14 @@ const UserProfile = styled.div`
 		color: #78716c;
 		cursor: pointer;
 		font-size: 18px;
-		padding: 4px;
+		width: 28px;
+		height: 28px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		border-radius: 4px;
 		transition: color 0.12s, background 0.12s;
+		flex-shrink: 0;
 
 		&:hover {
 			background-color: #e7e5e4;
@@ -164,6 +168,16 @@ const UserProfile = styled.div`
 `
 
 export const Sidebar = ({ navigate, activeView }) => {
+	const userName = localStorage.getItem('userName') || 'Usuário'
+	const userId = localStorage.getItem('userId') || ''
+	const accessLevel = localStorage.getItem('accessLevel') || ''
+	const initials = userName
+		.split(/\s+/)
+		.filter(Boolean)
+		.slice(0, 2)
+		.map(part => part[0])
+		.join('') || 'U'
+
 	const handleLogout = () => {
 		logout()
 		navigate('login')
@@ -216,17 +230,13 @@ export const Sidebar = ({ navigate, activeView }) => {
 			</Nav>
 
 			<SidebarFooter>
-				<NovaVendaBtn onClick={() => navigate('sales')}>Nova Venda</NovaVendaBtn>
 				<UserProfile>
-					<img
-						src='https://lh3.googleusercontent.com/aida-public/AB6AXuA5VgXi1wbpjE8KAklFI9S7PH4-zOdOwyty8vIE8CukR8J06_oAYGqlx_F97T93mlCzAfsCs-ek9omgmFIItVCNVVmT9_H9xdkVmmCjlnYK-64bRQA1Qibx459vqUCYXOEui3IDScurxBZAcBzTK-wWgMC2T_Z62AWTruk-v-kAmTpb1lS4ggOMVm5INqrKwaZSRpSRP-RSq-1TT22vsNfwOv4AMFqu2HiZTWAKM6orM1JS8A7DTGog5DAvXXqJW1Zq0IG27PKpuCQ'
-						alt='Profile'
-					/>
+					<div className='avatar'>{initials}</div>
 					<div className='info'>
-						<p className='name'>Ricardo M.</p>
-						<p className='role'>Admin Access</p>
+						<p className='name'>{userName}</p>
+						<p className='role'>{accessLevel || (userId ? `ID ${userId}` : 'Sessão ativa')}</p>
 					</div>
-					<button className='logout-btn' onClick={handleLogout} title='Sair'>
+					<button className='logout-btn' onClick={handleLogout} title='Sair' aria-label='Sair'>
 						<span className='material-symbols-outlined'>logout</span>
 					</button>
 				</UserProfile>

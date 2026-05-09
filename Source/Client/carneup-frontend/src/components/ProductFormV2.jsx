@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import { Button } from './Button'
 import { Input } from './Input'
 import QuickCreateModal from './QuickCreateModal'
+import NumberField, { parseLocaleNumber } from './NumberField'
 
 const FormContainer = styled.div`
 	background-color: #ffffff;
@@ -47,10 +48,16 @@ const FormContainer = styled.div`
 		.radio-group {
 			display: flex;
 			gap: 16px;
+			flex-wrap: wrap;
 			label {
 				display: flex;
 				align-items: center;
 				gap: 8px;
+				min-height: 42px;
+				padding: 10px 12px;
+				border: 1px solid #e7e5e4;
+				border-radius: 8px;
+				background: #ffffff;
 				cursor: pointer;
 				font-size: 14px;
 				font-weight: 600;
@@ -106,7 +113,8 @@ export const ProductForm = ({ onSubmit, brands: propBrands = [], categories: pro
 		if (!formData.brandId) newErrors.brandId = 'Escolha uma marca ou crie uma nova.'
 		if (!formData.categoryId) newErrors.categoryId = 'Escolha uma categoria ou crie uma nova.'
 		if (!formData.unit) newErrors.unit = 'Unidade é obrigatória.'
-		if (formData.price === '' || formData.price === null || isNaN(Number(formData.price)) || Number(formData.price) < 0) newErrors.price = 'Preço de venda é obrigatório e deve ser >= 0.'
+		const parsedPrice = parseLocaleNumber(formData.price)
+		if (parsedPrice === null || parsedPrice <= 0) newErrors.price = 'Preço de venda é obrigatório e deve ser maior que zero.'
 		setErrors(newErrors)
 		return Object.keys(newErrors).length === 0
 	}
@@ -114,7 +122,7 @@ export const ProductForm = ({ onSubmit, brands: propBrands = [], categories: pro
 	const handleSubmit = (e) => {
 		e.preventDefault()
 		if (!validate()) return
-		onSubmit(formData)
+		onSubmit({ ...formData, price: parseLocaleNumber(formData.price) })
 		setFormData({ name: '', code: '', brandId: '', categoryId: '', unit: 'KG', price: '', perecivel: false })
 	}
 
@@ -205,7 +213,17 @@ export const ProductForm = ({ onSubmit, brands: propBrands = [], categories: pro
 						{errors.unit && <div style={{color:'#bf2b2b',fontSize:13,marginTop:6}}>{errors.unit}</div>}
 					</div>
 					<div className='full-width'>
-						<Input label='Preço Base de Venda (R$)' name='price' type='number' value={formData.price} onChange={handleChange} placeholder='0.00' step='0.01' />
+						<NumberField
+							label='Preço Base de Venda'
+							name='price'
+							value={formData.price}
+							onChange={handleChange}
+							prefix='R$'
+							placeholder='0,00'
+							decimals={2}
+							currencyMask
+							required
+						/>
 						{errors.price && <div style={{color:'#bf2b2b',fontSize:13,marginTop:6}}>{errors.price}</div>}
 					</div>
 				</div>

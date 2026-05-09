@@ -29,6 +29,7 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
                 COALESCE(p.marca.nome, ''),
                 COALESCE(p.categoria.nome, ''),
                 p.unidadeMedida,
+                p.perecivel,
                 p.precoVenda,
                 (SELECT COALESCE(SUM(m.quantidade), 0) FROM Movimentacao m WHERE m.produto = p)
             )
@@ -50,6 +51,7 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
                 COALESCE(p.marca.nome, ''),
                 COALESCE(p.categoria.nome, ''),
                 p.unidadeMedida,
+                p.perecivel,
                 p.precoVenda,
                 (SELECT COALESCE(SUM(m.quantidade), 0) FROM Movimentacao m WHERE m.produto = p)
             )
@@ -66,6 +68,7 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
                 COALESCE(p.marca.nome, ''),
                 COALESCE(p.categoria.nome, ''),
                 p.unidadeMedida,
+                p.perecivel,
                 p.precoVenda,
                 (SELECT COALESCE(SUM(m.quantidade), 0) FROM Movimentacao m WHERE m.produto = p)
             )
