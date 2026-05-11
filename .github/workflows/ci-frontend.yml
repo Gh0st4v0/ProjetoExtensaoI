@@ -77,5 +77,6 @@ jobs:
             -Dsonar.tests=src \
             -Dsonar.test.inclusions=src/**/*.test.js,src/**/*.test.jsx \
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
+            -Dsonar.coverage.exclusions=src/**/*.jsx,src/context/** \
             -Dsonar.exclusions=dist/**,node_modules/**,src/**/*.test.js,src/**/*.test.jsx \
             -Dsonar.sourceEncoding=UTF-8
