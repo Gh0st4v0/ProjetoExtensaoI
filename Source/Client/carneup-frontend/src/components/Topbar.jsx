@@ -75,7 +75,7 @@ const TopbarContainer = styled.header`
 		}
 `
 
-export const Topbar = ({ searchQuery, onSearchChange, children }) => {
+export const Topbar = ({ searchQuery, onSearchChange }) => {
 	return (
 		<TopbarContainer>
 			<div className='search-container'>

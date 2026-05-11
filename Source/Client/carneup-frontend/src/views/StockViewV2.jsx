@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import styled from 'styled-components'
 import { Sidebar } from '../components/Sidebar'
 import { Topbar } from '../components/Topbar'
@@ -9,7 +9,7 @@ import productsApi from '../services/productsApi'
 import { StockForm } from '../components/StockForm'
 import { Footer } from '../components/Footer'
 import { Button } from '../components/Button'
-import { useAttributes } from '../context/AttributesContext'
+import { useAttributes } from '../context/attributes'
 
 // ==========================================
 // STYLED COMPONENTS
@@ -148,7 +148,7 @@ export const StockView = ({ navigate }) => {
 		return () => { mounted = false }
 	}, [])
 
-	const performSearch = async (term, pageIndex = 0) => {
+	const performSearch = useCallback(async (term, pageIndex = 0) => {
 		setIsLoading(true)
 		try {
 			const page = await productsApi.searchProducts(term, pageIndex)
@@ -163,7 +163,7 @@ export const StockView = ({ navigate }) => {
 		} finally {
 			setIsLoading(false)
 		}
-	}
+	}, [])
 
 	// Debounced search when user types
 	useEffect(() => {
@@ -193,7 +193,7 @@ export const StockView = ({ navigate }) => {
 			}, 300)
 		}
 		return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
-	}, [searchQuery, products, selectedCategory])
+	}, [searchQuery, products, selectedCategory, performSearch])
 
 	const handlePageChange = async (page) => {
 		setCurrentPage(page)

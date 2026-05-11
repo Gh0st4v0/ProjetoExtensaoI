@@ -1,0 +1,82 @@
+name: CI Frontend
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - pipeline-only
+    paths:
+      - 'Source/Client/carneup-frontend/**'
+      - '.github/workflows/ci-frontend.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'Source/Client/carneup-frontend/**'
+      - '.github/workflows/ci-frontend.yml'
+
+permissions:
+  contents: read
+
+env:
+  FRONTEND_DIR: Source/Client/carneup-frontend
+  SONAR_PROJECT_KEY_FRONTEND: Gh0st4v0_ProjetoExtensaoI_frontend
+  SONAR_ORGANIZATION: gh0st4v0
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  pipeline:
+    name: Validate and analyze frontend
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ${{ env.FRONTEND_DIR }}
+
+    steps:
+      - name: Checkout do codigo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ${{ env.FRONTEND_DIR }}/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Auditar dependencias
+        run: npm audit --audit-level=moderate
+
+      - name: Validar lint
+        run: npm run lint
+
+      - name: Validar testes e cobertura
+        run: npm run test:coverage
+
+      - name: Validar build
+        run: npm run build
+
+      - name: Analise SonarCloud
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          test -n "$SONAR_TOKEN"
+          test -f coverage/lcov.info
+          npx --yes sonar-scanner \
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY_FRONTEND }} \
+            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }} \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
+            -Dsonar.sources=src \
+            -Dsonar.tests=src \
+            -Dsonar.test.inclusions=src/**/*.test.js,src/**/*.test.jsx \
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
+            -Dsonar.coverage.exclusions=src/**/*.jsx,src/context/** \
+            -Dsonar.exclusions=dist/**,node_modules/**,src/**/*.test.js,src/**/*.test.jsx \
+            -Dsonar.sourceEncoding=UTF-8
