@@ -34,6 +34,21 @@ const PageHeader = styled.div`
 	align-items: center;
 `
 
+const PageTitle = styled.h2`
+	font-family: 'Epilogue', sans-serif;
+	font-size: 28px;
+	font-weight: 900;
+	color: #610005;
+	text-transform: uppercase;
+	margin: 0;
+`
+
+const PageSubtitle = styled.p`
+	color: #5a403c;
+	font-size: 14px;
+	margin: 4px 0 0;
+`
+
 export const DiscardView = ({ navigate }) => {
 	const [modalOpen, setModalOpen] = useState(false)
 	const [discards, setDiscards] = useState([
@@ -107,23 +122,16 @@ export const DiscardView = ({ navigate }) => {
 		<Wrapper>
 			<Sidebar navigate={navigate} activeView='discard' />
 			<MainArea>
-				<Topbar searchQuery={''} onSearchChange={() => {}} />
+				<Topbar title='Descartes' />
 				<ContentContainer>
 					<PageHeader>
 						<div>
-							<h2
-								style={{
-									fontFamily: 'Epilogue',
-									fontWeight: 900,
-									color: '#610005',
-									textTransform: 'uppercase',
-								}}
-							>
+							<PageTitle>
 								Histórico de Descartes
-							</h2>
-							<p style={{ color: '#5a403c' }}>
+							</PageTitle>
+							<PageSubtitle>
 								Registre perdas e visualize descartes realizados.
-							</p>
+							</PageSubtitle>
 						</div>
 						<div>
 							<Button full={false} small onClick={() => setModalOpen(true)}>

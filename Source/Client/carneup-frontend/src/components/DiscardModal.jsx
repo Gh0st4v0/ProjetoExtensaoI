@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import styled from 'styled-components'
 import { Input } from './Input'
 import { Button } from './Button'
+import NumberField from './NumberField'
 
 const Backdrop = styled.div`
   position: fixed;
@@ -87,8 +88,17 @@ export const DiscardModal = ({ open, onClose, onSubmit, products = [] }) => {
             </div>
 
             <div>
-              <label style={{fontSize:10,fontWeight:700,display:'block',marginBottom:8}}>Quantidade</label>
-              <Input name='qty' value={form.qty} onChange={handleChange} placeholder='0.00' required />
+              <NumberField
+                label='Quantidade'
+                name='qty'
+                value={form.qty}
+                onChange={handleChange}
+                suffix={form.unit}
+                placeholder={form.unit === 'Un' ? '0' : '0,000'}
+                decimals={form.unit === 'Un' ? 0 : 3}
+                integer={form.unit === 'Un'}
+                required
+              />
             </div>
 
             <div>

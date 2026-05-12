@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import { Sidebar } from '../components/Sidebar'
 import { Topbar } from '../components/Topbar'
 import { SectionCard } from '../components/SectionCard'
 import { SettingsInput } from '../components/SettingsInput'
+import usersApi from '../services/usersApi'
 
 const Wrapper = styled.div`
   display: flex;
@@ -42,18 +43,17 @@ const PageHeader = styled.div`
 
 const SectionTitle = styled.h1`
   font-family: 'Epilogue', sans-serif;
-  font-size: 36px;
+  font-size: 28px;
   font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: -0.05em;
   margin: 0;
-  color: #1a1c1c;
+  color: #610005;
 `
 
 const SectionDescription = styled.p`
   margin: 0;
   color: #5a403c;
-  font-size: 15px;
+  font-size: 14px;
   max-width: 680px;
 `
 
@@ -91,54 +91,49 @@ const ActionButton = styled.button`
 
 const UsersSection = styled.section`
   display: grid;
-  gap: 24px;
+  gap: 12px;
+`
+
+const UsersHint = styled.p`
+  margin: 0;
+  color: #78716c;
+  font-size: 12px;
 `
 
 const UsersGrid = styled.div`
   display: grid;
   gap: 20px;
   grid-template-columns: 1fr;
-  @media (min-width: 768px) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  @media (min-width: 1280px) {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 `
 
 const UserCard = styled.div`
   background: #ffffff;
-  border-radius: 20px;
-  padding: 24px;
+  border-radius: 8px;
+  padding: 20px;
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 16px;
   border: 1px solid #e5e7eb;
 
-  .top {
+  .avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
     display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 16px;
+    align-items: center;
+    justify-content: center;
+    background: #ffdad6;
+    color: #610005;
+    font-family: 'Epilogue', sans-serif;
+    font-size: 16px;
+    font-weight: 900;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
 
-    img {
-      width: 48px;
-      height: 48px;
-      border-radius: 9999px;
-      object-fit: cover;
-      border: 2px solid #dc2626;
-    }
-
-    span.badge {
-      font-size: 10px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.18em;
-      padding: 6px 10px;
-      border-radius: 9999px;
-      background: #fef2f2;
-      color: #b91c1c;
-    }
+  .details {
+    flex: 1;
+    min-width: 0;
   }
 
   h3 {
@@ -146,31 +141,49 @@ const UserCard = styled.div`
     font-size: 18px;
     font-weight: 900;
     font-family: 'Epilogue', sans-serif;
+    color: #111827;
   }
 
   p {
-    margin: 0;
+    margin: 4px 0 0;
     color: #6b7280;
     font-size: 13px;
   }
 
-  .footer {
+  .meta {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding-top: 16px;
-    border-top: 1px solid #e5e7eb;
-    color: #6b7280;
-    font-size: 12px;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  span.badge {
+    font-size: 10px;
+    font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.15em;
+    padding: 6px 10px;
+    border-radius: 9999px;
+    background: #fef2f2;
+    color: #b91c1c;
   }
 
   button {
-    background: transparent;
-    border: none;
+    width: 36px;
+    height: 36px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #ffffff;
     color: #b91c1c;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover {
+      background: #fff8f7;
+      border-color: #ffdad6;
+    }
   }
 `
 
@@ -359,8 +372,35 @@ const TipCard = styled.div`
   }
 `
 
+const normalizeUser = (user) => ({
+  id: user.id ?? user.userId ?? '',
+  name: user.name ?? user.userName ?? user.nome ?? 'Usuário',
+  email: user.email ?? '',
+  accessLevel: user.accessLevel ?? user.role ?? user.nivelAcesso ?? 'USUARIO',
+})
+
+const getInitials = (name) => String(name || 'Usuário')
+  .split(/\s+/)
+  .filter(Boolean)
+  .slice(0, 2)
+  .map(part => part[0])
+  .join('') || 'U'
+
+const getAccessLabel = (accessLevel) => {
+  if (accessLevel === 'ADM') return 'Administrador'
+  return accessLevel || 'Usuário'
+}
+
 export const SettingsView = ({ navigate }) => {
-  const [searchQuery, setSearchQuery] = useState('')
+  const currentUser = {
+    id: localStorage.getItem('userId') || '',
+    name: localStorage.getItem('userName') || 'Usuário',
+    accessLevel: localStorage.getItem('accessLevel') || 'USUARIO',
+  }
+  const fallbackUsers = [currentUser]
+  const [users, setUsers] = useState(fallbackUsers)
+  const [usersSource, setUsersSource] = useState('session')
+
   const [settings, setSettings] = useState({
     unitName: 'CarneUp Matriz - Centro',
     cnpj: '00.000.000/0001-00',
@@ -375,6 +415,27 @@ export const SettingsView = ({ navigate }) => {
     }))
   }
 
+  useEffect(() => {
+    let mounted = true
+
+    const loadUsers = async () => {
+      try {
+        const data = await usersApi.getUsers()
+        if (!mounted) return
+        const normalized = (Array.isArray(data) ? data : data?.content || []).map(normalizeUser)
+        setUsers(normalized.length ? normalized : fallbackUsers)
+        setUsersSource(normalized.length ? 'api' : 'session')
+      } catch {
+        if (!mounted) return
+        setUsers(fallbackUsers)
+        setUsersSource('session')
+      }
+    }
+
+    loadUsers()
+    return () => { mounted = false }
+  }, [])
+
   const toggleSetting = (field) => {
     setSettings((current) => ({
       ...current,
@@ -386,71 +447,45 @@ export const SettingsView = ({ navigate }) => {
     <Wrapper>
       <Sidebar navigate={navigate} activeView='configuracoes' />
       <MainArea>
-        <Topbar searchQuery={searchQuery} onSearchChange={setSearchQuery} />
+        <Topbar title='Configurações' />
         <PageContent>
           <PageHeader>
             <div>
-              <SectionTitle>Gerenciar Usuários</SectionTitle>
+              <SectionTitle>Configurações</SectionTitle>
               <SectionDescription>
-                Controle de acesso, cargos e convites da equipe CarneUp.
+                Preferências locais, dados da sessão e ajustes visuais do sistema.
               </SectionDescription>
             </div>
             <HeaderActions>
-              <ActionButton type='button'>
-                <span className='material-symbols-outlined'>person_add</span>
-                Adicionar Colaborador
+              <ActionButton type='button' onClick={() => navigate('dashboard')}>
+                <span className='material-symbols-outlined'>dashboard</span>
+                Voltar ao Painel
               </ActionButton>
             </HeaderActions>
           </PageHeader>
 
           <UsersSection>
+            <UsersHint>
+              {usersSource === 'api'
+                ? 'Usuários carregados pelo backend.'
+                : 'Exibindo usuário da sessão. Quando o backend enviar a lista de usuários em /users, esta área será preenchida automaticamente.'}
+            </UsersHint>
             <UsersGrid>
-              <UserCard>
-                <div className='top'>
-                  <img
-                    src='https://lh3.googleusercontent.com/aida-public/AB6AXuBWN0HTKbuVhnhktawYmvNeKj8731INtyXZPS_Q0gHFqflY3OAuYooXNUmWKSMf4AD5XdKWgpf_zGG0BCxWYQfUxRCMfpYORtTwRP-XD33fry_oF4gmOqVla0GAdRCvpg6W3HvQxxwDNpeUCHN9yGKouCqrFY2qUIKrPTH_ZGYFLH3Oh75Q7pm3oAxfVkiWlwPvhlNJsJwwArg0kDpmtAEAMXGAi5PPAgyHSDq9kvzTpZ0DqHRB69tt7av3ZiB4Mh1O4n8L_qUUw_M'
-                    alt='Ricardo Silva'
-                  />
-                  <span className='badge'>Master</span>
-                </div>
-                <h3>Ricardo Silva</h3>
-                <p>ricardo@carneup.com.br</p>
-                <div className='footer'>
-                  <span>Acesso Total</span>
-                  <button type='button'>
-                    <span className='material-symbols-outlined'>edit</span>
+              {users.map((user) => (
+                <UserCard key={user.id || user.name}>
+                  <div className='avatar'>{getInitials(user.name)}</div>
+                  <div className='details'>
+                    <h3>{user.name}</h3>
+                    <p>{user.email || (user.id ? `ID ${user.id}` : 'Sessão ativa')}</p>
+                    <div className='meta'>
+                      <span className='badge'>{getAccessLabel(user.accessLevel)}</span>
+                    </div>
+                  </div>
+                  <button type='button' onClick={() => navigate('login')} title='Trocar usuário'>
+                    <span className='material-symbols-outlined'>manage_accounts</span>
                   </button>
-                </div>
-              </UserCard>
-
-              <UserCard>
-                <div className='top'>
-                  <img
-                    src='https://lh3.googleusercontent.com/aida-public/AB6AXuC1Le8uV8i_Ut_lmoPXl1Y9ldIWkTYcQxlje2S197qU4PHzIF5GvdRp15aVYAP0i4LuWAzUrTgGRkXodWIkbz5O_MPY102XAcjKXWKaPTlJMHw-nzriaoToPF7DsU7iLhJEnN_eWg5m8taL2wraLnwZjDfbFCE4WiMwDi0_JF90numienNdMbuEEgcg3CbLQKef_Nmh2OwDSwebu__gkj2i4QEjTYqz3qNX-pyzU8jpZV9e5ic_7XjUSqHO6vo74n2ss51MFVHok'
-                    alt='Ana Martins'
-                  />
-                  <span className='badge' style={{ background: '#e0f2fe', color: '#0369a1' }}>
-                    Caixa
-                  </span>
-                </div>
-                <h3>Ana Martins</h3>
-                <p>ana.pos@carneup.com.br</p>
-                <div className='footer'>
-                  <span>Vendas & Sangrias</span>
-                  <button type='button'>
-                    <span className='material-symbols-outlined'>edit</span>
-                  </button>
-                </div>
-              </UserCard>
-
-              <UserCard style={{ justifyContent: 'center', textAlign: 'center' }}>
-                <span className='material-symbols-outlined' style={{ fontSize: 36 }}>
-                  add_circle
-                </span>
-                <p style={{ marginTop: 8, color: '#6b7280', fontWeight: 700 }}>
-                  Novo Convite
-                </p>
-              </UserCard>
+                </UserCard>
+              ))}
             </UsersGrid>
           </UsersSection>
 

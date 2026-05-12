@@ -4,6 +4,8 @@ import { Sidebar } from '../components/Sidebar'
 import { Topbar } from '../components/Topbar'
 import productsApi from '../services/productsApi'
 import salesApi from '../services/salesApi'
+import AlertModal from '../components/AlertModal'
+import NumberField, { parseLocaleNumber } from '../components/NumberField'
 
 // Minimal SalesView: search bar at top + product list + cart sidebar
 
@@ -294,6 +296,7 @@ const CartItem = styled.div`
 		.controls {
 			display: flex;
 			gap: 8px;
+			align-items: center;
 			button {
 				width: 40px;
 				height: 40px;
@@ -308,6 +311,23 @@ const CartItem = styled.div`
 				&:hover {
 					background-color: #f5f5f4;
 				}
+			}
+			.qty-input {
+				width: 72px;
+				height: 40px;
+				border: 1px solid #e7e5e4;
+				border-radius: 6px;
+				background-color: #ffffff;
+				color: #1c1917;
+				font-family: 'Epilogue', sans-serif;
+				font-size: 13px;
+				font-weight: 900;
+				text-align: center;
+				outline: none;
+			}
+			.qty-input:focus {
+				border-color: #610005;
+				box-shadow: 0 0 0 3px rgba(97, 0, 5, 0.08);
 			}
 		}
 	}
@@ -458,13 +478,18 @@ const PaymentButton = styled.button`
 
 export const SalesView = ({ navigate }) => {
 	const [pagamentoSelecionado, setPagamentoSelecionado] = useState('dinheiro')
-	const [searchQuery, setSearchQuery] = useState('')
 	const [products, setProducts] = useState([])
 	const [cart, setCart] = useState([])
 	const [selectedCategory, setSelectedCategory] = useState('TODOS')
 	const [editingProductId, setEditingProductId] = useState(null)
 	const [editingQty, setEditingQty] = useState('')
 	const [editingPrice, setEditingPrice] = useState('')
+	const [cartQtyDrafts, setCartQtyDrafts] = useState({})
+	const [alertState, setAlertState] = useState({ open: false })
+
+	const showAlert = ({ title = 'Aviso', message, tone = 'info' }) => {
+		setAlertState({ open: true, title, message, tone })
+	}
 
 	useEffect(() => {
 		let mounted = true
@@ -492,12 +517,8 @@ export const SalesView = ({ navigate }) => {
 		if (selectedCategory && selectedCategory !== 'TODOS') {
 			list = list.filter(p => (p.categoryName || p.category || '').toLowerCase() === selectedCategory.toLowerCase())
 		}
-		const q = (searchQuery || '').trim().toLowerCase()
-		if (q.length >= 2) {
-			list = list.filter(p => (p.name || '').toLowerCase().includes(q) || (p.code || '').toLowerCase().includes(q) || (p.brand || '').toLowerCase().includes(q))
-		}
 		return list
-	}, [products, selectedCategory, searchQuery])
+	}, [products, selectedCategory])
 
 	const handleProductClick = (p) => {
 		// Toggle editing state for inline quantity entry
@@ -507,22 +528,25 @@ export const SalesView = ({ navigate }) => {
 			setEditingPrice('')
 			return
 		}
-		const defaultQty = (p.unit || p.unitMeasurement) === 'UN' ? '1' : '0.5'
+		const defaultQty = (p.unit || p.unitMeasurement) === 'UN' ? '1' : '0,5'
 		setEditingProductId(p.id)
 		setEditingQty(defaultQty)
-		setEditingPrice((p.precoVenda || 0).toString())
+		setEditingPrice(Number(p.precoVenda || 0).toLocaleString('pt-BR', {
+			minimumFractionDigits: 2,
+			maximumFractionDigits: 2,
+		}))
 	}
 
 	const addToCartFromProduct = (p) => {
 		const raw = (editingQty || '').toString().trim()
-		if (!raw) return alert('Quantidade inválida')
-		const parsed = Number(raw.replace(',', '.'))
-		if (isNaN(parsed) || parsed <= 0) return alert('Quantidade inválida')
+		if (!raw) return showAlert({ title: 'Quantidade inválida', message: 'Informe a quantidade do produto.' })
+		const parsed = parseLocaleNumber(raw)
+		if (parsed === null || parsed <= 0) return showAlert({ title: 'Quantidade inválida', message: 'Informe uma quantidade maior que zero.' })
 		const unit = p.unit || p.unitMeasurement || 'UN'
-		if (unit === 'UN' && !Number.isInteger(parsed)) return alert('Quantidade deve ser inteira para UN')
+		if (unit === 'UN' && !Number.isInteger(parsed)) return showAlert({ title: 'Quantidade inválida', message: 'Quantidade deve ser inteira para produtos em UN.' })
 		const priceRaw = (editingPrice || '').toString().trim()
-		const price = priceRaw ? Number(priceRaw.replace(',', '.')) : (p.precoVenda || 0)
-		if (isNaN(price) || price < 0) return alert('Preço inválido')
+		const price = priceRaw ? parseLocaleNumber(priceRaw) : (p.precoVenda || 0)
+		if (price === null || price < 0) return showAlert({ title: 'Preço inválido', message: 'Informe um preço válido para o produto.' })
 		const item = { id: Date.now(), productId: p.id, productName: p.name, qty: parsed, precoUnitarioVenda: price, unit, brand: p.brand || '' }
 		setCart(prev => [item, ...prev])
 		setEditingProductId(null)
@@ -535,16 +559,83 @@ export const SalesView = ({ navigate }) => {
 		setEditingQty('')
 	}
 
-	const updateQty = (id, newQty) => {
-		setCart(prev => prev.map(it => it.id === id ? { ...it, qty: newQty } : it).filter(it => it.qty > 0))
+	const formatCartQty = (value, unit) => {
+		const numeric = Number(value || 0)
+		const isUnit = String(unit || '').toUpperCase() === 'UN'
+		return numeric.toLocaleString('pt-BR', {
+			minimumFractionDigits: 0,
+			maximumFractionDigits: isUnit ? 0 : 3,
+		})
 	}
 
-	const removeFromCart = (id) => setCart(prev => prev.filter(it => it.id !== id))
+	const getQtyStep = (unit) => String(unit || '').toUpperCase() === 'UN' ? 1 : 0.1
+	const normalizeQtyValue = (value) => {
+		const text = String(value ?? '').trim()
+		if (text.includes(',') || !text.includes('.')) return text
+		return text.replace('.', ',')
+	}
+	const roundQty = (value) => Number(Number(value).toFixed(3))
+
+	const updateQty = (id, newQty) => {
+		const numericQty = roundQty(newQty)
+		setCart(prev => prev.map(it => it.id === id ? { ...it, qty: numericQty } : it).filter(it => it.qty > 0))
+		setCartQtyDrafts(prev => {
+			const next = { ...prev }
+			delete next[id]
+			return next
+		})
+	}
+
+	const applyCartQtyDraft = (item) => {
+		const draft = cartQtyDrafts[item.id]
+		if (draft == null) return
+
+		const parsed = parseLocaleNumber(normalizeQtyValue(draft))
+		if (parsed === null || parsed <= 0) {
+			setCartQtyDrafts(prev => {
+				const next = { ...prev }
+				delete next[item.id]
+				return next
+			})
+			return
+		}
+
+		if (String(item.unit || '').toUpperCase() === 'UN' && !Number.isInteger(parsed)) {
+			showAlert({ title: 'Quantidade inválida', message: 'Quantidade deve ser inteira para produtos em UN.' })
+			setCartQtyDrafts(prev => {
+				const next = { ...prev }
+				delete next[item.id]
+				return next
+			})
+			return
+		}
+
+		updateQty(item.id, parsed)
+	}
+
+	const removeFromCart = (id) => {
+		setCart(prev => prev.filter(it => it.id !== id))
+		setCartQtyDrafts(prev => {
+			const next = { ...prev }
+			delete next[id]
+			return next
+		})
+	}
+
+	const clearCart = () => {
+		if (!cart.length) {
+			showAlert({ title: 'Carrinho vazio', message: 'Não há itens para remover.' })
+			return
+		}
+
+		setCart([])
+		setCartQtyDrafts({})
+	}
 
 	const total = cart.reduce((s, it) => s + (Number(it.precoUnitarioVenda || it.price || 0) * Number(it.qty || 0)), 0)
 
 	const handleFinalize = async () => {
-		if (!cart.length) return alert('Carrinho vazio')
+		if (!cart.length) return showAlert({ title: 'Carrinho vazio', message: 'Adicione ao menos um item antes de finalizar a venda.' })
 		const payload = {
 			paymentMethod: pagamentoSelecionado,
 			discount: 0,
@@ -558,11 +649,11 @@ export const SalesView = ({ navigate }) => {
 			if (discards && discards.length) {
 				msg += '\nDescartes aplicados:\n' + discards.map(d => `- ${d.productName || d.productId}: ${d.quantity} ${d.unit || ''}`).join('\n')
 			}
-			alert(msg)
+			showAlert({ title: 'Venda finalizada', message: msg, tone: 'success' })
 			setCart([])
 		} catch (e) {
 			console.error('Erro ao criar venda', e)
-			alert(e?.response?.data?.message || 'Falha ao criar venda')
+			showAlert({ title: 'Falha ao criar venda', message: e?.response?.data?.message || 'Falha ao criar venda' })
 		}
 	}
 
@@ -571,7 +662,7 @@ export const SalesView = ({ navigate }) => {
 				<Sidebar navigate={navigate} activeView='sales' />
 
 				<MainArea>
-					<Topbar searchQuery={searchQuery} onSearchChange={setSearchQuery} />
+					<Topbar title='Vendas' />
 
 					<ContentArea>
 						<ProductSection>
@@ -588,11 +679,11 @@ export const SalesView = ({ navigate }) => {
 										<div style={{marginTop:12,display:'flex',gap:8,alignItems:'center'}} onClick={(e)=>e.stopPropagation()}>
 											<div style={{display:'flex',flexDirection:'column',marginRight:8}}>
 							<label style={{fontSize:11,marginBottom:6,fontWeight:700}}>Qtd</label>
-							<input autoFocus type="number" min="0" step="0.01" value={editingQty} onChange={(e)=>setEditingQty(e.target.value.replace(',','.'))} onKeyDown={(e)=>{ if (e.key === 'Enter') { e.stopPropagation(); addToCartFromProduct(p) } }} style={{padding:8,borderRadius:8,border:'1px solid #e7e5e4',width:120}} />
+							<NumberField autoFocus value={editingQty} onChange={(e)=>setEditingQty(e.target.value)} onKeyDown={(e)=>{ if (e.key === 'Enter') { e.stopPropagation(); addToCartFromProduct(p) } }} suffix={p.unit || p.unitMeasurement} placeholder={(p.unit || p.unitMeasurement) === 'UN' ? '0' : '0,000'} decimals={(p.unit || p.unitMeasurement) === 'UN' ? 0 : 3} integer={(p.unit || p.unitMeasurement) === 'UN'} style={{width:140}} />
 						</div>
 										<div style={{display:'flex',flexDirection:'column',marginRight:8}}>
 							<label style={{fontSize:11,marginBottom:6,fontWeight:700}}>Preço R$</label>
-							<input value={editingPrice} onChange={(e)=>setEditingPrice(e.target.value.replace(',','.'))} onKeyDown={(e)=>{ if (e.key === 'Enter') { e.stopPropagation(); addToCartFromProduct(p) } }} type="number" min="0" step="0.01" style={{padding:8,borderRadius:8,border:'1px solid #e7e5e4',width:120}} />
+							<NumberField value={editingPrice} onChange={(e)=>setEditingPrice(e.target.value)} onKeyDown={(e)=>{ if (e.key === 'Enter') { e.stopPropagation(); addToCartFromProduct(p) } }} prefix='R$' placeholder='0,00' decimals={2} currencyMask style={{width:140}} />
 						</div>
 											<button onClick={(e)=>{e.stopPropagation(); addToCartFromProduct(p)}} style={{padding:'10px 16px',background:'#610005',color:'#fff',border:'none',borderRadius:8}}>Adicionar</button>
 											<button onClick={(e)=>{e.stopPropagation(); cancelEditing()}} style={{padding:'10px 12px',border:'1px solid #e7e5e4',background:'#fff',borderRadius:8}}>Cancelar</button>
@@ -616,7 +707,13 @@ export const SalesView = ({ navigate }) => {
 									<h2>Pedido Atual</h2>
 									<p>Mesa 04 • #88241</p>
 								</div>
-								<button className='delete-btn'>
+								<button
+									type='button'
+									className='delete-btn'
+									onClick={clearCart}
+									aria-label='Limpar carrinho'
+									title='Limpar carrinho'
+								>
 									<span className='material-symbols-outlined'>delete_sweep</span>
 								</button>
 							</CartHeader>
@@ -633,10 +730,23 @@ export const SalesView = ({ navigate }) => {
 										<div className='actions'>
 											<p className='total'>R$ {(Number(it.precoUnitarioVenda || it.price || 0) * Number(it.qty || 0)).toFixed(2)}</p>
 											<div className='controls'>
-												<button onClick={() => updateQty(it.id, Math.max(0, (it.qty || 0) - 1))}>
+												<button onClick={() => updateQty(it.id, Math.max(0, Number(it.qty || 0) - getQtyStep(it.unit)))}>
 												<span className='material-symbols-outlined'>remove</span>
 												</button>
-												<button onClick={() => updateQty(it.id, (it.qty || 0) + 1)}>
+												<input
+													className='qty-input'
+													value={cartQtyDrafts[it.id] ?? formatCartQty(it.qty, it.unit)}
+													onChange={(e) => setCartQtyDrafts(prev => ({ ...prev, [it.id]: e.target.value }))}
+													onBlur={() => applyCartQtyDraft(it)}
+													onKeyDown={(e) => {
+														if (e.key === 'Enter') {
+															e.currentTarget.blur()
+														}
+													}}
+													inputMode={String(it.unit || '').toUpperCase() === 'UN' ? 'numeric' : 'decimal'}
+													aria-label={`Quantidade de ${it.productName}`}
+												/>
+												<button onClick={() => updateQty(it.id, Number(it.qty || 0) + getQtyStep(it.unit))}>
 												<span className='material-symbols-outlined'>add</span>
 												</button>
 											</div>
@@ -714,6 +824,13 @@ export const SalesView = ({ navigate }) => {
 							</CartSidebar>
 						</ContentArea>
 					</MainArea>
+					<AlertModal
+						open={alertState.open}
+						title={alertState.title}
+						message={alertState.message}
+						tone={alertState.tone}
+						onClose={() => setAlertState({ open: false })}
+					/>
 				</Wrapper>
 		)
 }

@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import styled from 'styled-components'
 import { Button } from './Button'
 import { Input } from './Input'
+import NumberField, { parseLocaleNumber } from './NumberField'
 
 const FormContainer = styled.div`
 	background-color: #f5f5f4;
@@ -108,8 +109,8 @@ export const StockForm = ({ products, onSubmit }) => {
 	}
 
 	const calculateMargin = () => {
-		const cost = parseFloat(formData.costPrice) || 0
-		const sale = parseFloat(formData.salePrice) || 0
+		const cost = parseLocaleNumber(formData.costPrice) || 0
+		const sale = parseLocaleNumber(formData.salePrice) || 0
 		if (cost > 0 && sale > 0) {
 			const margin = ((sale - cost) / cost) * 100
 			return margin.toFixed(1) + '%'
@@ -166,14 +167,13 @@ export const StockForm = ({ products, onSubmit }) => {
 				</div>
 
 				<div className='form-grid'>
-					<Input
+					<NumberField
 						label='Quantidade/Peso'
 						name='quantity'
-						type='number'
 						value={formData.quantity}
 						onChange={handleChange}
-						placeholder='0.00'
-						step='0.01'
+						placeholder='0,000'
+						decimals={3}
 						required
 					/>
 
@@ -186,25 +186,27 @@ export const StockForm = ({ products, onSubmit }) => {
 						required
 					/>
 
-					<Input
-						label='Preço de Custo (R$)'
+					<NumberField
+						label='Preço de Custo'
 						name='costPrice'
-						type='number'
 						value={formData.costPrice}
 						onChange={handleChange}
-						placeholder='0.00'
-						step='0.01'
+						prefix='R$'
+						placeholder='0,00'
+						decimals={2}
+						currencyMask
 						required
 					/>
 
-					<Input
-						label='Preço de Venda (R$)'
+					<NumberField
+						label='Preço de Venda'
 						name='salePrice'
-						type='number'
 						value={formData.salePrice}
 						onChange={handleChange}
-						placeholder='0.00'
-						step='0.01'
+						prefix='R$'
+						placeholder='0,00'
+						decimals={2}
+						currencyMask
 						required
 					/>
 				</div>
