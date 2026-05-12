@@ -22,6 +22,7 @@ api.interceptors.response.use(
 			localStorage.removeItem('authToken')
 			localStorage.removeItem('userName')
 			localStorage.removeItem('userId')
+			localStorage.removeItem('accessLevel')
 			window.location.reload()
 		}
 		return Promise.reject(error)

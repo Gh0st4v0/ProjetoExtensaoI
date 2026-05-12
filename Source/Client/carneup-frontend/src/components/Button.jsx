@@ -1,4 +1,5 @@
 import styled, { css } from 'styled-components'
+import { forwardRef } from 'react'
 
 const variants = {
 	primary: css`
@@ -38,7 +39,7 @@ const StyledButton = styled.button`
 	}
 `
 
-export const Button = ({
+export const Button = forwardRef(({
 	children,
 	onClick,
 	disabled = false,
@@ -47,9 +48,11 @@ export const Button = ({
 	full = true,
 	type = 'button',
 	style,
-}) => {
+	...props
+}, ref) => {
 	return (
 		<StyledButton
+			ref={ref}
 			onClick={onClick}
 			disabled={disabled}
 			$variant={variant}
@@ -57,8 +60,11 @@ export const Button = ({
 			$full={full}
 			type={type}
 			style={style}
+			{...props}
 		>
 			{children}
 		</StyledButton>
 	)
-}
+})
+
+Button.displayName = 'Button'

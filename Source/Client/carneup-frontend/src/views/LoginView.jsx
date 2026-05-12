@@ -132,6 +132,7 @@ export const LoginView = ({ navigate }) => {
 				localStorage.setItem('authToken', data.token)
 				localStorage.setItem('userName', data.userName || '')
 				localStorage.setItem('userId', String(data.userId || ''))
+				localStorage.setItem('accessLevel', data.accessLevel || '')
 			}
 			navigate('dashboard')
 		} catch {

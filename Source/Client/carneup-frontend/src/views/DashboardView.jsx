@@ -1,7 +1,6 @@
 import styled from 'styled-components'
 import { Sidebar } from '../components/Sidebar'
 import { Topbar } from '../components/Topbar'
-import { useState } from 'react'
 
 // ==========================================
 // ESTILOS
@@ -77,10 +76,9 @@ const MainCard = styled.div`
 		z-index: 10;
 	}
 	h2 {
-		font-size: 36px;
+		font-size: 28px;
 		font-weight: 900;
 		font-family: 'Epilogue', sans-serif;
-		letter-spacing: -0.05em;
 	}
 	p {
 		color: #ff9085;
@@ -399,13 +397,12 @@ const BottomFooter = styled.footer`
 // ==========================================
 
 export const DashboardView = ({ navigate }) => {
-	const [searchQuery, setSearchQuery] = useState('')
 	return (
 		<Wrapper>
 			<Sidebar navigate={navigate} activeView='dashboard' />
 
 			<MainContent>
-				<Topbar searchQuery={searchQuery} onSearchChange={setSearchQuery} />
+				<Topbar title='Dashboard' />
 
 				<Canvas>
 					<BentoSection>

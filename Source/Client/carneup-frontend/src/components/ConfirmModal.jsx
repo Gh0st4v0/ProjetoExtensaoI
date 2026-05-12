@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 import styled from 'styled-components'
 import { Button } from './Button'
 
@@ -10,6 +10,29 @@ const Card = styled.div`
 `
 
 export const ConfirmModal = ({ open, title='Confirmar', message, onConfirm, onCancel, confirmLabel='Confirmar', loading=false, error=null }) => {
+  const confirmButtonRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return undefined
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        if (!loading) onConfirm?.()
+      }
+
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onCancel?.()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    confirmButtonRef.current?.focus()
+
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [open, loading, onConfirm, onCancel])
+
   if (!open) return null
   return (
     <Backdrop>
@@ -19,7 +42,7 @@ export const ConfirmModal = ({ open, title='Confirmar', message, onConfirm, onCa
         {error && <div style={{color:'#bf2b2b',fontSize:13,marginTop:6}}>{error}</div>}
         <div style={{display:'flex',justifyContent:'flex-end',gap:12,marginTop:16}}>
           <Button variant='secondary' full={false} onClick={onCancel}>Cancelar</Button>
-          <Button full={false} onClick={onConfirm} disabled={loading}>{loading ? '...' : confirmLabel}</Button>
+          <Button ref={confirmButtonRef} full={false} onClick={onConfirm} disabled={loading}>{loading ? '...' : confirmLabel}</Button>
         </div>
       </Card>
     </Backdrop>
