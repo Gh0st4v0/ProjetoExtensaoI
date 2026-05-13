@@ -30,15 +30,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = getTokenFromRequest(request);
 
         if (token != null && tokenProvider.validateToken(token)) {
-            String username = tokenProvider.getUsernameFromToken(token);
-
-            Usuario Usuario = UsuarioRepository.findByNome(username)
-                    .orElseThrow(() -> new RuntimeException("Usuario not found"));
-
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(Usuario, null, new ArrayList<>());
-
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            try {
+                String username = tokenProvider.getUsernameFromToken(token);
+                UsuarioRepository.findByNome(username).ifPresent(usuario -> {
+                    UsernamePasswordAuthenticationToken authentication =
+                            new UsernamePasswordAuthenticationToken(usuario, null, new ArrayList<>());
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                });
+            } catch (Exception ignored) {
+                // Token válido mas usuário não encontrado — deixa a requisição prosseguir
+                // O controller usará o userId do payload ou do claim do token
+            }
         }
 
         filterChain.doFilter(request, response);
