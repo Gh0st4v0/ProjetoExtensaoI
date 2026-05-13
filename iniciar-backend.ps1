@@ -22,5 +22,5 @@ Write-Host "Swagger UI em:   http://localhost:8080/swagger-ui.html"
 Write-Host ""
 
 Push-Location $BACKEND
-& "$BACKEND\mvnw.cmd" spring-boot:run
+& "$BACKEND\mvnw.cmd" clean spring-boot:run
 Pop-Location

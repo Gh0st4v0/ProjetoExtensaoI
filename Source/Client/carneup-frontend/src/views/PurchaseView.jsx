@@ -248,8 +248,8 @@ export const PurchaseView = ({ navigate }) => {
     if (selected?.unit === 'UN' && !Number.isInteger(parsedQty)) e.qty = 'Produtos UN exigem quantidade inteira.'
     const parsedCost = parseFloat(cost)
     if (!cost || isNaN(parsedCost) || parsedCost <= 0) e.cost = 'Informe um preço de custo maior que zero.'
-    if (selected?.perecivel && !expiry) e.expiry = 'Data de validade obrigatória para produtos perecíveis.'
-    if (!selected?.perecivel && expiry) e.expiry = 'Produto não perecível não deve ter data de validade.'
+    if (selected?.perecivel === true && !expiry) e.expiry = 'Data de validade obrigatória para produtos perecíveis.'
+    if (selected?.perecivel === false && expiry) e.expiry = 'Produto não perecível não deve ter data de validade.'
     return e
   }
 
@@ -441,16 +441,18 @@ export const PurchaseView = ({ navigate }) => {
               <Field>
                 <Label>
                   Data de Validade
-                  {selected?.perecivel
+                  {selected?.perecivel === true
                     ? <LabelHint>* obrigatório — produto perecível</LabelHint>
-                    : <LabelHint>— não preencher para não perecíveis</LabelHint>
+                    : selected?.perecivel === false
+                      ? <LabelHint>— não preencher para não perecíveis</LabelHint>
+                      : <LabelHint>— preencha se o produto tiver validade</LabelHint>
                   }
                 </Label>
                 <InputBase
                   type='date'
                   value={expiry}
                   onChange={e => setExpiry(e.target.value)}
-                  disabled={selected && !selected.perecivel}
+                  disabled={selected?.perecivel === false}
                   $error={!!errors.expiry}
                 />
                 {errors.expiry && <ErrorHint>{errors.expiry}</ErrorHint>}
