@@ -259,7 +259,8 @@ const StatusBar = styled.div`
 `
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-const fmt = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
+const fmt  = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
+const MASK = '••••••'
 const DAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
 const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 
@@ -278,6 +279,9 @@ export const DashboardView = ({ navigate }) => {
 	const [avgTicket, setAvgTicket] = useState(0)
 	const [recentSales, setRecentSales] = useState([])
 	const [loading, setLoading] = useState(true)
+	const [hidden, setHidden] = useState(true)   // valores ocultos por padrão
+
+	const val = (formatted) => hidden ? MASK : formatted
 
 	// Clock
 	useEffect(() => {
@@ -320,26 +324,50 @@ export const DashboardView = ({ navigate }) => {
 							<h1>🥩 CarneUp</h1>
 							<p>Painel Operacional · {userName}</p>
 						</Brand>
-						<Clock>
-							<p className='time'>{timeStr}</p>
-							<p className='date'>{dateStr}</p>
-						</Clock>
+						<div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+							<button
+								onClick={() => setHidden(h => !h)}
+								title={hidden ? 'Exibir valores' : 'Ocultar valores'}
+								style={{
+									background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)',
+									borderRadius: 8, padding: '6px 10px', cursor: 'pointer',
+									display: 'flex', alignItems: 'center', gap: 6,
+									color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: 700,
+									textTransform: 'uppercase', letterSpacing: '0.08em',
+								}}
+							>
+								<span className='material-symbols-outlined' style={{ fontSize: 16 }}>
+									{hidden ? 'visibility' : 'visibility_off'}
+								</span>
+								{hidden ? 'Exibir' : 'Ocultar'}
+							</button>
+							<Clock>
+								<p className='time'>{timeStr}</p>
+								<p className='date'>{dateStr}</p>
+							</Clock>
+						</div>
 					</HeroTop>
 
 					<MetricsRow>
 						<Metric>
 							<p className='label'>Faturamento Hoje</p>
-							<p className='value'>{loading ? '—' : fmt(todayTotal)}</p>
-							<p className='sub'>{todayCount} venda{todayCount !== 1 ? 's' : ''} realizadas</p>
+							<p className='value' style={hidden ? { letterSpacing: 3 } : {}}>
+								{loading ? '—' : val(fmt(todayTotal))}
+							</p>
+							<p className='sub'>{val(`${todayCount} venda${todayCount !== 1 ? 's' : ''} realizadas`)}</p>
 						</Metric>
 						<Metric>
 							<p className='label'>Qtd. de Vendas</p>
-							<p className='value'>{loading ? '—' : todayCount}</p>
+							<p className='value' style={hidden ? { letterSpacing: 3 } : {}}>
+								{loading ? '—' : val(String(todayCount))}
+							</p>
 							<p className='sub'>no dia de hoje</p>
 						</Metric>
 						<Metric>
 							<p className='label'>Ticket Médio</p>
-							<p className='value'>{loading ? '—' : fmt(avgTicket)}</p>
+							<p className='value' style={hidden ? { letterSpacing: 3 } : {}}>
+								{loading ? '—' : val(fmt(avgTicket))}
+							</p>
 							<p className='sub'>por atendimento</p>
 						</Metric>
 					</MetricsRow>
@@ -392,7 +420,9 @@ export const DashboardView = ({ navigate }) => {
 										<p className='date'>{s.saleDate || s.date || '—'}</p>
 									</SaleInfo>
 									<SaleRight>
-										<p className='value'>{fmt(s.totalValue || s.totalPrice)}</p>
+										<p className='value' style={hidden ? { letterSpacing: 3 } : {}}>
+											{val(fmt(s.totalValue || s.totalPrice))}
+										</p>
 										<PayBadge $m={s.paymentMethod}>{s.paymentMethod}</PayBadge>
 									</SaleRight>
 								</SaleRow>
