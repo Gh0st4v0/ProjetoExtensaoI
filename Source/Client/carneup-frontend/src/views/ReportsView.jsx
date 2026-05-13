@@ -1,229 +1,509 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import styled from 'styled-components'
 import { Sidebar } from '../components/Sidebar'
-import { Topbar } from '../components/Topbar'
 import api from '../services/apiClient'
 
+// ── Styles ─────────────────────────────────────────────────────────────────────
+
 const Wrapper = styled.div`
-	display: flex;
-	min-height: 100vh;
-	background: #f9f9f9;
-	font-family: 'Work Sans', sans-serif;
+  display: flex; min-height: 100vh;
+  background: var(--bg); font-family: 'Work Sans', sans-serif;
 `
-const MainArea = styled.main`
-	flex: 1;
-	display: flex;
-	flex-direction: column;
-	min-width: 0;
+const Main = styled.main`
+  flex: 1; display: flex; flex-direction: column; min-width: 0; overflow-x: hidden;
+`
+const Header = styled.div`
+  background: var(--sidebar-bg); padding: 16px 28px;
+  display: flex; align-items: center; gap: 16px;
+`
+const PageTitle = styled.h1`
+  font-family: 'Epilogue', sans-serif; font-size: 18px; font-weight: 900;
+  color: #fff; text-transform: uppercase; letter-spacing: 0.05em; margin: 0;
 `
 const Content = styled.div`
-	padding: 32px;
-	max-width: 1280px;
-	margin: 0 auto;
-	width: 100%;
-	display: flex;
-	flex-direction: column;
-	gap: 28px;
+  padding: 24px 28px; display: flex; flex-direction: column; gap: 20px; flex: 1;
 `
-const PageTitle = styled.h2`
-	font-family: 'Epilogue', sans-serif;
-	font-weight: 900;
-	color: #610005;
-	text-transform: uppercase;
-	font-size: 28px;
-	margin: 0;
+
+// Tabs
+const Tabs = styled.div`
+  display: flex; gap: 4px; background: #fff;
+  border-radius: var(--radius-lg); padding: 4px;
+  border: 1px solid var(--border); flex-wrap: wrap;
 `
-const FilterCard = styled.div`
-	background: #fff;
-	border-radius: 12px;
-	padding: 24px;
-	border: 1px solid #f0f0f0;
-	display: flex;
-	gap: 16px;
-	align-items: flex-end;
-	flex-wrap: wrap;
+const Tab = styled.button`
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border: none; border-radius: var(--radius);
+  font-size: 12px; font-weight: 700; cursor: pointer;
+  font-family: 'Work Sans', sans-serif; white-space: nowrap;
+  background: ${p => p.$a ? 'var(--brand)' : 'transparent'};
+  color: ${p => p.$a ? '#fff' : 'var(--text-sub)'};
+  transition: all 0.15s;
+  &:hover { background: ${p => p.$a ? 'var(--brand-hover)' : 'var(--bg)'}; color: ${p => p.$a ? '#fff' : 'var(--text)'}; }
+  span { font-size: 15px; }
 `
-const Field = styled.div`display: flex; flex-direction: column; gap: 6px;`
-const FieldLabel = styled.label`
-	font-size: 10px; font-weight: 700; text-transform: uppercase;
-	letter-spacing: 0.1em; color: #5a403c;
+
+// Filter bar
+const FilterBar = styled.div`
+  display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;
+  background: #fff; border-radius: var(--radius-lg); padding: 16px 20px;
+  border: 1px solid var(--border);
 `
-const DateInput = styled.input`
-	padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 8px;
-	font-size: 14px; font-family: 'Work Sans', sans-serif;
+const FField = styled.div`display: flex; flex-direction: column; gap: 5px;`
+const FLabel = styled.label`
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.15em; color: var(--muted);
 `
-const BtnGerar = styled.button`
-	padding: 10px 24px; background: #610005; color: #fff;
-	border: none; border-radius: 8px; font-family: 'Epilogue', sans-serif;
-	font-weight: 900; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em;
-	cursor: pointer; white-space: nowrap;
-	&:hover { background: #7f1d1d; }
-	&:disabled { opacity: 0.6; cursor: not-allowed; }
+const FInput = styled.input`
+  padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius);
+  font-size: 13px; font-family: 'Work Sans', sans-serif; background: var(--bg);
+  &:focus { outline: none; border-color: var(--brand); background: #fff; }
 `
-const SummaryGrid = styled.div`
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-	gap: 16px;
+const FSelect = styled.select`
+  padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius);
+  font-size: 13px; font-family: 'Work Sans', sans-serif; background: var(--bg);
 `
-const SummaryCard = styled.div`
-	background: #fff; border-radius: 10px; padding: 20px;
-	border-left: 4px solid ${p => p.$color || '#610005'};
-	box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-	p.label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: #78716c; margin: 0 0 8px; }
-	p.value { font-size: 28px; font-weight: 900; font-family: 'Epilogue', sans-serif; color: #1a1c1c; margin: 0; }
-	p.sub { font-size: 12px; color: #78716c; margin: 4px 0 0; }
+const GenBtn = styled.button`
+  padding: 9px 20px; background: var(--brand); color: #fff;
+  border: none; border-radius: var(--radius); font-family: 'Epilogue', sans-serif;
+  font-weight: 900; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
+  cursor: pointer; white-space: nowrap;
+  &:hover { background: var(--brand-hover); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
 `
-const TableWrapper = styled.div`
-	background: #fff; border-radius: 12px; padding: 24px;
-	border: 1px solid #f0f0f0; overflow-x: auto;
+
+// Summary cards
+const SumGrid = styled.div`
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+`
+const SumCard = styled.div`
+  background: #fff; border-radius: var(--radius-lg); padding: 16px 18px;
+  border-left: 3px solid ${p => p.$c || 'var(--brand)'};
+  border: 1px solid var(--border); border-left-width: 3px;
+  p.lbl { font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin: 0 0 6px; }
+  p.val { font-family: 'Epilogue', sans-serif; font-size: 22px; font-weight: 900; color: var(--text); margin: 0; }
+  p.sub { font-size: 10px; color: var(--muted); margin: 3px 0 0; }
+`
+
+// Table
+const TableWrap = styled.div`
+  background: #fff; border-radius: var(--radius-lg); border: 1px solid var(--border); overflow: hidden;
+`
+const TableHead = styled.div`
+  padding: 14px 20px; border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+  h3 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text); margin: 0; }
+  span.cnt { font-size: 11px; color: var(--muted); }
 `
 const Table = styled.table`
-	width: 100%; border-collapse: collapse; font-size: 14px;
-	th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
-		color: #78716c; padding: 8px 12px; border-bottom: 2px solid #f0f0f0; }
-	td { padding: 12px; border-bottom: 1px solid #f9f9f9; color: #1a1c1c; }
-	tr:hover td { background: #fafafa; }
+  width: 100%; border-collapse: collapse; font-size: 12px;
+  th { text-align: left; font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em;
+       color: var(--muted); padding: 10px 16px; border-bottom: 1px solid var(--border); font-weight: 700; }
+  td { padding: 10px 16px; border-bottom: 1px solid #f9f8f8; color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafaf9; }
+`
+const Empty = styled.div`
+  padding: 40px; text-align: center; color: var(--muted);
+  span { display: block; font-size: 36px; margin-bottom: 8px; }
+`
+const Loading = styled.div`
+  padding: 32px; text-align: center; color: var(--muted); font-size: 13px;
 `
 const Badge = styled.span`
-	font-size: 10px; font-weight: 700; text-transform: uppercase;
-	padding: 3px 8px; border-radius: 6px;
-	background: ${p => ({ PIX: '#f0fdf4', DINHEIRO: '#fffbeb', CREDITO: '#eff6ff', DEBITO: '#faf5ff' })[p.$method] || '#f3f4f6'};
-	color: ${p => ({ PIX: '#15803d', DINHEIRO: '#b45309', CREDITO: '#1d4ed8', DEBITO: '#7c3aed' })[p.$method] || '#374151'};
+  display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700;
+  background: ${p => p.$c || '#f0f0f0'}; color: ${p => p.$t || '#374151'};
 `
-const EmptyMsg = styled.p`color: #78716c; text-align: center; padding: 40px; font-size: 14px;`
-const ErrorMsg = styled.p`color: #b91c1c; font-size: 13px;`
+const AlertBadge = styled.span`
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700;
+  background: ${p => p.$d <= 3 ? '#fef2f2' : p.$d <= 7 ? '#fffbeb' : '#f0fdf4'};
+  color: ${p => p.$d <= 3 ? '#b91c1c' : p.$d <= 7 ? '#b45309' : '#15803d'};
+`
 
-const fmt = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
-const pct = (a, b) => (b && b > 0) ? (((a - b) / b) * 100).toFixed(1) + '%' : '-'
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
-const today = () => new Date().toISOString().slice(0, 10)
-const firstDayOfMonth = () => {
-	const d = new Date()
-	return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10)
-}
+const fmt  = v  => new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(v||0)
+const pct  = v  => `${Number(v||0).toFixed(1)}%`
+const today = () => new Date().toISOString().slice(0,10)
+const daysAgo = n => { const d = new Date(); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10) }
+const firstOfMonth = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0,10) }
+const daysUntil = dateStr => { if(!dateStr) return 999; const diff = new Date(dateStr) - new Date(); return Math.ceil(diff/86400000) }
+
+const PAY_COLORS = { PIX:{c:'#f0fdf4',t:'#15803d'}, DINHEIRO:{c:'#fffbeb',t:'#b45309'}, CREDITO:{c:'#eff6ff',t:'#1d4ed8'}, DEBITO:{c:'#faf5ff',t:'#7c3aed'} }
+
+const TABS = [
+  { id:'vendas',   label:'Vendas',          icon:'point_of_sale' },
+  { id:'estoque',  label:'Estoque Atual',   icon:'inventory_2' },
+  { id:'validade', label:'Validade',        icon:'event_busy' },
+  { id:'descartes',label:'Descartes/Perdas',icon:'delete_forever' },
+  { id:'compras',  label:'Compras',         icon:'shopping_cart' },
+  { id:'cmv',      label:'CMV & Margem',    icon:'trending_up' },
+]
+
+// ── Component ──────────────────────────────────────────────────────────────────
 
 export const ReportsView = ({ navigate }) => {
-	const [startDate, setStartDate] = useState(firstDayOfMonth())
-	const [endDate, setEndDate] = useState(today())
-	const [sales, setSales] = useState(null)
-	const [loading, setLoading] = useState(false)
-	const [error, setError] = useState('')
+  const [activeTab, setActiveTab] = useState('vendas')
 
-	const handleGenerate = () => {
-		if (!startDate || !endDate) return
-		setLoading(true)
-		setError('')
-		api.get(`/sales?startDate=${startDate}&endDate=${endDate}`)
-			.then(r => setSales(r.data || []))
-			.catch(() => setError('Erro ao buscar relatório. Tente novamente.'))
-			.finally(() => setLoading(false))
-	}
+  // Filters
+  const [startDate, setStartDate] = useState(firstOfMonth())
+  const [endDate,   setEndDate]   = useState(today())
+  const [expiryDays, setExpiryDays] = useState('30')
 
-	const totalRevenue = sales?.reduce((a, s) => a + (s.totalPrice || 0), 0) || 0
-	const totalCost = sales?.reduce((a, s) => a + (s.totalCost || 0), 0) || 0
-	const totalProfit = totalRevenue - totalCost
-	const margin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : 0
+  // Data
+  const [data, setData]       = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError]     = useState('')
 
-	return (
-		<Wrapper>
-			<Sidebar navigate={navigate} activeView='reports' />
-			<MainArea>
-				<Topbar searchQuery='' onSearchChange={() => {}} />
-				<Content>
-					<div>
-						<PageTitle>Relatórios de Vendas</PageTitle>
-						<p style={{ color: '#5a403c', margin: '4px 0 0' }}>Analise o desempenho por período.</p>
-					</div>
+  const load = useCallback(async () => {
+    setLoading(true); setError(''); setData(null)
+    try {
+      if (activeTab === 'vendas' || activeTab === 'cmv') {
+        const r = await api.get(`/sales?startDate=${startDate}&endDate=${endDate}`)
+        setData(r.data || [])
+      } else if (activeTab === 'estoque' || activeTab === 'validade') {
+        const r = await api.get('/products/purchases')
+        setData(r.data || [])
+      } else if (activeTab === 'descartes') {
+        const r = await api.get('/discards')
+        setData(r.data || [])
+      } else if (activeTab === 'compras') {
+        const r = await api.get('/purchases?page=0')
+        setData(r.data?.content || r.data || [])
+      }
+    } catch { setError('Erro ao buscar dados. Verifique se o backend está rodando.') }
+    setLoading(false)
+  }, [activeTab, startDate, endDate])
 
-					<FilterCard>
-						<Field>
-							<FieldLabel>Data Inicial</FieldLabel>
-							<DateInput type='date' value={startDate} onChange={e => setStartDate(e.target.value)} />
-						</Field>
-						<Field>
-							<FieldLabel>Data Final</FieldLabel>
-							<DateInput type='date' value={endDate} onChange={e => setEndDate(e.target.value)} />
-						</Field>
-						<BtnGerar onClick={handleGenerate} disabled={loading}>
-							{loading ? 'Gerando...' : 'Gerar Relatório'}
-						</BtnGerar>
-					</FilterCard>
+  // Auto-load estoque, validade, descartes on tab change
+  useEffect(() => {
+    if (['estoque','validade','descartes','compras'].includes(activeTab)) load()
+    else setData(null)
+  }, [activeTab]) // eslint-disable-line
 
-					{error && <ErrorMsg>{error}</ErrorMsg>}
+  // ── Render helpers ─────────────────────────────────────────────────────────
 
-					{sales !== null && (
-						<>
-							<SummaryGrid>
-								<SummaryCard $color='#610005'>
-									<p className='label'>Faturamento</p>
-									<p className='value'>{fmt(totalRevenue)}</p>
-									<p className='sub'>{sales.length} venda{sales.length !== 1 ? 's' : ''} no período</p>
-								</SummaryCard>
-								<SummaryCard $color='#b45309'>
-									<p className='label'>Custo Total</p>
-									<p className='value'>{fmt(totalCost)}</p>
-									<p className='sub'>CMV do período</p>
-								</SummaryCard>
-								<SummaryCard $color='#15803d'>
-									<p className='label'>Lucro Bruto</p>
-									<p className='value'>{fmt(totalProfit)}</p>
-									<p className='sub'>Margem: {margin}%</p>
-								</SummaryCard>
-								<SummaryCard $color='#1d4ed8'>
-									<p className='label'>Ticket Médio</p>
-									<p className='value'>{fmt(sales.length > 0 ? totalRevenue / sales.length : 0)}</p>
-									<p className='sub'>Por venda</p>
-								</SummaryCard>
-							</SummaryGrid>
+  const renderFilters = () => {
+    if (['estoque','validade','descartes'].includes(activeTab)) {
+      if (activeTab === 'validade') return (
+        <FilterBar>
+          <FField>
+            <FLabel>Vencimento nos próximos</FLabel>
+            <FSelect value={expiryDays} onChange={e => setExpiryDays(e.target.value)}>
+              <option value='7'>7 dias</option>
+              <option value='15'>15 dias</option>
+              <option value='30'>30 dias</option>
+              <option value='60'>60 dias</option>
+            </FSelect>
+          </FField>
+          <GenBtn onClick={load} disabled={loading}>Atualizar</GenBtn>
+        </FilterBar>
+      )
+      return null
+    }
+    return (
+      <FilterBar>
+        <FField>
+          <FLabel>Data Inicial</FLabel>
+          <FInput type='date' value={startDate} onChange={e => setStartDate(e.target.value)} />
+        </FField>
+        <FField>
+          <FLabel>Data Final</FLabel>
+          <FInput type='date' value={endDate} onChange={e => setEndDate(e.target.value)} />
+        </FField>
+        <GenBtn onClick={load} disabled={loading}>{loading ? 'Carregando...' : 'Gerar Relatório'}</GenBtn>
+      </FilterBar>
+    )
+  }
 
-							<TableWrapper>
-								<h3 style={{ fontFamily: 'Epilogue', fontWeight: 900, color: '#7f1d1d', margin: '0 0 16px', fontSize: 18 }}>
-									Detalhamento das Vendas
-								</h3>
-								{sales.length === 0 ? (
-									<EmptyMsg>Nenhuma venda encontrada no período selecionado.</EmptyMsg>
-								) : (
-									<Table>
-										<thead>
-											<tr>
-												<th>#</th>
-												<th>Data</th>
-												<th>Vendedor</th>
-												<th>Pagamento</th>
-												<th style={{ textAlign: 'right' }}>Custo</th>
-												<th style={{ textAlign: 'right' }}>Faturamento</th>
-												<th style={{ textAlign: 'right' }}>Margem</th>
-											</tr>
-										</thead>
-										<tbody>
-											{sales.map(s => {
-												const rev = s.totalPrice || 0
-												const cost = s.totalCost || 0
-												const m = rev > 0 ? (((rev - cost) / rev) * 100).toFixed(1) : '0.0'
-												return (
-													<tr key={s.id}>
-														<td style={{ color: '#78716c' }}>#{s.id}</td>
-														<td>{s.saleDate}</td>
-														<td>{s.salesmanName || '—'}</td>
-														<td><Badge $method={s.paymentMethod}>{s.paymentMethod}</Badge></td>
-														<td style={{ textAlign: 'right' }}>{fmt(cost)}</td>
-														<td style={{ textAlign: 'right', fontWeight: 700 }}>{fmt(rev)}</td>
-														<td style={{ textAlign: 'right', color: parseFloat(m) >= 0 ? '#15803d' : '#b91c1c' }}>
-															{m}%
-														</td>
-													</tr>
-												)
-											})}
-										</tbody>
-									</Table>
-								)}
-							</TableWrapper>
-						</>
-					)}
-				</Content>
-			</MainArea>
-		</Wrapper>
-	)
+  const renderContent = () => {
+    if (loading) return <Loading>Carregando dados...</Loading>
+    if (error) return <Empty><span className='material-symbols-outlined'>error</span>{error}</Empty>
+    if (!data) return <Empty><span className='material-symbols-outlined'>bar_chart</span>Selecione um período e clique em Gerar Relatório.</Empty>
+
+    // ── VENDAS ──────────────────────────────────────────────────────────────────
+    if (activeTab === 'vendas') {
+      const sales = data
+      const revenue = sales.reduce((a,s) => a+(s.totalPrice||0), 0)
+      const cost    = sales.reduce((a,s) => a+(s.totalCost||0), 0)
+      const profit  = revenue - cost
+      const margin  = revenue > 0 ? (profit/revenue)*100 : 0
+      const avg     = sales.length > 0 ? revenue/sales.length : 0
+
+      const byPayment = sales.reduce((acc,s) => { acc[s.paymentMethod]=(acc[s.paymentMethod]||0)+1; return acc }, {})
+
+      return (
+        <>
+          <SumGrid>
+            <SumCard $c='var(--brand)'><p className='lbl'>Faturamento</p><p className='val'>{fmt(revenue)}</p><p className='sub'>{sales.length} vendas</p></SumCard>
+            <SumCard $c='var(--warning)'><p className='lbl'>Custo (CMV)</p><p className='val'>{fmt(cost)}</p><p className='sub'>Mercadoria vendida</p></SumCard>
+            <SumCard $c='var(--success)'><p className='lbl'>Lucro Bruto</p><p className='val'>{fmt(profit)}</p><p className='sub'>Margem: {pct(margin)}</p></SumCard>
+            <SumCard $c='var(--info)'><p className='lbl'>Ticket Médio</p><p className='val'>{fmt(avg)}</p><p className='sub'>Por venda</p></SumCard>
+          </SumGrid>
+
+          {Object.keys(byPayment).length > 0 && (
+            <SumGrid>
+              {Object.entries(byPayment).map(([m,c]) => (
+                <SumCard key={m} $c='#e7e5e4'>
+                  <p className='lbl'>Pagamento</p>
+                  <p className='val' style={{ fontSize:16 }}>{m}</p>
+                  <p className='sub'>{c} venda{c!==1?'s':''} · {pct((c/sales.length)*100)}</p>
+                </SumCard>
+              ))}
+            </SumGrid>
+          )}
+
+          <TableWrap>
+            <TableHead><h3>Detalhamento</h3><span className='cnt'>{sales.length} registros</span></TableHead>
+            {sales.length === 0
+              ? <Empty><span className='material-symbols-outlined'>receipt_long</span>Nenhuma venda no período.</Empty>
+              : <Table><thead><tr>
+                  <th>#</th><th>Data</th><th>Vendedor</th><th>Pagamento</th>
+                  <th style={{textAlign:'right'}}>Custo</th>
+                  <th style={{textAlign:'right'}}>Faturamento</th>
+                  <th style={{textAlign:'right'}}>Margem</th>
+                </tr></thead>
+                <tbody>{sales.map(s => {
+                  const r=s.totalPrice||0, c=s.totalCost||0
+                  const m=r>0?((r-c)/r*100):0
+                  const pc=PAY_COLORS[s.paymentMethod]||{}
+                  return (<tr key={s.id}>
+                    <td style={{color:'var(--muted)'}}>#{s.id}</td>
+                    <td>{s.saleDate}</td>
+                    <td>{s.salesmanName||'—'}</td>
+                    <td><Badge $c={pc.c} $t={pc.t}>{s.paymentMethod}</Badge></td>
+                    <td style={{textAlign:'right'}}>{fmt(c)}</td>
+                    <td style={{textAlign:'right',fontWeight:700}}>{fmt(r)}</td>
+                    <td style={{textAlign:'right',color:m>=20?'var(--success)':m>=10?'var(--warning)':'var(--danger)'}}>{pct(m)}</td>
+                  </tr>)
+                })}</tbody></Table>}
+          </TableWrap>
+        </>
+      )
+    }
+
+    // ── ESTOQUE ─────────────────────────────────────────────────────────────────
+    if (activeTab === 'estoque') {
+      const products = data
+      const total = products.reduce((a,p) => a + (p.purchases||[]).reduce((b,l) => b+Number(l.quantity||0), 0), 0)
+      const lowStock = products.filter(p => (p.purchases||[]).reduce((a,l)=>a+Number(l.quantity||0),0) < 5)
+      return (
+        <>
+          <SumGrid>
+            <SumCard $c='var(--brand)'><p className='lbl'>Produtos em Estoque</p><p className='val'>{products.length}</p><p className='sub'>Com ao menos 1 lote</p></SumCard>
+            <SumCard $c='var(--danger)'><p className='lbl'>Estoque Baixo (&lt;5)</p><p className='val'>{lowStock.length}</p><p className='sub'>Precisam reposição</p></SumCard>
+          </SumGrid>
+          <TableWrap>
+            <TableHead><h3>Estoque por Produto</h3><span className='cnt'>{products.length} produtos</span></TableHead>
+            {products.length === 0
+              ? <Empty><span className='material-symbols-outlined'>inventory_2</span>Nenhum produto com estoque.</Empty>
+              : <Table><thead><tr><th>Produto</th><th>Código</th><th>Marca</th><th>Unid.</th><th>Lotes</th><th style={{textAlign:'right'}}>Qtd. Total</th><th>Status</th></tr></thead>
+                <tbody>{products.map(p => {
+                  const qty = (p.purchases||[]).reduce((a,l)=>a+Number(l.quantity||0),0)
+                  return (<tr key={p.id}>
+                    <td style={{fontWeight:700}}>{p.product_name}</td>
+                    <td style={{color:'var(--muted)'}}>{p.code}</td>
+                    <td>{p.brand_name||'—'}</td>
+                    <td><Badge $c='#f5f5f4' $t='var(--text-sub)'>{p.unitMeasurement}</Badge></td>
+                    <td style={{textAlign:'center'}}>{(p.purchases||[]).length}</td>
+                    <td style={{textAlign:'right',fontWeight:700}}>{qty.toFixed(3).replace(/\.?0+$/,'')}</td>
+                    <td>
+                      {qty<=0 ? <Badge $c='#fef2f2' $t='var(--danger)'>Sem Estoque</Badge>
+                        : qty<5 ? <Badge $c='#fffbeb' $t='var(--warning)'>Baixo</Badge>
+                        : <Badge $c='#f0fdf4' $t='var(--success)'>OK</Badge>}
+                    </td>
+                  </tr>)
+                })}</tbody></Table>}
+          </TableWrap>
+        </>
+      )
+    }
+
+    // ── VALIDADE ────────────────────────────────────────────────────────────────
+    if (activeTab === 'validade') {
+      const maxDays = parseInt(expiryDays)
+      const lots = []
+      data.forEach(p => {
+        (p.purchases||[]).forEach(l => {
+          if (!l.expiring_date) return
+          const d = daysUntil(l.expiring_date)
+          if (d <= maxDays) lots.push({ ...l, productName: p.product_name, code: p.code, unit: p.unitMeasurement, daysLeft: d })
+        })
+      })
+      lots.sort((a,b) => a.daysLeft - b.daysLeft)
+      const expired   = lots.filter(l => l.daysLeft <= 0)
+      const critical  = lots.filter(l => l.daysLeft > 0 && l.daysLeft <= 3)
+      const attention = lots.filter(l => l.daysLeft > 3 && l.daysLeft <= 7)
+      return (
+        <>
+          <SumGrid>
+            <SumCard $c='var(--danger)'><p className='lbl'>Vencidos</p><p className='val'>{expired.length}</p><p className='sub'>Lotes expirados</p></SumCard>
+            <SumCard $c='#dc2626'><p className='lbl'>Crítico (≤3 dias)</p><p className='val'>{critical.length}</p><p className='sub'>Atenção imediata</p></SumCard>
+            <SumCard $c='var(--warning)'><p className='lbl'>Atenção (4-7 dias)</p><p className='val'>{attention.length}</p><p className='sub'>Monitorar</p></SumCard>
+            <SumCard $c='var(--success)'><p className='lbl'>No Prazo</p><p className='val'>{lots.length - expired.length - critical.length - attention.length}</p><p className='sub'>Vence em {expiryDays}+ dias</p></SumCard>
+          </SumGrid>
+          <TableWrap>
+            <TableHead><h3>Lotes por Validade</h3><span className='cnt'>{lots.length} lotes</span></TableHead>
+            {lots.length === 0
+              ? <Empty><span className='material-symbols-outlined'>event_available</span>Nenhum lote vencendo nos próximos {expiryDays} dias.</Empty>
+              : <Table><thead><tr><th>Produto</th><th>Código</th><th>Lote #</th><th>Validade</th><th style={{textAlign:'right'}}>Qtd</th><th>Situação</th></tr></thead>
+                <tbody>{lots.map((l,i) => (
+                  <tr key={i}>
+                    <td style={{fontWeight:700}}>{l.productName}</td>
+                    <td style={{color:'var(--muted)'}}>{l.code}</td>
+                    <td style={{color:'var(--muted)'}}>#{l.purchase_id}</td>
+                    <td>{l.expiring_date}</td>
+                    <td style={{textAlign:'right'}}>{Number(l.quantity||0).toFixed(3).replace(/\.?0+$/,'')} {l.unit}</td>
+                    <td>
+                      <AlertBadge $d={l.daysLeft}>
+                        {l.daysLeft <= 0 ? '⚠ Vencido' : `${l.daysLeft}d restante${l.daysLeft!==1?'s':''}`}
+                      </AlertBadge>
+                    </td>
+                  </tr>
+                ))}</tbody></Table>}
+          </TableWrap>
+        </>
+      )
+    }
+
+    // ── DESCARTES ───────────────────────────────────────────────────────────────
+    if (activeTab === 'descartes') {
+      const MOTIVO_LABELS = { VENCIMENTO:'Vencimento', DANO:'Dano/Avaria', ROUBO:'Roubo', PERDA_PESO:'Perda de Peso', CONSUMO_PESSOAL:'Consumo Pessoal', OUTRO:'Outro' }
+      const byType = data.reduce((acc,d) => { acc[d.type]=(acc[d.type]||0)+1; return acc },{})
+      return (
+        <>
+          <SumGrid>
+            <SumCard $c='var(--danger)'><p className='lbl'>Total de Descartes</p><p className='val'>{data.length}</p><p className='sub'>Registros de perda</p></SumCard>
+            {Object.entries(byType).map(([t,c]) => (
+              <SumCard key={t} $c='#e7e5e4'><p className='lbl'>{MOTIVO_LABELS[t]||t}</p><p className='val'>{c}</p><p className='sub'>registros</p></SumCard>
+            ))}
+          </SumGrid>
+          <TableWrap>
+            <TableHead><h3>Histórico de Descartes</h3><span className='cnt'>{data.length} registros</span></TableHead>
+            {data.length === 0
+              ? <Empty><span className='material-symbols-outlined'>delete_forever</span>Nenhum descarte registrado.</Empty>
+              : <Table><thead><tr><th>#</th><th>Data</th><th>Motivo</th><th>Produtos Descartados</th></tr></thead>
+                <tbody>{data.map(d => (
+                  <tr key={d.id}>
+                    <td style={{color:'var(--muted)'}}>#{d.id}</td>
+                    <td>{d.date}</td>
+                    <td><Badge $c='#fef2f2' $t='var(--danger)'>{MOTIVO_LABELS[d.type]||d.type}</Badge></td>
+                    <td>{(d.items||[]).map((it,i) => (
+                      <span key={i} style={{display:'block',fontSize:11}}>
+                        {it.productName} — {Number(it.quantity||0).toFixed(3).replace(/\.?0+$/,'')} {it.unitMeasurement}
+                      </span>
+                    ))}</td>
+                  </tr>
+                ))}</tbody></Table>}
+          </TableWrap>
+        </>
+      )
+    }
+
+    // ── COMPRAS ─────────────────────────────────────────────────────────────────
+    if (activeTab === 'compras') {
+      const totalInvested = data.reduce((a,c) => a+Number(c.totalValue||0), 0)
+      return (
+        <>
+          <SumGrid>
+            <SumCard $c='var(--info)'><p className='lbl'>Total Investido</p><p className='val'>{fmt(totalInvested)}</p><p className='sub'>{data.length} compras registradas</p></SumCard>
+          </SumGrid>
+          <TableWrap>
+            <TableHead><h3>Histórico de Compras</h3><span className='cnt'>{data.length} registros</span></TableHead>
+            {data.length === 0
+              ? <Empty><span className='material-symbols-outlined'>shopping_cart</span>Nenhuma compra registrada.</Empty>
+              : <Table><thead><tr><th>#</th><th>Data</th><th>Itens</th><th style={{textAlign:'right'}}>Total</th></tr></thead>
+                <tbody>{data.map(c => (
+                  <tr key={c.id}>
+                    <td style={{color:'var(--muted)'}}>#{c.id}</td>
+                    <td>{c.date}</td>
+                    <td style={{color:'var(--muted)',fontSize:11}}>{(c.items||[]).length} produto{(c.items||[]).length!==1?'s':''}</td>
+                    <td style={{textAlign:'right',fontWeight:700}}>{fmt(c.totalValue)}</td>
+                  </tr>
+                ))}</tbody></Table>}
+          </TableWrap>
+        </>
+      )
+    }
+
+    // ── CMV & MARGEM ─────────────────────────────────────────────────────────────
+    if (activeTab === 'cmv') {
+      const sales = data
+      if (sales.length === 0) return <Empty><span className='material-symbols-outlined'>trending_up</span>Nenhuma venda no período selecionado.</Empty>
+
+      const revenue = sales.reduce((a,s) => a+(s.totalPrice||0), 0)
+      const cost    = sales.reduce((a,s) => a+(s.totalCost||0), 0)
+      const profit  = revenue - cost
+      const cmvPct  = revenue > 0 ? (cost/revenue)*100 : 0
+      const margin  = revenue > 0 ? (profit/revenue)*100 : 0
+
+      const discountSales   = sales.filter(s => s.hasDiscount)
+      const discountRevenue = discountSales.reduce((a,s) => a+(s.totalPrice||0), 0)
+
+      return (
+        <>
+          <SumGrid>
+            <SumCard $c='var(--brand)'><p className='lbl'>Faturamento Bruto</p><p className='val'>{fmt(revenue)}</p><p className='sub'>{sales.length} vendas</p></SumCard>
+            <SumCard $c='var(--warning)'><p className='lbl'>CMV (Custo)</p><p className='val'>{fmt(cost)}</p><p className='sub'>{pct(cmvPct)} do faturamento</p></SumCard>
+            <SumCard $c='var(--success)'><p className='lbl'>Lucro Bruto</p><p className='val'>{fmt(profit)}</p><p className='sub'>Margem: {pct(margin)}</p></SumCard>
+            <SumCard $c='#7c3aed'><p className='lbl'>Vendas c/ Desconto</p><p className='val'>{discountSales.length}</p><p className='sub'>{fmt(discountRevenue)} faturados</p></SumCard>
+          </SumGrid>
+
+          {/* CMV guide */}
+          <TableWrap>
+            <TableHead><h3>Interpretação dos Indicadores</h3></TableHead>
+            <Table><thead><tr><th>Indicador</th><th>Seu valor</th><th>Referência setor</th><th>Situação</th></tr></thead>
+            <tbody>
+              <tr>
+                <td style={{fontWeight:700}}>CMV %</td>
+                <td>{pct(cmvPct)}</td><td>60% — 75%</td>
+                <td><Badge $c={cmvPct<=75?'#f0fdf4':'#fef2f2'} $t={cmvPct<=75?'var(--success)':'var(--danger)'}>{cmvPct<=75?'Dentro do esperado':'Alto — revisar custos'}</Badge></td>
+              </tr>
+              <tr>
+                <td style={{fontWeight:700}}>Margem Bruta</td>
+                <td>{pct(margin)}</td><td>25% — 40%</td>
+                <td><Badge $c={margin>=20?'#f0fdf4':'#fffbeb'} $t={margin>=20?'var(--success)':'var(--warning)'}>{margin>=20?'Saudável':margin>=10?'Atenção':'Crítico'}</Badge></td>
+              </tr>
+              <tr>
+                <td style={{fontWeight:700}}>Ticket Médio</td>
+                <td>{fmt(revenue/sales.length)}</td><td>—</td>
+                <td><Badge $c='#eff6ff' $t='var(--info)'>Referência interna</Badge></td>
+              </tr>
+            </tbody></Table>
+          </TableWrap>
+        </>
+      )
+    }
+
+    return null
+  }
+
+  return (
+    <Wrapper>
+      <Sidebar navigate={navigate} activeView='reports' />
+      <Main>
+        <Header>
+          <span className='material-symbols-outlined' style={{color:'rgba(255,255,255,0.4)',fontSize:20}}>bar_chart</span>
+          <PageTitle>Relatórios</PageTitle>
+        </Header>
+
+        <Content>
+          <Tabs>
+            {TABS.map(t => (
+              <Tab key={t.id} $a={activeTab === t.id} onClick={() => setActiveTab(t.id)}>
+                <span className='material-symbols-outlined' style={{fontSize:15}}>{t.icon}</span>
+                {t.label}
+              </Tab>
+            ))}
+          </Tabs>
+
+          {renderFilters()}
+          {renderContent()}
+        </Content>
+      </Main>
+    </Wrapper>
+  )
 }
 
 export default ReportsView
