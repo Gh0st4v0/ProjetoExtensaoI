@@ -27,6 +27,7 @@ public class ClienteService {
         c.setTelefone(dto.getTelefone());
         c.setDocumento(dto.getDocumento());
         c.setEmail(dto.getEmail());
+        c.setDataCadastro(java.time.LocalDateTime.now());
         return clienteRepository.save(c);
     }
 
@@ -64,6 +65,7 @@ public class ClienteService {
         r.setTelefone(c.getTelefone());
         r.setDocumento(c.getDocumento());
         r.setEmail(c.getEmail());
+        r.setDataCadastro(c.getDataCadastro());
         return r;
     }
 }

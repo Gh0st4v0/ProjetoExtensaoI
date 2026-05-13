@@ -31,6 +31,9 @@ public class Cliente {
     @Column(name = "email")
     private String email;
 
+    @Column(name = "data_cadastro")
+    private java.time.LocalDateTime dataCadastro;
+
     @OneToMany(mappedBy = "cliente", fetch = FetchType.LAZY)
     private List<Venda> sales;
 }

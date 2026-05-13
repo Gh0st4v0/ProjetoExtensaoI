@@ -351,6 +351,15 @@ export const ReportsView = ({ navigate }) => {
   }
 
   const renderContent = () => {
+    // Clientes tem fluxo próprio — verificar antes do guard de `data`
+    if (activeTab === 'clientes') {
+      const filtered = clients.filter(c =>
+        !clientSearch || c.nickname?.toLowerCase().includes(clientSearch.toLowerCase()) ||
+        c.telefone?.includes(clientSearch) || c.documento?.includes(clientSearch)
+      )
+      return renderClientsList(filtered)
+    }
+
     if (loading) return <Loading>Carregando dados...</Loading>
     if (error) return <Empty><span className='material-symbols-outlined'>error</span>{error}</Empty>
     if (!data) return <Empty><span className='material-symbols-outlined'>bar_chart</span>Selecione um período e clique em Gerar Relatório.</Empty>
@@ -609,53 +618,76 @@ export const ReportsView = ({ navigate }) => {
       )
     }
 
-    // ── CLIENTES ─────────────────────────────────────────────────────────────────
-    if (activeTab === 'clientes') {
-      const filtered = clients.filter(c =>
-        !clientSearch || c.nickname?.toLowerCase().includes(clientSearch.toLowerCase()) ||
-        c.telefone?.includes(clientSearch) || c.documento?.includes(clientSearch)
-      )
-      return (
-        <>
-          <SumGrid>
-            <SumCard $c='var(--brand)'><p className='lbl'>Clientes Cadastrados</p><p className='val'>{clients.length}</p><p className='sub'>Total na base</p></SumCard>
-          </SumGrid>
-          {clientsLoading ? <Loading>Carregando clientes...</Loading> : (
-            <ClientsGrid>
-              {filtered.length === 0 && <Empty><span className='material-symbols-outlined'>group_off</span>Nenhum cliente encontrado.</Empty>}
-              {filtered.map(c => {
-                const initials = c.nickname?.trim().split(' ').slice(0,2).map(w=>w[0]?.toUpperCase()).join('') || '?'
-                return (
-                  <ClientCard key={c.id}>
-                    <div className='top'>
-                      <div className='avatar'>{initials}</div>
-                      <div style={{display:'flex',gap:6}}>
-                        <button onClick={() => openHistory(c)} style={{background:'none',border:'1px solid var(--border)',borderRadius:6,padding:'4px 8px',cursor:'pointer',fontSize:11,color:'var(--brand)',fontWeight:700}}>
-                          Histórico
-                        </button>
-                        <button onClick={() => openEdit(c)} style={{background:'var(--brand)',border:'none',borderRadius:6,padding:'4px 8px',cursor:'pointer',fontSize:11,color:'#fff',fontWeight:700}}>
-                          Editar
-                        </button>
-                      </div>
-                    </div>
-                    <div className='name'>{c.nickname}</div>
-                    <div className='info'>
-                      {c.telefone && <div>📞 {c.telefone}</div>}
-                      {c.documento && <div>📄 {c.documento}</div>}
-                      {c.email && <div>✉ {c.email}</div>}
-                      {!c.telefone && !c.documento && !c.email && <div style={{color:'var(--muted)'}}>Sem dados adicionais</div>}
-                    </div>
-                  </ClientCard>
-                )
-              })}
-            </ClientsGrid>
-          )}
-        </>
-      )
-    }
-
     return null
   }
+
+  // ── Renderiza lista de clientes (formato tabela) ───────────────────────────────
+  const renderClientsList = (filtered) => (
+    <>
+      <SumGrid>
+        <SumCard $c='var(--brand)'><p className='lbl'>Clientes Cadastrados</p><p className='val'>{clients.length}</p><p className='sub'>Total na base</p></SumCard>
+      </SumGrid>
+
+      {clientsLoading ? <Loading>Carregando clientes...</Loading> : (
+        <TableWrap>
+          <TableHead>
+            <h3>Lista de Clientes</h3>
+            <span className='cnt'>{filtered.length} encontrado{filtered.length !== 1 ? 's' : ''}</span>
+          </TableHead>
+          {filtered.length === 0
+            ? <Empty><span className='material-symbols-outlined'>group_off</span>Nenhum cliente encontrado.</Empty>
+            : (
+              <Table>
+                <thead>
+                  <tr>
+                    <th>Cliente</th>
+                    <th>Telefone</th>
+                    <th>CPF / CNPJ</th>
+                    <th>E-mail</th>
+                    <th>Cadastrado em</th>
+                    <th style={{textAlign:'right'}}>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(c => {
+                    const initials = c.nickname?.trim().split(' ').slice(0,2).map(w=>w[0]?.toUpperCase()).join('') || '?'
+                    const dtCad = c.dataCadastro ? new Date(c.dataCadastro).toLocaleDateString('pt-BR') : '—'
+                    return (
+                      <tr key={c.id}>
+                        <td>
+                          <div style={{display:'flex',alignItems:'center',gap:10}}>
+                            <div style={{width:32,height:32,borderRadius:'50%',background:'var(--brand)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'Epilogue',fontWeight:900,fontSize:12,flexShrink:0}}>
+                              {initials}
+                            </div>
+                            <span style={{fontWeight:700}}>{c.nickname}</span>
+                          </div>
+                        </td>
+                        <td>{c.telefone || <span style={{color:'var(--muted)'}}>—</span>}</td>
+                        <td>{c.documento || <span style={{color:'var(--muted)'}}>—</span>}</td>
+                        <td>{c.email || <span style={{color:'var(--muted)'}}>—</span>}</td>
+                        <td style={{color:'var(--muted)'}}>{dtCad}</td>
+                        <td style={{textAlign:'right'}}>
+                          <div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
+                            <button onClick={() => navigate('cliente-historico', { clientId: c.id })}
+                              style={{background:'none',border:'1px solid var(--border)',borderRadius:6,padding:'5px 10px',cursor:'pointer',fontSize:11,color:'var(--brand)',fontWeight:700}}>
+                              Histórico
+                            </button>
+                            <button onClick={() => openEdit(c)}
+                              style={{background:'var(--brand)',border:'none',borderRadius:6,padding:'5px 10px',cursor:'pointer',fontSize:11,color:'#fff',fontWeight:700}}>
+                              Editar
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </Table>
+            )}
+        </TableWrap>
+      )}
+    </>
+  )
 
   return (
     <>

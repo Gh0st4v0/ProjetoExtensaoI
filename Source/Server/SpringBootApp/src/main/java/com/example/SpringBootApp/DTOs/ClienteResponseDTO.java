@@ -1,6 +1,7 @@
 package com.example.SpringBootApp.DTOs;
 
 import lombok.Data;
+import java.time.LocalDateTime;
 
 @Data
 public class ClienteResponseDTO {
@@ -9,4 +10,5 @@ public class ClienteResponseDTO {
     private String telefone;
     private String documento;
     private String email;
+    private LocalDateTime dataCadastro;
 }

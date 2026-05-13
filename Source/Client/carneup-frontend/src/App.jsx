@@ -16,68 +16,58 @@ import { DiscardView } from './views/DiscardView'
 import { PurchaseView } from './views/PurchaseView'
 import AttributesView from './views/AttributesView'
 import { ReportsView } from './views/ReportsView'
+import { ClienteHistoricoView } from './views/ClienteHistoricoView'
 
 export default function App() {
 	const [currentView, setCurrentView] = useState('login')
 	const [recoveryEmail, setRecoveryEmail] = useState('')
 	const [recoveryCode, setRecoveryCode] = useState('')
+	const [selectedClientId, setSelectedClientId] = useState(null)
 
 	useEffect(() => {
-		// Verificar se há token no localStorage ao carregar a página
 		const token = localStorage.getItem('authToken')
-		if (token) {
-			setCurrentView('dashboard')
-		}
+		if (token) setCurrentView('dashboard')
 	}, [])
+
+	// navigate pode ser chamado como navigate('view') ou navigate('view', { clientId: 1 })
+	const navigate = (view, params = {}) => {
+		if (params.clientId) setSelectedClientId(params.clientId)
+		setCurrentView(view)
+	}
 
 	const renderView = () => {
 		switch (currentView) {
 			case 'login':
-				return <LoginView navigate={setCurrentView} />
+				return <LoginView navigate={navigate} />
 			case 'dashboard':
-				return <DashboardView navigate={setCurrentView} />
+				return <DashboardView navigate={navigate} />
 			case 'sales':
-				return <SalesView navigate={setCurrentView} />
+				return <SalesView navigate={navigate} />
 			case 'forgot':
-				return (
-					<ForgotPasswordView
-						navigate={setCurrentView}
-						setRecoveryEmail={setRecoveryEmail}
-					/>
-				)
+				return <ForgotPasswordView navigate={navigate} setRecoveryEmail={setRecoveryEmail} />
 			case 'code':
-				return (
-					<RecoveryCodeView
-						navigate={setCurrentView}
-						recoveryEmail={recoveryEmail}
-						setRecoveryCode={setRecoveryCode}
-					/>
-				)
+				return <RecoveryCodeView navigate={navigate} recoveryEmail={recoveryEmail} setRecoveryCode={setRecoveryCode} />
 			case 'reset':
-				return (
-					<ResetPasswordView
-						navigate={setCurrentView}
-						recoveryCode={recoveryCode}
-					/>
-				)
+				return <ResetPasswordView navigate={navigate} recoveryCode={recoveryCode} />
 			case 'success':
-				return <SuccessView navigate={setCurrentView} />
+				return <SuccessView navigate={navigate} />
 			case 'stock':
-				return <StockView navigate={setCurrentView} />
+				return <StockView navigate={navigate} />
 			case 'discard':
-				return <DiscardView navigate={setCurrentView} />
+				return <DiscardView navigate={navigate} />
 			case 'purchases':
-				return <PurchaseView navigate={setCurrentView} />
+				return <PurchaseView navigate={navigate} />
 			case 'attributes':
-				return <AttributesView navigate={setCurrentView} />
+				return <AttributesView navigate={navigate} />
 			case 'configuracoes':
-				return <SettingsView navigate={setCurrentView} />
-		case 'settings':
-				return <SettingsView navigate={setCurrentView} />
-		case 'reports':
-				return <ReportsView navigate={setCurrentView} />
-		default:
-				return <LoginView navigate={setCurrentView} />
+			case 'settings':
+				return <SettingsView navigate={navigate} />
+			case 'reports':
+				return <ReportsView navigate={navigate} />
+			case 'cliente-historico':
+				return <ClienteHistoricoView navigate={navigate} clientId={selectedClientId} />
+			default:
+				return <LoginView navigate={navigate} />
 		}
 	}
 
