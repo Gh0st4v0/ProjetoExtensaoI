@@ -169,6 +169,10 @@ export const Sidebar = ({ navigate, activeView }) => {
 		navigate('login')
 	}
 
+	const userName = localStorage.getItem('userName') || 'Usuário'
+	const accessLevel = localStorage.getItem('accessLevel') || ''
+	const initials = userName.trim().split(' ').slice(0, 2).map(w => w[0]?.toUpperCase()).join('')
+
 
 
 	const navItems = [
@@ -218,13 +222,17 @@ export const Sidebar = ({ navigate, activeView }) => {
 			<SidebarFooter>
 				<NovaVendaBtn onClick={() => navigate('sales')}>Nova Venda</NovaVendaBtn>
 				<UserProfile>
-					<img
-						src='https://lh3.googleusercontent.com/aida-public/AB6AXuA5VgXi1wbpjE8KAklFI9S7PH4-zOdOwyty8vIE8CukR8J06_oAYGqlx_F97T93mlCzAfsCs-ek9omgmFIItVCNVVmT9_H9xdkVmmCjlnYK-64bRQA1Qibx459vqUCYXOEui3IDScurxBZAcBzTK-wWgMC2T_Z62AWTruk-v-kAmTpb1lS4ggOMVm5INqrKwaZSRpSRP-RSq-1TT22vsNfwOv4AMFqu2HiZTWAKM6orM1JS8A7DTGog5DAvXXqJW1Zq0IG27PKpuCQ'
-						alt='Profile'
-					/>
+					<div style={{
+						width: 40, height: 40, borderRadius: '50%',
+						background: '#610005', color: '#fff',
+						display: 'flex', alignItems: 'center', justifyContent: 'center',
+						fontFamily: 'Epilogue', fontWeight: 900, fontSize: 15, flexShrink: 0,
+					}}>
+						{initials}
+					</div>
 					<div className='info'>
-						<p className='name'>Ricardo M.</p>
-						<p className='role'>Admin Access</p>
+						<p className='name'>{userName}</p>
+						<p className='role'>{accessLevel === 'ADM' ? 'Administrador' : 'Operador'}</p>
 					</div>
 					<button className='logout-btn' onClick={handleLogout} title='Sair'>
 						<span className='material-symbols-outlined'>logout</span>

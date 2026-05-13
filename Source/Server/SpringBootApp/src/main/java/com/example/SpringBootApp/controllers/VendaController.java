@@ -12,7 +12,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import com.example.SpringBootApp.models.Usuario;
 
 import java.net.URI;
@@ -35,10 +36,13 @@ public class VendaController {
             @ApiResponse(responseCode = "422", description = "Insufficient quantity")
     })
     @PostMapping
-    public ResponseEntity<?> createSale(@AuthenticationPrincipal Usuario usuario, @Valid @RequestBody VendCreateDTO saleDTO) {
-        // If userId not provided in payload, use authenticated user from JWT
-        if (usuario != null) {
-            saleDTO.setUserId(usuario.getId());
+    public ResponseEntity<?> createSale(@Valid @RequestBody VendCreateDTO saleDTO) {
+        // Resolve userId from JWT principal (SecurityContext) — more reliable than @AuthenticationPrincipal
+        if (saleDTO.getUserId() == null) {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof Usuario u) {
+                saleDTO.setUserId(u.getId());
+            }
         }
         Venda Venda = VendaService.createSale(saleDTO);
         return ResponseEntity.created(URI.create("/sales/" + Venda.getId())).build();

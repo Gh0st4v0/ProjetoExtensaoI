@@ -4,6 +4,7 @@ import { Sidebar } from '../components/Sidebar'
 import { Topbar } from '../components/Topbar'
 import { getUsers, createUser, deleteUser } from '../services/usersApi'
 import { toast } from 'react-toastify'
+import { toTitleCase } from '../services/textUtils'
 
 const Wrapper = styled.div`
   display: flex;
@@ -252,7 +253,7 @@ export const SettingsView = ({ navigate }) => {
             <form onSubmit={handleCreate}>
               <Field>
                 <FieldLabel>Nome *</FieldLabel>
-                <FieldInput value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} required />
+                <FieldInput value={form.nome} onChange={e => setForm(f => ({ ...f, nome: toTitleCase(e.target.value) }))} required />
               </Field>
               <Field>
                 <FieldLabel>E-mail *</FieldLabel>

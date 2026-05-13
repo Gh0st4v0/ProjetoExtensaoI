@@ -2,13 +2,13 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import styled from 'styled-components'
 import { Sidebar } from '../components/Sidebar'
 import { Topbar } from '../components/Topbar'
-import { ProductForm } from '../components/ProductFormV2'
 import DataTable from '../components/DataTable'
 import { Button } from '../components/Button'
 import { Footer } from '../components/Footer'
 import productsApi from '../services/productsApi'
 import { useAttributes } from '../context/AttributesContext'
 import { toast } from 'react-toastify'
+import { toTitleCase } from '../services/textUtils'
 
 // ── Styled Components ──────────────────────────────────────────────────────────
 
@@ -257,7 +257,10 @@ export const StockView = ({ navigate }) => {
 	// ── Product form ───────────────────────────────────────────────────────────
 
 	const handleFormChange = (field) => (e) => {
-		const val = e.target.type === 'checkbox' ? e.target.checked : e.target.value
+		const raw = e.target.type === 'checkbox' ? e.target.checked : e.target.value
+		const val = (field === 'name') ? toTitleCase(raw)
+			: (field === 'code') ? raw.toUpperCase()
+			: raw
 		setForm(f => ({ ...f, [field]: val }))
 	}
 

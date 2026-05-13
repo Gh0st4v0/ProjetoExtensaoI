@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react'
+import { toTitleCase } from '../services/textUtils'
 import styled from 'styled-components'
 import { Sidebar } from '../components/Sidebar'
 import { Topbar } from '../components/Topbar'
@@ -46,8 +47,9 @@ export default function AttributesView({ navigate }) {
 
   const handleCreate = async (type, value) => {
     try {
-      if (type === 'brand') await addBrand(value)
-      if (type === 'category') await addCategory(value)
+      const formatted = toTitleCase(value)
+      if (type === 'brand') await addBrand(formatted)
+      if (type === 'category') await addCategory(formatted)
       // close quick create modal after successful creation
       setQuickOpen({ open:false, type:null })
     } catch (e) {
