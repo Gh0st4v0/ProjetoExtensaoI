@@ -22,6 +22,15 @@ public class Cliente {
     @Column(name = "apelido")
     private String nickname;
 
+    @Column(name = "telefone")
+    private String telefone;
+
+    @Column(name = "documento")
+    private String documento;
+
+    @Column(name = "email")
+    private String email;
+
     @OneToMany(mappedBy = "cliente", fetch = FetchType.LAZY)
     private List<Venda> sales;
 }

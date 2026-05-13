@@ -156,6 +156,13 @@ public class VendaService {
         Venda venda = vendaRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Venda not found"));
         return com.example.SpringBootApp.mappers.VendaMapper.toResponse(venda);
     }
+
+    public java.util.List<com.example.SpringBootApp.DTOs.VendaResponseDTO> getSalesByClientId(Long clienteId) {
+        return vendaRepository.findByClienteIdOrderByDataVendaDesc(clienteId)
+                .stream()
+                .map(com.example.SpringBootApp.mappers.VendaMapper::toResponse)
+                .toList();
+    }
 }
 
 

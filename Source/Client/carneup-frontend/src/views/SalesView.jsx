@@ -533,7 +533,12 @@ export const SalesView = ({ navigate }) => {
     if (!nickname) return
     setClientSaving(true)
     try {
-      const id = await createClient(nickname)
+      const id = await createClient({
+        nickname,
+        telefone: clientForm.telefone?.trim() || null,
+        documento: clientForm.documento?.trim() || null,
+        email:    clientForm.email?.trim()    || null,
+      })
       setSelectedClient({ id: Number(id), nickname })
       setClientSearch(''); setClientModal(false); setAnonymous(false)
       toast.success(`Cliente "${nickname}" identificado!`)
@@ -818,12 +823,38 @@ export const SalesView = ({ navigate }) => {
                   <label>Apelido / Nome *</label>
                   <input
                     autoFocus
-                    placeholder='Ex: João da Silva, Mesa 3, Empresa XYZ...'
+                    placeholder='Ex: João da Silva, Mesa 3...'
                     value={clientForm.nickname}
-                    onChange={e => setClientForm({ nickname: e.target.value })}
+                    onChange={e => setClientForm(f => ({ ...f, nickname: e.target.value }))}
                     required
                   />
-                  <small>O apelido é usado para identificar o cliente nos relatórios e histórico de vendas.</small>
+                  <small>Obrigatório — usado para identificar o cliente nos relatórios.</small>
+                </CModalField>
+                <CModalField>
+                  <label>Telefone</label>
+                  <input
+                    placeholder='Ex: (11) 99999-9999'
+                    value={clientForm.telefone || ''}
+                    onChange={e => setClientForm(f => ({ ...f, telefone: e.target.value }))}
+                  />
+                </CModalField>
+                <CModalField>
+                  <label>CPF / CNPJ</label>
+                  <input
+                    placeholder='Ex: 000.000.000-00 ou 00.000.000/0001-00'
+                    value={clientForm.documento || ''}
+                    onChange={e => setClientForm(f => ({ ...f, documento: e.target.value }))}
+                  />
+                </CModalField>
+                <CModalField>
+                  <label>E-mail</label>
+                  <input
+                    type='email'
+                    placeholder='Ex: cliente@email.com'
+                    value={clientForm.email || ''}
+                    onChange={e => setClientForm(f => ({ ...f, email: e.target.value }))}
+                  />
+                  <small>Todos os campos acima são opcionais, exceto o apelido.</small>
                 </CModalField>
               </CModalBody>
               <CModalActions>
