@@ -1,752 +1,793 @@
-import styled from 'styled-components'
-import { useState, useEffect, useMemo, useRef } from 'react'
+import styled, { keyframes } from 'styled-components'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Sidebar } from '../components/Sidebar'
 import productsApi from '../services/productsApi'
-import salesApi from '../services/salesApi'
+import { createSale, getSale, searchClients, createClient } from '../services/salesApi'
 import { toast } from 'react-toastify'
 
-// ── Layout ─────────────────────────────────────────────────────────────────────
+// ── Animations ─────────────────────────────────────────────────────────────────
+const slideIn = keyframes`from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}`
+const spin = keyframes`to{transform:rotate(360deg)}`
 
+// ── Layout ─────────────────────────────────────────────────────────────────────
 const Wrapper = styled.div`
-	display: flex;
-	height: 100vh;
-	overflow: hidden;
-	background: #f1f0ef;
-	font-family: 'Work Sans', sans-serif;
-	color: #1c1917;
+  display:flex; height:100vh; overflow:hidden;
+  background:#f1f0ef; font-family:'Work Sans',sans-serif; color:#1c1917;
 `
 const PdvArea = styled.div`
-	flex: 1;
-	display: flex;
-	overflow: hidden;
-	min-width: 0;
+  flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0;
 `
 
-// ── Painel esquerdo — lista de produtos ────────────────────────────────────────
-
-const ProductPanel = styled.section`
-	flex: 1;
-	display: flex;
-	flex-direction: column;
-	min-width: 0;
-	background: #fafaf9;
+// ── Top bar ────────────────────────────────────────────────────────────────────
+const TopBar = styled.div`
+  background:#1c1917; padding:10px 20px;
+  display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
 `
-const PanelHeader = styled.div`
-	padding: 16px 20px;
-	background: #fff;
-	border-bottom: 1px solid #e7e5e4;
-	display: flex;
-	flex-direction: column;
-	gap: 10px;
-	flex-shrink: 0;
-`
-const HeaderTop = styled.div`
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 12px;
-	h1 {
-		font-family: 'Epilogue', sans-serif;
-		font-size: 18px;
-		font-weight: 900;
-		text-transform: uppercase;
-		color: #610005;
-		margin: 0;
-		letter-spacing: -0.02em;
-	}
+const TopLeft = styled.div`
+  display:flex; align-items:center; gap:12px;
 `
 const BackBtn = styled.button`
-	background: none;
-	border: none;
-	cursor: pointer;
-	color: #78716c;
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	font-size: 13px;
-	padding: 4px 8px;
-	border-radius: 6px;
-	&:hover { background: #f5f5f4; color: #1c1917; }
+  background:rgba(255,255,255,0.08); border:none; border-radius:8px;
+  padding:6px 12px; color:rgba(255,255,255,0.7); cursor:pointer; font-size:13px;
+  display:flex; align-items:center; gap:6px;
+  &:hover{background:rgba(255,255,255,0.15);}
+  span{font-size:16px;}
 `
-const SearchBar = styled.div`
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	background: #f5f5f4;
-	border-radius: 8px;
-	padding: 8px 12px;
-	border: 1px solid transparent;
-	&:focus-within { border-color: #610005; background: #fff; }
-	input {
-		flex: 1;
-		border: none;
-		background: transparent;
-		font-size: 14px;
-		font-family: 'Work Sans', sans-serif;
-		outline: none;
-		color: #1c1917;
-		&::placeholder { color: #a8a29e; }
-	}
-	span { color: #a8a29e; font-size: 20px; }
+const Title = styled.h1`
+  font-family:'Epilogue',sans-serif; font-size:15px; font-weight:900;
+  color:#fff; text-transform:uppercase; letter-spacing:0.05em; margin:0;
 `
-const CategoryTabs = styled.div`
-	display: flex;
-	gap: 6px;
-	overflow-x: auto;
-	&::-webkit-scrollbar { display: none; }
-`
-const Tab = styled.button`
-	padding: 6px 14px;
-	border-radius: 999px;
-	border: 1px solid ${p => p.$active ? '#610005' : '#e7e5e4'};
-	background: ${p => p.$active ? '#610005' : '#fff'};
-	color: ${p => p.$active ? '#fff' : '#44403c'};
-	font-size: 12px;
-	font-weight: 700;
-	font-family: 'Epilogue', sans-serif;
-	white-space: nowrap;
-	cursor: pointer;
-	transition: all 0.15s;
-	&:hover { border-color: #610005; color: ${p => p.$active ? '#fff' : '#610005'}; }
-`
-const ProductList = styled.div`
-	flex: 1;
-	overflow-y: auto;
-	&::-webkit-scrollbar { width: 5px; }
-	&::-webkit-scrollbar-thumb { background: #e7e5e4; border-radius: 4px; }
-`
-const ProductRow = styled.div`
-	border-bottom: 1px solid #f0eeec;
-	background: ${p => p.$selected ? '#fff8f8' : '#fff'};
-	transition: background 0.1s;
-	cursor: pointer;
-	&:hover { background: #fef2f2; }
-`
-const RowMain = styled.div`
-	display: grid;
-	grid-template-columns: 1fr auto auto auto;
-	align-items: center;
-	gap: 12px;
-	padding: 12px 20px;
-`
-const ProductName = styled.div`
-	min-width: 0;
-	.name { font-weight: 700; font-size: 14px; color: #1c1917; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-	.sub { font-size: 11px; color: #a8a29e; margin-top: 1px; }
-`
-const CatBadge = styled.span`
-	font-size: 10px;
-	font-weight: 700;
-	text-transform: uppercase;
-	padding: 2px 8px;
-	border-radius: 999px;
-	background: #ffdad6;
-	color: #610005;
-	white-space: nowrap;
-`
-const UnitTag = styled.span`
-	font-size: 11px;
-	font-weight: 700;
-	color: #78716c;
-	background: #f5f5f4;
-	padding: 2px 8px;
-	border-radius: 6px;
-`
-const PriceTag = styled.span`
-	font-family: 'Epilogue', sans-serif;
-	font-size: 15px;
-	font-weight: 900;
-	color: #610005;
-	white-space: nowrap;
-`
-const AddInline = styled.div`
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	padding: 8px 20px 12px;
-	background: #fff8f8;
-	border-top: 1px dashed #ffdad6;
-`
-const InlineInput = styled.input`
-	width: 90px;
-	padding: 7px 10px;
-	border: 1px solid #e7e5e4;
-	border-radius: 6px;
-	font-size: 14px;
-	font-family: 'Work Sans', sans-serif;
-	text-align: center;
-	&:focus { outline: none; border-color: #610005; }
-`
-const InlineLabel = styled.span`
-	font-size: 11px;
-	font-weight: 700;
-	color: #78716c;
-	text-transform: uppercase;
-`
-const AddBtn = styled.button`
-	padding: 7px 16px;
-	background: #610005;
-	color: #fff;
-	border: none;
-	border-radius: 6px;
-	font-weight: 700;
-	font-size: 13px;
-	cursor: pointer;
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	&:hover { background: #7f1d1d; }
-`
-const CancelBtn = styled.button`
-	padding: 7px 12px;
-	border: 1px solid #e7e5e4;
-	background: #fff;
-	border-radius: 6px;
-	font-size: 13px;
-	cursor: pointer;
-	color: #78716c;
-	&:hover { background: #f5f5f4; }
-`
-const EmptyMsg = styled.div`
-	padding: 48px 24px;
-	text-align: center;
-	color: #a8a29e;
-	font-size: 14px;
-`
-const CountChip = styled.div`
-	font-size: 12px;
-	color: #78716c;
-	padding: 10px 20px;
-	background: #f5f5f4;
-	border-bottom: 1px solid #e7e5e4;
-	font-weight: 600;
+const TopRight = styled.div`
+  font-size:11px; color:rgba(255,255,255,0.4); text-align:right;
+  p{margin:0;} strong{color:rgba(255,255,255,0.7);}
 `
 
-// ── Painel direito — carrinho ──────────────────────────────────────────────────
+// ── Body ───────────────────────────────────────────────────────────────────────
+const Body = styled.div`
+  flex:1; display:flex; overflow:hidden; min-height:0;
+`
 
+// ── Product Panel ──────────────────────────────────────────────────────────────
+const ProductPanel = styled.section`
+  flex:1; display:flex; flex-direction:column; min-width:0; background:#fafaf9;
+`
+const PSearch = styled.div`
+  padding:14px 16px; background:#fff; border-bottom:1px solid #e7e5e4; flex-shrink:0;
+`
+const SearchBox = styled.div`
+  display:flex; align-items:center; gap:8px;
+  background:#f5f5f4; border-radius:8px; padding:8px 12px;
+  border:1px solid transparent;
+  &:focus-within{border-color:#610005;background:#fff;}
+  input{flex:1;border:none;background:transparent;font-size:14px;font-family:'Work Sans',sans-serif;outline:none;color:#1c1917;&::placeholder{color:#a8a29e;}}
+  span{color:#a8a29e;font-size:20px;}
+`
+const CatTabs = styled.div`
+  display:flex; gap:6px; overflow-x:auto; padding:10px 16px; background:#fff;
+  border-bottom:1px solid #e7e5e4; flex-shrink:0;
+  &::-webkit-scrollbar{display:none;}
+`
+const CatBtn = styled.button`
+  padding:5px 14px; border-radius:999px; white-space:nowrap; cursor:pointer;
+  font-size:12px; font-weight:700; font-family:'Epilogue',sans-serif;
+  border:1px solid ${p=>p.$a?'#610005':'#e7e5e4'};
+  background:${p=>p.$a?'#610005':'#fff'};
+  color:${p=>p.$a?'#fff':'#44403c'};
+  &:hover{border-color:#610005;color:${p=>p.$a?'#fff':'#610005'};}
+`
+const PCount = styled.div`
+  padding:8px 16px; background:#f5f5f4; border-bottom:1px solid #e7e5e4;
+  font-size:11px; font-weight:600; color:#78716c; flex-shrink:0;
+`
+const PList = styled.div`
+  flex:1; overflow-y:auto;
+  &::-webkit-scrollbar{width:4px;}
+  &::-webkit-scrollbar-thumb{background:#e7e5e4;border-radius:4px;}
+`
+const PRow = styled.div`
+  border-bottom:1px solid #f0eeec;
+  background:${p=>p.$sel?'#fff8f8':'#fff'};
+  cursor:pointer;
+  &:hover{background:#fef2f2;}
+`
+const PRowMain = styled.div`
+  display:grid; grid-template-columns:1fr auto auto auto;
+  align-items:center; gap:10px; padding:11px 16px;
+`
+const PName = styled.div`
+  min-width:0;
+  .name{font-weight:700;font-size:13px;color:#1c1917;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sub{font-size:11px;color:#a8a29e;margin-top:1px;}
+`
+const CBadge = styled.span`
+  font-size:9px;font-weight:700;text-transform:uppercase;
+  padding:2px 7px;border-radius:999px;background:#ffdad6;color:#610005;white-space:nowrap;
+`
+const UTag = styled.span`
+  font-size:11px;font-weight:700;color:#78716c;background:#f5f5f4;padding:2px 7px;border-radius:5px;
+`
+const PPrice = styled.span`
+  font-family:'Epilogue',sans-serif;font-size:14px;font-weight:900;color:#610005;white-space:nowrap;
+`
+const InlineAdd = styled.div`
+  display:flex; align-items:center; gap:8px; padding:8px 16px 12px;
+  background:#fff8f8; border-top:1px dashed #ffdad6;
+  animation:${slideIn} 0.15s ease;
+`
+const ILabel = styled.span`font-size:10px;font-weight:700;color:#78716c;text-transform:uppercase;`
+const IInput = styled.input`
+  width:88px; padding:7px 10px; border:1px solid #e7e5e4; border-radius:6px;
+  font-size:13px; font-family:'Work Sans',sans-serif; text-align:center;
+  &:focus{outline:none;border-color:#610005;}
+`
+const IAdd = styled.button`
+  padding:7px 14px; background:#610005; color:#fff; border:none; border-radius:6px;
+  font-weight:700; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:4px;
+  &:hover{background:#7f1d1d;}
+`
+const ICancel = styled.button`
+  padding:7px 10px; border:1px solid #e7e5e4; background:#fff; border-radius:6px;
+  font-size:12px; cursor:pointer; color:#78716c;
+  &:hover{background:#f5f5f4;}
+`
+const EmptyP = styled.div`
+  padding:40px 16px; text-align:center; color:#a8a29e; font-size:13px;
+  span{display:block;font-size:36px;margin-bottom:8px;}
+`
+
+// ── Cart Panel ─────────────────────────────────────────────────────────────────
 const CartPanel = styled.aside`
-	width: 360px;
-	min-width: 300px;
-	background: #fff;
-	border-left: 1px solid #e7e5e4;
-	display: flex;
-	flex-direction: column;
-	flex-shrink: 0;
-	@media (max-width: 900px) { width: 300px; }
+  width:380px; min-width:320px; background:#fff;
+  border-left:1px solid #e7e5e4; display:flex; flex-direction:column; flex-shrink:0;
 `
 const CartHead = styled.div`
-	padding: 16px 20px;
-	border-bottom: 1px solid #f5f5f4;
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	flex-shrink: 0;
-	h2 { font-family: 'Epilogue', sans-serif; font-size: 16px; font-weight: 900; text-transform: uppercase; color: #1c1917; margin: 0; }
-	span.count { font-size: 11px; color: #78716c; font-weight: 600; }
+  padding:14px 18px; border-bottom:1px solid #f5f5f4;
+  display:flex; justify-content:space-between; align-items:center; flex-shrink:0;
+  h2{font-family:'Epilogue',sans-serif;font-size:14px;font-weight:900;
+     text-transform:uppercase;color:#1c1917;margin:0;}
+  span.cnt{font-size:11px;color:#78716c;font-weight:600;}
 `
-const ClearBtn = styled.button`
-	background: none;
-	border: none;
-	cursor: pointer;
-	color: #d6d3d1;
-	display: flex;
-	align-items: center;
-	&:hover { color: #dc2626; }
+const ClearB = styled.button`
+  background:none;border:none;cursor:pointer;color:#d6d3d1;display:flex;align-items:center;
+  &:hover{color:#dc2626;}
 `
 const CartItems = styled.div`
-	flex: 1;
-	overflow-y: auto;
-	padding: 8px 0;
-	&::-webkit-scrollbar { width: 4px; }
-	&::-webkit-scrollbar-thumb { background: #e7e5e4; border-radius: 4px; }
+  flex:1; overflow-y:auto; padding:4px 0;
+  &::-webkit-scrollbar{width:4px;}
+  &::-webkit-scrollbar-thumb{background:#e7e5e4;border-radius:4px;}
 `
-const CartItemRow = styled.div`
-	display: flex;
-	align-items: flex-start;
-	gap: 10px;
-	padding: 10px 16px;
-	border-bottom: 1px solid #f5f5f4;
-	&:hover { background: #fafaf9; }
+const CItem = styled.div`
+  display:flex; align-items:flex-start; gap:10px;
+  padding:10px 16px; border-bottom:1px solid #f5f5f4;
+  &:hover{background:#fafaf9;}
 `
-const ItemIcon = styled.div`
-	width: 32px;
-	height: 32px;
-	border-radius: 6px;
-	background: #ffdad6;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	flex-shrink: 0;
-	span { color: #610005; font-size: 16px; }
+const CIcon = styled.div`
+  width:32px; height:32px; border-radius:6px; background:#ffdad6;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  span{color:#610005;font-size:16px;}
 `
-const ItemInfo = styled.div`
-	flex: 1;
-	min-width: 0;
-	.name { font-weight: 700; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	.detail { font-size: 11px; color: #78716c; margin-top: 2px; }
+const CInfo = styled.div`
+  flex:1; min-width:0;
+  .name{font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .detail{font-size:10px;color:#78716c;margin-top:2px;}
 `
-const ItemRight = styled.div`
-	display: flex;
-	flex-direction: column;
-	align-items: flex-end;
-	gap: 4px;
-	flex-shrink: 0;
+const CRight = styled.div`
+  display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0;
 `
-const ItemTotal = styled.span`
-	font-family: 'Epilogue', sans-serif;
-	font-weight: 900;
-	font-size: 14px;
-	color: #1c1917;
+const CTotal = styled.span`
+  font-family:'Epilogue',sans-serif; font-weight:900; font-size:13px; color:#1c1917;
 `
-const ItemControls = styled.div`
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	button {
-		width: 24px; height: 24px;
-		border-radius: 4px;
-		border: 1px solid #e7e5e4;
-		background: #fff;
-		cursor: pointer;
-		display: flex; align-items: center; justify-content: center;
-		color: #57534e;
-		span { font-size: 14px; }
-		&:hover { background: #f5f5f4; }
-	}
+const QCtrl = styled.div`
+  display:flex; align-items:center; gap:3px;
+  button{width:22px;height:22px;border-radius:4px;border:1px solid #e7e5e4;
+    background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    color:#57534e; span{font-size:13px;} &:hover{background:#f5f5f4;}}
 `
-const QtyInput = styled.input`
-	width: 48px;
-	text-align: center;
-	border: 1px solid #e7e5e4;
-	border-radius: 4px;
-	padding: 2px 4px;
-	font-size: 12px;
-	font-family: 'Work Sans', sans-serif;
-	&:focus { outline: none; border-color: #610005; }
+const QIn = styled.input`
+  width:44px;text-align:center;border:1px solid #e7e5e4;border-radius:4px;
+  padding:1px 3px;font-size:11px;font-family:'Work Sans',sans-serif;
+  &:focus{outline:none;border-color:#610005;}
 `
-const RemoveBtn = styled.button`
-	background: none;
-	border: none;
-	cursor: pointer;
-	color: #d6d3d1;
-	padding: 0;
-	display: flex;
-	align-items: center;
-	&:hover { color: #dc2626; }
-	span { font-size: 16px; }
+const RmBtn = styled.button`
+  background:none;border:none;cursor:pointer;color:#d6d3d1;padding:0;display:flex;align-items:center;
+  &:hover{color:#dc2626;} span{font-size:14px;}
 `
+const EmptyCart = styled.div`
+  padding:32px 16px; text-align:center; color:#a8a29e; font-size:13px;
+  span{display:block;font-size:36px;margin-bottom:8px;}
+`
+
+// ── Cart Footer ────────────────────────────────────────────────────────────────
 const CartFooter = styled.div`
-	padding: 16px;
-	border-top: 2px solid #f5f5f4;
-	display: flex;
-	flex-direction: column;
-	gap: 12px;
-	flex-shrink: 0;
+  border-top:2px solid #f5f5f4; display:flex; flex-direction:column; gap:0; flex-shrink:0;
 `
-const TotalBox = styled.div`
-	background: #1c1917;
-	border-radius: 10px;
-	padding: 16px 20px;
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	.label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #a8a29e; }
-	.value { font-family: 'Epilogue', sans-serif; font-size: 32px; font-weight: 900; color: #fff; }
+const Section = styled.div`
+  padding:10px 16px; border-bottom:1px solid #f5f5f4;
 `
-const PaySection = styled.div`
-	p.title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: #a8a29e; margin: 0 0 8px; }
-	.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+const SLabel = styled.p`
+  font-size:9px; font-weight:700; text-transform:uppercase;
+  letter-spacing:0.15em; color:#a8a29e; margin:0 0 7px;
 `
+
+// Client
+const ClientRow = styled.div`display:flex;gap:6px;align-items:center;`
+const ClientAnon = styled.button`
+  flex:1; padding:8px 10px; border:2px solid ${p=>p.$a?'#610005':'#e7e5e4'};
+  background:${p=>p.$a?'#fef2f2':'#fff'}; border-radius:8px; cursor:pointer;
+  font-size:11px; font-weight:700; color:${p=>p.$a?'#610005':'#78716c'};
+  display:flex; align-items:center; gap:5px; justify-content:center;
+  &:hover{border-color:#610005;}
+`
+const ClientSearch = styled.input`
+  flex:2; padding:8px 10px; border:1px solid #e7e5e4; border-radius:8px;
+  font-size:12px; font-family:'Work Sans',sans-serif;
+  &:focus{outline:none;border-color:#610005;}
+`
+const ClientDropdown = styled.div`
+  margin-top:4px; background:#fff; border:1px solid #e7e5e4; border-radius:8px;
+  overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1); max-height:140px; overflow-y:auto;
+`
+const ClientOpt = styled.div`
+  padding:8px 12px; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:8px;
+  &:hover{background:#fef2f2;}
+  span.ic{color:#610005;font-size:14px;}
+`
+const ClientBadge = styled.div`
+  display:flex; align-items:center; gap:6px; background:#fef2f2;
+  border:1px solid #ffdad6; border-radius:8px; padding:6px 10px; font-size:12px; font-weight:700; color:#610005;
+  button{background:none;border:none;cursor:pointer;color:#a8a29e;padding:0;display:flex;align-items:center;
+    &:hover{color:#dc2626;} span{font-size:14px;}}
+`
+
+// Payment
+const PayGrid = styled.div`display:grid;grid-template-columns:repeat(4,1fr);gap:5px;`
 const PayBtn = styled.button`
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	padding: 8px 4px;
-	border-radius: 8px;
-	border: 2px solid ${p => p.$active ? '#610005' : '#e7e5e4'};
-	background: ${p => p.$active ? '#fef2f2' : '#fff'};
-	cursor: pointer;
-	transition: all 0.15s;
-	&:hover { border-color: #610005; }
-	span.icon { font-size: 22px; color: ${p => p.$active ? '#610005' : '#a8a29e'}; }
-	span.text { font-size: 9px; font-weight: 900; text-transform: uppercase; color: ${p => p.$active ? '#610005' : '#1c1917'}; margin-top: 2px; letter-spacing: 0.05em; }
-`
-const FinalizeBtn = styled.button`
-	width: 100%;
-	padding: 16px;
-	background: ${p => p.$empty ? '#e7e5e4' : '#610005'};
-	color: ${p => p.$empty ? '#a8a29e' : '#fff'};
-	border: none;
-	border-radius: 10px;
-	font-family: 'Epilogue', sans-serif;
-	font-size: 15px;
-	font-weight: 900;
-	text-transform: uppercase;
-	letter-spacing: 0.2em;
-	cursor: ${p => p.$empty ? 'not-allowed' : 'pointer'};
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	gap: 8px;
-	transition: all 0.2s;
-	&:hover:not(:disabled) { filter: brightness(1.08); }
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:7px 4px; border-radius:8px;
+  border:2px solid ${p=>p.$a?'#610005':'#e7e5e4'};
+  background:${p=>p.$a?'#fef2f2':'#fff'};
+  cursor:pointer; transition:all 0.12s;
+  &:hover{border-color:#610005;}
+  span.icon{font-size:18px;color:${p=>p.$a?'#610005':'#a8a29e'};}
+  span.txt{font-size:8px;font-weight:900;text-transform:uppercase;color:${p=>p.$a?'#610005':'#1c1917'};margin-top:1px;letter-spacing:0.05em;}
 `
 
-// ── Success overlay ────────────────────────────────────────────────────────────
+// Advanced / Discount
+const AdvTrigger = styled.button`
+  display:flex; align-items:center; gap:6px; background:none; border:none;
+  font-size:10px; font-weight:600; color:#a8a29e; cursor:pointer; padding:0;
+  text-transform:uppercase; letter-spacing:0.1em;
+  &:hover{color:#78716c;}
+  span{font-size:14px;transition:transform 0.2s;transform:${p=>p.$open?'rotate(180deg)':'none'};}
+`
+const AdvPanel = styled.div`
+  overflow:hidden; transition:max-height 0.25s ease;
+  max-height:${p=>p.$open?'120px':'0'};
+`
+const DiscountRow = styled.label`
+  display:flex; align-items:center; gap:10px; cursor:pointer;
+  padding:8px 0; font-size:12px; color:#57534e;
+  input{accent-color:#610005;width:16px;height:16px;}
+`
+const DiscTag = styled.span`
+  background:#fef3c7; color:#b45309; font-size:10px; font-weight:700;
+  padding:2px 7px; border-radius:999px;
+`
 
+// Total + Finalize
+const TotalBox = styled.div`
+  background:#1c1917; border-radius:10px; padding:14px 16px;
+  display:flex; justify-content:space-between; align-items:center; margin:10px 16px 0;
+  .lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#a8a29e;}
+  .val{font-family:'Epilogue',sans-serif;font-size:26px;font-weight:900;color:#fff;line-height:1;}
+  .disc{font-size:9px;color:#f87171;margin-top:2px;}
+`
+const FinalBtn = styled.button`
+  margin:10px 16px 14px; padding:14px;
+  background:${p=>p.$empty?'#e7e5e4':'#610005'};
+  color:${p=>p.$empty?'#a8a29e':'#fff'};
+  border:none; border-radius:10px;
+  font-family:'Epilogue',sans-serif; font-size:13px; font-weight:900;
+  text-transform:uppercase; letter-spacing:0.18em;
+  cursor:${p=>p.$empty?'not-allowed':'pointer'};
+  display:flex; justify-content:center; align-items:center; gap:8px;
+  transition:all 0.15s;
+  &:hover:not(:disabled){filter:brightness(1.08);}
+`
+const Spinner = styled.span`
+  display:inline-block; width:16px; height:16px;
+  border:2px solid rgba(255,255,255,0.3); border-top-color:#fff;
+  border-radius:50%; animation:${spin} 0.7s linear infinite;
+`
+
+// ── Receipt Modal ──────────────────────────────────────────────────────────────
 const Overlay = styled.div`
-	position: fixed; inset: 0;
-	background: rgba(0,0,0,0.5);
-	display: flex; align-items: center; justify-content: center;
-	z-index: 100;
+  position:fixed;inset:0;background:rgba(0,0,0,0.55);
+  display:flex;align-items:center;justify-content:center;z-index:200;
 `
-const SuccessCard = styled.div`
-	background: #fff;
-	border-radius: 20px;
-	padding: 48px 40px;
-	text-align: center;
-	max-width: 400px;
-	width: 90%;
-	.icon { font-size: 64px; color: #15803d; margin-bottom: 16px; }
-	h2 { font-family: 'Epilogue', sans-serif; font-weight: 900; font-size: 28px; color: #1c1917; margin: 0 0 8px; }
-	p { color: #78716c; margin: 0 0 24px; }
-	button { padding: 14px 32px; background: #610005; color: #fff; border: none; border-radius: 10px; font-family: 'Epilogue', sans-serif; font-weight: 900; font-size: 14px; cursor: pointer; }
+const Receipt = styled.div`
+  background:#fff; border-radius:16px; width:400px; max-width:calc(100%-32px);
+  max-height:90vh; overflow-y:auto; box-shadow:0 24px 48px rgba(0,0,0,0.2);
+  animation:${slideIn} 0.2s ease;
+`
+const RHead = styled.div`
+  background:#1c1917; padding:20px 24px; border-radius:16px 16px 0 0; text-align:center;
+  h2{font-family:'Epilogue',sans-serif;font-size:20px;font-weight:900;color:#fff;margin:0;}
+  p{font-size:11px;color:#78716c;margin:4px 0 0;}
+`
+const RBody = styled.div`padding:16px 24px;`
+const RRow = styled.div`
+  display:flex; justify-content:space-between; align-items:center;
+  padding:8px 0; border-bottom:1px solid #f5f5f4; font-size:13px;
+  &:last-child{border-bottom:none;}
+  .item{font-weight:600;color:#1c1917;}
+  .qty{color:#78716c;font-size:11px;margin-top:1px;}
+  .price{font-weight:700;color:#1c1917;font-family:'Epilogue',sans-serif;}
+`
+const RDivider = styled.div`height:1px;background:#e7e5e4;margin:8px 0;`
+const RTotal = styled.div`
+  display:flex; justify-content:space-between; align-items:center; padding:8px 0;
+  span.lbl{font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.05em;}
+  span.val{font-family:'Epilogue',sans-serif;font-size:22px;font-weight:900;color:#610005;}
+`
+const RInfo = styled.div`
+  background:#f9f9f9; border-radius:8px; padding:10px 12px; margin-top:8px; font-size:12px; color:#57534e;
+  display:flex; flex-direction:column; gap:4px;
+  span strong{color:#1c1917;}
+`
+const RActions = styled.div`
+  display:flex; gap:8px; padding:16px 24px; border-top:1px solid #f5f5f4;
+`
+const RBtn = styled.button`
+  flex:1; padding:12px; border-radius:8px; cursor:pointer; font-weight:700; font-size:13px;
+  font-family:'Epilogue',sans-serif; text-transform:uppercase; letter-spacing:0.05em;
+  border:${p=>p.$sec?'1px solid #e7e5e4':'none'};
+  background:${p=>p.$sec?'#fff':'#610005'};
+  color:${p=>p.$sec?'#1c1917':'#fff'};
+  &:hover{opacity:0.9;}
 `
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
+const fmt = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 
-const fmt = (v) => `R$ ${Number(v || 0).toFixed(2).replace('.', ',')}`
-
-const PAYMENT_OPTIONS = [
-	{ id: 'PIX', label: 'PIX', icon: 'qr_code' },
-	{ id: 'DINHEIRO', label: 'Dinheiro', icon: 'payments' },
-	{ id: 'CREDITO', label: 'Crédito', icon: 'credit_card' },
-	{ id: 'DEBITO', label: 'Débito', icon: 'contactless' },
+const PAYMENTS = [
+  { id: 'PIX',      label: 'PIX',      icon: 'qr_code' },
+  { id: 'DINHEIRO', label: 'Dinheiro', icon: 'payments' },
+  { id: 'CREDITO',  label: 'Crédito',  icon: 'credit_card' },
+  { id: 'DEBITO',   label: 'Débito',   icon: 'contactless' },
 ]
+const PAY_LABELS = { PIX:'PIX', DINHEIRO:'Dinheiro', CREDITO:'Crédito', DEBITO:'Débito' }
 
 // ── Component ──────────────────────────────────────────────────────────────────
-
 export const SalesView = ({ navigate }) => {
-	const [products, setProducts] = useState([])
-	const [loadingProducts, setLoadingProducts] = useState(true)
-	const [search, setSearch] = useState('')
-	const [activeCategory, setActiveCategory] = useState('TODOS')
-	const [cart, setCart] = useState([])
-	const [payment, setPayment] = useState('DINHEIRO')
-	const [selectedId, setSelectedId] = useState(null)
-	const [inlineQty, setInlineQty] = useState('')
-	const [inlinePrice, setInlinePrice] = useState('')
-	const [submitting, setSubmitting] = useState(false)
-	const [successSale, setSuccessSale] = useState(null)
-	const searchRef = useRef(null)
-	const qtyRef = useRef(null)
+  // Products
+  const [products, setProducts] = useState([])
+  const [loadingP, setLoadingP] = useState(true)
+  const [search, setSearch] = useState('')
+  const [activeCat, setActiveCat] = useState('TODOS')
+  const [selectedId, setSelectedId] = useState(null)
+  const [inlineQty, setInlineQty] = useState('')
+  const [inlinePrice, setInlinePrice] = useState('')
 
-	// Load products
-	useEffect(() => {
-		setLoadingProducts(true)
-		productsApi.getAllProducts(0)
-			.then(data => setProducts((data.content || []).map(p => ({
-				id: p.id,
-				name: p.name || '',
-				code: p.code || '',
-				brand: p.brandName || '',
-				category: p.categoryName || '',
-				unit: p.unitMeasurement || 'UN',
-				price: Number(p.precoVenda || 0),
-			}))))
-			.catch(() => toast.error('Erro ao carregar produtos.'))
-			.finally(() => setLoadingProducts(false))
-	}, [])
+  // Cart
+  const [cart, setCart] = useState([])
 
-	// Focus search on mount
-	useEffect(() => { searchRef.current?.focus() }, [])
+  // Client
+  const [anonymous, setAnonymous] = useState(true)
+  const [clientSearch, setClientSearch] = useState('')
+  const [clientResults, setClientResults] = useState([])
+  const [selectedClient, setSelectedClient] = useState(null)
+  const [showClientDrop, setShowClientDrop] = useState(false)
 
-	// Focus qty input when a product is selected
-	useEffect(() => {
-		if (selectedId) setTimeout(() => qtyRef.current?.focus(), 50)
-	}, [selectedId])
+  // Payment & options
+  const [payment, setPayment] = useState('DINHEIRO')
+  const [advOpen, setAdvOpen] = useState(false)
+  const [hasDiscount, setHasDiscount] = useState(false)
 
-	// Categories
-	const categories = useMemo(() => {
-		const cats = [...new Set(products.map(p => p.category).filter(Boolean))]
-		return ['TODOS', ...cats.sort()]
-	}, [products])
+  // Sale state
+  const [submitting, setSubmitting] = useState(false)
+  const [receipt, setReceipt] = useState(null)
 
-	// Filtered list
-	const displayed = useMemo(() => {
-		let list = products
-		if (activeCategory !== 'TODOS') list = list.filter(p => p.category === activeCategory)
-		const q = search.trim().toLowerCase()
-		if (q.length >= 1) list = list.filter(p =>
-			p.name.toLowerCase().includes(q) ||
-			p.code.toLowerCase().includes(q) ||
-			p.brand.toLowerCase().includes(q)
-		)
-		return list
-	}, [products, activeCategory, search])
+  const searchRef = useRef(null)
+  const qtyRef = useRef(null)
+  const clientTimer = useRef(null)
 
-	// Select product
-	const selectProduct = (p) => {
-		if (selectedId === p.id) { setSelectedId(null); return }
-		setSelectedId(p.id)
-		setInlineQty(p.unit === 'UN' ? '1' : '0.500')
-		setInlinePrice(p.price > 0 ? String(p.price) : '')
-	}
+  // Load products
+  useEffect(() => {
+    setLoadingP(true)
+    productsApi.getAllProducts(0)
+      .then(d => setProducts((d.content || []).map(p => ({
+        id: p.id, name: p.name || '', code: p.code || '',
+        brand: p.brandName || '', category: p.categoryName || '',
+        unit: p.unitMeasurement || 'UN', price: Number(p.precoVenda || 0),
+      }))))
+      .catch(() => toast.error('Erro ao carregar produtos.'))
+      .finally(() => setLoadingP(false))
+  }, [])
 
-	// Add to cart
-	const addToCart = (p) => {
-		const qty = parseFloat(String(inlineQty).replace(',', '.'))
-		if (!qty || qty <= 0) { toast.warning('Informe uma quantidade válida.'); return }
-		if (p.unit === 'UN' && !Number.isInteger(qty)) { toast.warning('Quantidade deve ser inteira para UN.'); return }
-		const price = parseFloat(String(inlinePrice).replace(',', '.'))
-		if (isNaN(price) || price < 0) { toast.warning('Informe um preço válido.'); return }
-		setCart(prev => [...prev, {
-			key: Date.now(),
-			productId: p.id,
-			name: p.name,
-			unit: p.unit,
-			qty,
-			price,
-		}])
-		setSelectedId(null)
-		setInlineQty('')
-		setInlinePrice('')
-		searchRef.current?.focus()
-	}
+  // Focus search on mount
+  useEffect(() => { searchRef.current?.focus() }, [])
+  useEffect(() => { if (selectedId) setTimeout(() => qtyRef.current?.focus(), 50) }, [selectedId])
 
-	// Cart operations
-	const updateCartQty = (key, val) => {
-		const q = parseFloat(String(val).replace(',', '.'))
-		if (isNaN(q) || q <= 0) { removeFromCart(key); return }
-		setCart(prev => prev.map(it => it.key === key ? { ...it, qty: q } : it))
-	}
-	const removeFromCart = (key) => setCart(prev => prev.filter(it => it.key !== key))
-	const clearCart = () => { setCart([]); setSelectedId(null) }
+  // Client search debounce
+  useEffect(() => {
+    if (anonymous || clientSearch.length < 2) { setClientResults([]); setShowClientDrop(false); return }
+    clearTimeout(clientTimer.current)
+    clientTimer.current = setTimeout(async () => {
+      const res = await searchClients(clientSearch).catch(() => [])
+      setClientResults(res)
+      setShowClientDrop(true)
+    }, 300)
+    return () => clearTimeout(clientTimer.current)
+  }, [clientSearch, anonymous])
 
-	const total = cart.reduce((s, it) => s + it.qty * it.price, 0)
+  // Categories
+  const categories = useMemo(() => {
+    const cats = [...new Set(products.map(p => p.category).filter(Boolean))].sort()
+    return ['TODOS', ...cats]
+  }, [products])
 
-	// Finalize sale
-	const handleFinalize = async () => {
-		if (!cart.length || submitting) return
-		const userId = Number(localStorage.getItem('userId'))
-		if (!userId) { toast.error('Sessão expirada. Faça login novamente.'); return }
-		setSubmitting(true)
-		try {
-			await salesApi.createSale({
-				userId,
-				paymentMethod: payment,
-				hasDiscount: false,
-				saleDate: new Date().toISOString().slice(0, 10),
-				items: cart.map(it => ({
-					productId: it.productId,
-					quantity: it.qty,
-					precoUnitarioVenda: it.price,
-				})),
-			})
-			setSuccessSale({ total, count: cart.length, payment })
-			setCart([])
-		} catch (e) {
-			const msg = e?.response?.data?.message || ''
-			if (msg.includes('insuficiente') || msg.includes('Insufficient')) {
-				toast.error('Estoque insuficiente. Faça uma entrada de estoque antes de vender.')
-			} else if (msg.includes('Usuario') || msg.includes('usuario')) {
-				toast.error('Usuário não encontrado. Faça login novamente.')
-			} else {
-				toast.error(msg || 'Erro ao finalizar venda. Tente novamente.')
-			}
-		} finally {
-			setSubmitting(false)
-		}
-	}
+  // Filtered products
+  const displayed = useMemo(() => {
+    let list = products
+    if (activeCat !== 'TODOS') list = list.filter(p => p.category === activeCat)
+    const q = search.trim().toLowerCase()
+    if (q.length >= 1) list = list.filter(p =>
+      p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q)
+    )
+    return list
+  }, [products, activeCat, search])
 
-	return (
-		<Wrapper>
-			<Sidebar navigate={navigate} activeView='sales' />
+  // Select product
+  const selectProduct = (p) => {
+    if (selectedId === p.id) { setSelectedId(null); return }
+    setSelectedId(p.id)
+    setInlineQty(p.unit === 'UN' ? '1' : '0.500')
+    setInlinePrice(p.price > 0 ? String(p.price) : '')
+  }
 
-			<PdvArea>
-				{/* ── Produtos ── */}
-				<ProductPanel>
-					<PanelHeader>
-						<HeaderTop>
-							<h1>Ponto de Venda</h1>
-							<BackBtn onClick={() => navigate('dashboard')}>
-								<span className='material-symbols-outlined' style={{ fontSize: 16 }}>arrow_back</span>
-								Voltar
-							</BackBtn>
-						</HeaderTop>
+  // Add to cart
+  const addToCart = (p) => {
+    const qty = parseFloat(String(inlineQty).replace(',', '.'))
+    if (!qty || qty <= 0) { toast.warning('Quantidade inválida.'); return }
+    if (p.unit === 'UN' && !Number.isInteger(qty)) { toast.warning('Quantidade inteira para UN.'); return }
+    const price = parseFloat(String(inlinePrice).replace(',', '.'))
+    if (isNaN(price) || price < 0) { toast.warning('Preço inválido.'); return }
+    setCart(prev => [...prev, { key: Date.now(), productId: p.id, name: p.name, unit: p.unit, qty, price }])
+    setSelectedId(null); setInlineQty(''); setInlinePrice('')
+    searchRef.current?.focus()
+  }
 
-						<SearchBar>
-							<span className='material-symbols-outlined'>search</span>
-							<input
-								ref={searchRef}
-								placeholder='Buscar produto por nome, código ou marca...'
-								value={search}
-								onChange={e => setSearch(e.target.value)}
-							/>
-							{search && (
-								<span className='material-symbols-outlined' style={{ cursor: 'pointer', fontSize: 18 }} onClick={() => setSearch('')}>close</span>
-							)}
-						</SearchBar>
+  // Cart ops
+  const updateQty = (key, val) => {
+    const q = parseFloat(String(val).replace(',', '.'))
+    if (isNaN(q) || q <= 0) { removeItem(key); return }
+    setCart(prev => prev.map(it => it.key === key ? { ...it, qty: q } : it))
+  }
+  const removeItem = (key) => setCart(prev => prev.filter(it => it.key !== key))
+  const clearCart = () => { setCart([]); setSelectedId(null) }
 
-						<CategoryTabs>
-							{categories.map(cat => (
-								<Tab key={cat} $active={activeCategory === cat} onClick={() => setActiveCategory(cat)}>
-									{cat}
-								</Tab>
-							))}
-						</CategoryTabs>
-					</PanelHeader>
+  // Totals
+  const subtotal = cart.reduce((s, it) => s + it.qty * it.price, 0)
+  const total = hasDiscount ? subtotal * 0.95 : subtotal
+  const discount = subtotal - total
 
-					{!loadingProducts && (
-						<CountChip>{displayed.length} produto{displayed.length !== 1 ? 's' : ''} encontrado{displayed.length !== 1 ? 's' : ''}</CountChip>
-					)}
+  // Client ops
+  const handleSelectClient = (c) => {
+    setSelectedClient(c); setShowClientDrop(false); setClientSearch('')
+  }
+  const handleCreateClient = async () => {
+    if (clientSearch.trim().length < 2) return
+    try {
+      const id = await createClient(clientSearch.trim())
+      setSelectedClient({ id: Number(id), nickname: clientSearch.trim() })
+      setClientSearch(''); setShowClientDrop(false)
+      toast.success(`Cliente "${clientSearch.trim()}" criado!`)
+    } catch { toast.error('Erro ao criar cliente.') }
+  }
 
-					<ProductList>
-						{loadingProducts && <EmptyMsg>Carregando produtos...</EmptyMsg>}
-						{!loadingProducts && displayed.length === 0 && (
-							<EmptyMsg>Nenhum produto encontrado. Tente outro termo de busca.</EmptyMsg>
-						)}
-						{displayed.map(p => (
-							<ProductRow key={p.id} $selected={selectedId === p.id}>
-								<RowMain onClick={() => selectProduct(p)}>
-									<ProductName>
-										<div className='name'>{p.name}</div>
-										<div className='sub'>{p.code} {p.brand ? `• ${p.brand}` : ''}</div>
-									</ProductName>
-									<CatBadge>{p.category || '—'}</CatBadge>
-									<UnitTag>{p.unit}</UnitTag>
-									<PriceTag>{fmt(p.price)}/{p.unit}</PriceTag>
-								</RowMain>
+  // Finalize
+  const handleFinalize = async () => {
+    if (!cart.length || submitting) return
+    const userId = Number(localStorage.getItem('userId'))
+    if (!userId) { toast.error('Sessão expirada. Faça login novamente.'); return }
+    setSubmitting(true)
+    try {
+      const payload = {
+        userId,
+        paymentMethod: payment,
+        hasDiscount,
+        saleDate: new Date().toISOString().slice(0, 10),
+        clienteId: (!anonymous && selectedClient) ? selectedClient.id : null,
+        items: cart.map(it => ({ productId: it.productId, quantity: it.qty, precoUnitarioVenda: it.price })),
+      }
+      const { saleId } = await createSale(payload)
+      // Fetch full receipt
+      let saleData = null
+      if (saleId) saleData = await getSale(saleId).catch(() => null)
+      setReceipt({ saleId, saleData, cart: [...cart], total, payment, discount: hasDiscount ? discount : 0, client: !anonymous && selectedClient ? selectedClient : null })
+      setCart([]); setHasDiscount(false); setSelectedClient(null); setAnonymous(true)
+    } catch (e) {
+      const msg = e?.response?.data?.message || ''
+      if (msg.includes('insuficiente') || msg.includes('Insufficient')) toast.error('Estoque insuficiente. Faça uma entrada antes de vender.')
+      else toast.error(msg || 'Erro ao finalizar venda.')
+    } finally { setSubmitting(false) }
+  }
 
-								{selectedId === p.id && (
-									<AddInline onClick={e => e.stopPropagation()}>
-										<InlineLabel>Qtd</InlineLabel>
-										<InlineInput
-											ref={qtyRef}
-											type='number'
-											min='0'
-											step={p.unit === 'UN' ? '1' : '0.001'}
-											value={inlineQty}
-											onChange={e => setInlineQty(e.target.value)}
-											onKeyDown={e => e.key === 'Enter' && addToCart(p)}
-										/>
-										<InlineLabel>Preço R$</InlineLabel>
-										<InlineInput
-											type='number'
-											min='0'
-											step='0.01'
-											value={inlinePrice}
-											onChange={e => setInlinePrice(e.target.value)}
-											onKeyDown={e => e.key === 'Enter' && addToCart(p)}
-										/>
-										<AddBtn onClick={() => addToCart(p)}>
-											<span className='material-symbols-outlined' style={{ fontSize: 16 }}>add_shopping_cart</span>
-											Adicionar
-										</AddBtn>
-										<CancelBtn onClick={() => setSelectedId(null)}>✕</CancelBtn>
-									</AddInline>
-								)}
-							</ProductRow>
-						))}
-					</ProductList>
-				</ProductPanel>
+  const handleNewSale = () => { setReceipt(null); searchRef.current?.focus() }
 
-				{/* ── Carrinho ── */}
-				<CartPanel>
-					<CartHead>
-						<div>
-							<h2>Pedido</h2>
-							<span className='count'>{cart.length} item{cart.length !== 1 ? 's' : ''}</span>
-						</div>
-						{cart.length > 0 && (
-							<ClearBtn onClick={clearCart} title='Limpar carrinho'>
-								<span className='material-symbols-outlined'>delete_sweep</span>
-							</ClearBtn>
-						)}
-					</CartHead>
+  const handlePrint = () => window.print()
 
-					<CartItems>
-						{cart.length === 0 && (
-							<EmptyMsg style={{ padding: '32px 16px' }}>
-								<span className='material-symbols-outlined' style={{ fontSize: 40, display: 'block', marginBottom: 8 }}>shopping_cart</span>
-								Clique em um produto para adicionar ao pedido.
-							</EmptyMsg>
-						)}
-						{cart.map(it => (
-							<CartItemRow key={it.key}>
-								<ItemIcon>
-									<span className='material-symbols-outlined'>restaurant</span>
-								</ItemIcon>
-								<ItemInfo>
-									<div className='name'>{it.name}</div>
-									<div className='detail'>{fmt(it.price)}/{it.unit}</div>
-								</ItemInfo>
-								<ItemRight>
-									<ItemTotal>{fmt(it.qty * it.price)}</ItemTotal>
-									<ItemControls>
-										<button onClick={() => updateCartQty(it.key, Math.max(0, it.qty - (it.unit === 'UN' ? 1 : 0.1)).toFixed(it.unit === 'UN' ? 0 : 3))}>
-											<span className='material-symbols-outlined'>remove</span>
-										</button>
-										<QtyInput
-											value={it.qty}
-											onChange={e => updateCartQty(it.key, e.target.value)}
-											type='number'
-											min='0'
-											step={it.unit === 'UN' ? '1' : '0.001'}
-										/>
-										<button onClick={() => updateCartQty(it.key, it.qty + (it.unit === 'UN' ? 1 : 0.1))}>
-											<span className='material-symbols-outlined'>add</span>
-										</button>
-										<RemoveBtn onClick={() => removeFromCart(it.key)}>
-											<span className='material-symbols-outlined'>close</span>
-										</RemoveBtn>
-									</ItemControls>
-								</ItemRight>
-							</CartItemRow>
-						))}
-					</CartItems>
+  // ── Render ────────────────────────────────────────────────────────────────────
+  const userName = localStorage.getItem('userName') || 'Operador'
 
-					<CartFooter>
-						<TotalBox>
-							<span className='label'>Total</span>
-							<span className='value'>{fmt(total)}</span>
-						</TotalBox>
+  return (
+    <Wrapper>
+      <Sidebar navigate={navigate} activeView='sales' />
 
-						<PaySection>
-							<p className='title'>Pagamento</p>
-							<div className='grid'>
-								{PAYMENT_OPTIONS.map(opt => (
-									<PayBtn key={opt.id} $active={payment === opt.id} onClick={() => setPayment(opt.id)}>
-										<span className={`material-symbols-outlined icon${payment === opt.id ? ' fill' : ''}`}
-											style={payment === opt.id ? { fontVariationSettings: "'FILL' 1" } : {}}>
-											{opt.icon}
-										</span>
-										<span className='text'>{opt.label}</span>
-									</PayBtn>
-								))}
-							</div>
-						</PaySection>
+      <PdvArea>
+        {/* Top Bar */}
+        <TopBar>
+          <TopLeft>
+            <BackBtn onClick={() => navigate('dashboard')}>
+              <span className='material-symbols-outlined'>arrow_back</span>Voltar
+            </BackBtn>
+            <Title>Ponto de Venda</Title>
+          </TopLeft>
+          <TopRight>
+            <p>Operador: <strong>{userName}</strong></p>
+            <p>Terminal #01</p>
+          </TopRight>
+        </TopBar>
 
-						<FinalizeBtn $empty={cart.length === 0} onClick={handleFinalize} disabled={cart.length === 0 || submitting}>
-							<span className='material-symbols-outlined'>{submitting ? 'hourglass_empty' : 'check_circle'}</span>
-							{submitting ? 'Processando...' : 'Finalizar Venda'}
-						</FinalizeBtn>
-					</CartFooter>
-				</CartPanel>
-			</PdvArea>
+        <Body>
+          {/* ── PRODUTOS ── */}
+          <ProductPanel>
+            <PSearch>
+              <SearchBox>
+                <span className='material-symbols-outlined'>search</span>
+                <input ref={searchRef} placeholder='Buscar produto por nome, código ou marca...'
+                  value={search} onChange={e => setSearch(e.target.value)} />
+                {search && <span className='material-symbols-outlined' style={{ cursor:'pointer', fontSize:18 }} onClick={() => setSearch('')}>close</span>}
+              </SearchBox>
+            </PSearch>
 
-			{/* ── Overlay de sucesso ── */}
-			{successSale && (
-				<Overlay onClick={() => setSuccessSale(null)}>
-					<SuccessCard onClick={e => e.stopPropagation()}>
-						<span className='material-symbols-outlined icon' style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-						<h2>Venda Concluída!</h2>
-						<p>{successSale.count} item{successSale.count !== 1 ? 's' : ''} • {fmt(successSale.total)} • {successSale.payment}</p>
-						<button onClick={() => setSuccessSale(null)}>Nova Venda</button>
-					</SuccessCard>
-				</Overlay>
-			)}
-		</Wrapper>
-	)
+            <CatTabs>
+              {categories.map(c => (
+                <CatBtn key={c} $a={activeCat === c} onClick={() => setActiveCat(c)}>{c}</CatBtn>
+              ))}
+            </CatTabs>
+
+            {!loadingP && <PCount>{displayed.length} produto{displayed.length !== 1 ? 's' : ''}</PCount>}
+
+            <PList>
+              {loadingP && <EmptyP><span className='material-symbols-outlined'>hourglass_empty</span>Carregando produtos...</EmptyP>}
+              {!loadingP && displayed.length === 0 && <EmptyP><span className='material-symbols-outlined'>search_off</span>Nenhum produto encontrado.</EmptyP>}
+              {displayed.map(p => (
+                <PRow key={p.id} $sel={selectedId === p.id}>
+                  <PRowMain onClick={() => selectProduct(p)}>
+                    <PName>
+                      <div className='name'>{p.name}</div>
+                      <div className='sub'>{p.code}{p.brand ? ` · ${p.brand}` : ''}</div>
+                    </PName>
+                    <CBadge>{p.category || '—'}</CBadge>
+                    <UTag>{p.unit}</UTag>
+                    <PPrice>{fmt(p.price)}/{p.unit}</PPrice>
+                  </PRowMain>
+
+                  {selectedId === p.id && (
+                    <InlineAdd onClick={e => e.stopPropagation()}>
+                      <ILabel>Qtd</ILabel>
+                      <IInput ref={qtyRef} type='number' min='0'
+                        step={p.unit === 'UN' ? '1' : '0.001'}
+                        value={inlineQty} onChange={e => setInlineQty(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && addToCart(p)} />
+                      <ILabel>R$</ILabel>
+                      <IInput type='number' min='0' step='0.01'
+                        value={inlinePrice} onChange={e => setInlinePrice(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && addToCart(p)} />
+                      <IAdd onClick={() => addToCart(p)}>
+                        <span className='material-symbols-outlined' style={{ fontSize:15 }}>add_shopping_cart</span>
+                        Adicionar
+                      </IAdd>
+                      <ICancel onClick={() => setSelectedId(null)}>✕</ICancel>
+                    </InlineAdd>
+                  )}
+                </PRow>
+              ))}
+            </PList>
+          </ProductPanel>
+
+          {/* ── CARRINHO ── */}
+          <CartPanel>
+            <CartHead>
+              <div>
+                <h2>Pedido</h2>
+                <span className='cnt'>{cart.length} item{cart.length !== 1 ? 's' : ''}</span>
+              </div>
+              {cart.length > 0 && <ClearB onClick={clearCart} title='Limpar'><span className='material-symbols-outlined'>delete_sweep</span></ClearB>}
+            </CartHead>
+
+            <CartItems>
+              {cart.length === 0 && <EmptyCart><span className='material-symbols-outlined'>shopping_cart</span>Clique em um produto para adicionar.</EmptyCart>}
+              {cart.map(it => (
+                <CItem key={it.key}>
+                  <CIcon><span className='material-symbols-outlined'>restaurant</span></CIcon>
+                  <CInfo>
+                    <div className='name'>{it.name}</div>
+                    <div className='detail'>{fmt(it.price)}/{it.unit}</div>
+                  </CInfo>
+                  <CRight>
+                    <CTotal>{fmt(it.qty * it.price)}</CTotal>
+                    <QCtrl>
+                      <button onClick={() => updateQty(it.key, Math.max(0, it.qty - (it.unit==='UN'?1:0.1)).toFixed(it.unit==='UN'?0:3))}>
+                        <span className='material-symbols-outlined'>remove</span>
+                      </button>
+                      <QIn value={it.qty} type='number' min='0' step={it.unit==='UN'?'1':'0.001'}
+                        onChange={e => updateQty(it.key, e.target.value)} />
+                      <button onClick={() => updateQty(it.key, it.qty + (it.unit==='UN'?1:0.1))}>
+                        <span className='material-symbols-outlined'>add</span>
+                      </button>
+                      <RmBtn onClick={() => removeItem(it.key)}><span className='material-symbols-outlined'>close</span></RmBtn>
+                    </QCtrl>
+                  </CRight>
+                </CItem>
+              ))}
+            </CartItems>
+
+            <CartFooter>
+              {/* Cliente */}
+              <Section>
+                <SLabel>Cliente</SLabel>
+                {selectedClient && !anonymous ? (
+                  <ClientBadge>
+                    <span className='material-symbols-outlined' style={{ fontSize:16 }}>person</span>
+                    {selectedClient.nickname}
+                    <button onClick={() => { setSelectedClient(null); setAnonymous(true) }}>
+                      <span className='material-symbols-outlined'>close</span>
+                    </button>
+                  </ClientBadge>
+                ) : (
+                  <>
+                    <ClientRow>
+                      <ClientAnon $a={anonymous} onClick={() => { setAnonymous(true); setSelectedClient(null); setClientSearch('') }}>
+                        <span className='material-symbols-outlined' style={{ fontSize:14 }}>person_off</span>
+                        Sem identificação
+                      </ClientAnon>
+                      <ClientSearch
+                        placeholder='Buscar cliente...'
+                        value={clientSearch}
+                        onFocus={() => setAnonymous(false)}
+                        onChange={e => { setAnonymous(false); setClientSearch(e.target.value) }}
+                      />
+                    </ClientRow>
+                    {showClientDrop && (
+                      <ClientDropdown>
+                        {clientResults.map(c => (
+                          <ClientOpt key={c.id} onClick={() => handleSelectClient(c)}>
+                            <span className='ic material-symbols-outlined'>person</span>
+                            {c.nickname}
+                          </ClientOpt>
+                        ))}
+                        {clientSearch.trim().length >= 2 && (
+                          <ClientOpt onClick={handleCreateClient} style={{ borderTop:'1px solid #f0f0f0', color:'#610005', fontWeight:700 }}>
+                            <span className='ic material-symbols-outlined'>person_add</span>
+                            Criar "{clientSearch.trim()}"
+                          </ClientOpt>
+                        )}
+                        {clientResults.length === 0 && clientSearch.trim().length < 2 && (
+                          <ClientOpt style={{ color:'#a8a29e', cursor:'default' }}>Digite para buscar...</ClientOpt>
+                        )}
+                      </ClientDropdown>
+                    )}
+                  </>
+                )}
+              </Section>
+
+              {/* Pagamento */}
+              <Section>
+                <SLabel>Forma de Pagamento</SLabel>
+                <PayGrid>
+                  {PAYMENTS.map(opt => (
+                    <PayBtn key={opt.id} $a={payment === opt.id} onClick={() => setPayment(opt.id)}>
+                      <span className={`material-symbols-outlined icon${payment===opt.id?" fill":""}`}
+                        style={payment===opt.id?{fontVariationSettings:"'FILL' 1"}:{}}>{opt.icon}</span>
+                      <span className='txt'>{opt.label}</span>
+                    </PayBtn>
+                  ))}
+                </PayGrid>
+              </Section>
+
+              {/* Opções avançadas (desconto escondido) */}
+              <Section>
+                <AdvTrigger $open={advOpen} onClick={() => setAdvOpen(o => !o)}>
+                  <span className='material-symbols-outlined'>tune</span>
+                  Opções
+                  <span className='material-symbols-outlined'>expand_more</span>
+                </AdvTrigger>
+                <AdvPanel $open={advOpen}>
+                  <DiscountRow>
+                    <input type='checkbox' checked={hasDiscount}
+                      onChange={e => setHasDiscount(e.target.checked)} />
+                    Aplicar desconto <DiscTag>5% OFF</DiscTag>
+                    {hasDiscount && <span style={{ fontSize:11, color:'#b45309' }}>— {fmt(discount)}</span>}
+                  </DiscountRow>
+                </AdvPanel>
+              </Section>
+
+              {/* Total */}
+              <TotalBox>
+                <div>
+                  <p className='lbl'>Total</p>
+                  {hasDiscount && <p className='disc'>Com desconto de {fmt(discount)}</p>}
+                </div>
+                <p className='val'>{fmt(total)}</p>
+              </TotalBox>
+
+              <FinalBtn $empty={cart.length === 0} onClick={handleFinalize}
+                disabled={cart.length === 0 || submitting}>
+                {submitting ? <Spinner /> : <span className='material-symbols-outlined'>check_circle</span>}
+                {submitting ? 'Processando...' : 'Finalizar Venda'}
+              </FinalBtn>
+            </CartFooter>
+          </CartPanel>
+        </Body>
+      </PdvArea>
+
+      {/* ── RECIBO ── */}
+      {receipt && (
+        <Overlay>
+          <Receipt>
+            <RHead>
+              <h2>🥩 CarneUp</h2>
+              <p>Comprovante de Venda {receipt.saleId ? `#${receipt.saleId}` : ''}</p>
+              <p>{new Date().toLocaleString('pt-BR')}</p>
+            </RHead>
+
+            <RBody>
+              {(receipt.saleData?.items || receipt.cart).map((it, i) => (
+                <RRow key={i}>
+                  <div>
+                    <div className='item'>{it.productName || it.name}</div>
+                    <div className='qty'>
+                      {Number(it.quantity || it.qty).toFixed(3).replace(/\.?0+$/, '')} {it.unit || ''} × {fmt(it.precoUnitarioVenda || it.price)}
+                    </div>
+                  </div>
+                  <span className='price'>{fmt((it.quantity || it.qty) * (it.precoUnitarioVenda || it.price))}</span>
+                </RRow>
+              ))}
+
+              <RDivider />
+
+              {receipt.discount > 0 && (
+                <RRow>
+                  <span style={{ color:'#b45309', fontWeight:600 }}>Desconto (5%)</span>
+                  <span style={{ color:'#b45309', fontWeight:700 }}>- {fmt(receipt.discount)}</span>
+                </RRow>
+              )}
+
+              <RTotal>
+                <span className='lbl'>Total</span>
+                <span className='val'>{fmt(receipt.total)}</span>
+              </RTotal>
+
+              <RInfo>
+                <span><strong>Pagamento:</strong> {PAY_LABELS[receipt.payment]}</span>
+                <span><strong>Cliente:</strong> {receipt.client ? receipt.client.nickname : 'Sem identificação'}</span>
+                {receipt.discount > 0 && <span style={{ color:'#b45309' }}><strong>Desconto aplicado:</strong> {fmt(receipt.discount)}</span>}
+              </RInfo>
+            </RBody>
+
+            <RActions>
+              <RBtn $sec onClick={handlePrint}>
+                <span className='material-symbols-outlined' style={{ verticalAlign:'middle', marginRight:4, fontSize:16 }}>print</span>
+                Imprimir
+              </RBtn>
+              <RBtn onClick={handleNewSale}>Nova Venda</RBtn>
+            </RActions>
+          </Receipt>
+        </Overlay>
+      )}
+    </Wrapper>
+  )
 }
