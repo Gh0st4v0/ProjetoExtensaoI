@@ -11,6 +11,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/discards")
@@ -29,5 +32,11 @@ public class DescarteController {
     public ResponseEntity<?> createDiscard(@Valid @RequestBody com.example.SpringBootApp.DTOs.DescarteCreateDTO discardDTO) {
         Descarte d = inventarioService.createDiscard(discardDTO);
         return ResponseEntity.created(URI.create("/discards/" + d.getId())).build();
+    }
+
+    @GetMapping
+    public ResponseEntity<List<Map<String, Object>>> getDiscards() {
+        List<Map<String, Object>> result = inventarioService.getDiscards();
+        return ResponseEntity.ok(result);
     }
 }

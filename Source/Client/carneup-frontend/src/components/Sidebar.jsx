@@ -188,7 +188,7 @@ export const Sidebar = ({ navigate, activeView }) => {
 		vendas: 'sales',
 		purchases: 'purchases',
 		discard: 'discard',
-		relatorios: 'dashboard',
+		relatorios: 'reports',
 		configuracoes: 'configuracoes',
 	}
 

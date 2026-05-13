@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import styled from 'styled-components'
 import { Sidebar } from '../components/Sidebar'
 import { Topbar } from '../components/Topbar'
-import { SectionCard } from '../components/SectionCard'
-import { SettingsInput } from '../components/SettingsInput'
+import { getUsers, createUser, deleteUser } from '../services/usersApi'
+import { toast } from 'react-toastify'
 
 const Wrapper = styled.div`
   display: flex;
@@ -11,14 +11,12 @@ const Wrapper = styled.div`
   background: #f9f9f9;
   color: #111827;
 `
-
 const MainArea = styled.main`
   flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
 `
-
 const PageContent = styled.div`
   width: 100%;
   max-width: 1280px;
@@ -28,7 +26,6 @@ const PageContent = styled.div`
   flex-direction: column;
   gap: 32px;
 `
-
 const PageHeader = styled.div`
   display: flex;
   flex-direction: column;
@@ -39,30 +36,20 @@ const PageHeader = styled.div`
     align-items: flex-end;
   }
 `
-
 const SectionTitle = styled.h1`
   font-family: 'Epilogue', sans-serif;
-  font-size: 36px;
+  font-size: 32px;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: -0.05em;
   margin: 0;
   color: #1a1c1c;
 `
-
 const SectionDescription = styled.p`
-  margin: 0;
+  margin: 4px 0 0;
   color: #5a403c;
   font-size: 15px;
-  max-width: 680px;
 `
-
-const HeaderActions = styled.div`
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-`
-
 const ActionButton = styled.button`
   display: inline-flex;
   align-items: center;
@@ -71,484 +58,225 @@ const ActionButton = styled.button`
   color: #ffffff;
   border: none;
   border-radius: 12px;
-  padding: 14px 22px;
+  padding: 12px 20px;
   font-family: 'Epilogue', sans-serif;
   font-size: 12px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  cursor: pointer;
-  transition: transform 0.2s, background-color 0.2s;
-
-  &:hover {
-    background-color: #7f1d1d;
-  }
-
-  &:active {
-    transform: scale(0.98);
-  }
-`
-
-const UsersSection = styled.section`
-  display: grid;
-  gap: 24px;
-`
-
-const UsersGrid = styled.div`
-  display: grid;
-  gap: 20px;
-  grid-template-columns: 1fr;
-  @media (min-width: 768px) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  @media (min-width: 1280px) {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-`
-
-const UserCard = styled.div`
-  background: #ffffff;
-  border-radius: 20px;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  border: 1px solid #e5e7eb;
-
-  .top {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 16px;
-
-    img {
-      width: 48px;
-      height: 48px;
-      border-radius: 9999px;
-      object-fit: cover;
-      border: 2px solid #dc2626;
-    }
-
-    span.badge {
-      font-size: 10px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.18em;
-      padding: 6px 10px;
-      border-radius: 9999px;
-      background: #fef2f2;
-      color: #b91c1c;
-    }
-  }
-
-  h3 {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 900;
-    font-family: 'Epilogue', sans-serif;
-  }
-
-  p {
-    margin: 0;
-    color: #6b7280;
-    font-size: 13px;
-  }
-
-  .footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: 16px;
-    border-top: 1px solid #e5e7eb;
-    color: #6b7280;
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
-  }
-
-  button {
-    background: transparent;
-    border: none;
-    color: #b91c1c;
-    cursor: pointer;
-  }
-`
-
-const SettingsGrid = styled.div`
-  display: grid;
-  gap: 32px;
-  grid-template-columns: 1fr;
-  @media (min-width: 1024px) {
-    grid-template-columns: 2fr 1fr;
-    align-items: start;
-  }
-`
-
-const SettingsCard = styled.section`
-  background: #ffffff;
-  border-radius: 24px;
-  padding: 32px;
-  border: 1px solid #f3f4f6;
-`
-
-const SettingsCardHeader = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 24px;
-`
-
-const SettingsCardTitle = styled.h2`
-  margin: 0;
-  font-family: 'Epilogue', sans-serif;
-  font-size: 28px;
-  font-weight: 900;
-  color: #1f2937;
-  text-transform: uppercase;
-  letter-spacing: -0.05em;
-`
-
-const SettingsCardCaption = styled.p`
-  margin: 0;
-  color: #6b7280;
-  font-size: 14px;
-  line-height: 1.7;
-`
-
-const FormGrid = styled.div`
-  display: grid;
-  gap: 24px;
-`
-
-const FormRow = styled.div`
-  display: grid;
-  gap: 10px;
-`
-
-const FieldLabel = styled.label`
-  font-size: 12px;
-  font-weight: 700;
-  color: #6b7280;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-`
-
-const CheckboxList = styled.div`
-  display: grid;
-  gap: 12px;
-`
-
-const CheckboxLabel = styled.label`
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: #f8fafc;
-  padding: 16px 18px;
-  border: 1px solid #e5e7eb;
-  border-radius: 18px;
-  cursor: pointer;
-  font-size: 14px;
-  color: #111827;
-
-  input {
-    accent-color: #b91c1c;
-    width: 18px;
-    height: 18px;
-  }
-`
-
-const SaveButton = styled.button`
-  margin-top: 16px;
-  background: #610005;
-  color: #ffffff;
-  border: none;
-  border-radius: 16px;
-  padding: 14px 22px;
-  font-family: 'Epilogue', sans-serif;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   cursor: pointer;
-  transition: transform 0.2s, opacity 0.2s;
-
-  &:hover {
-    opacity: 0.95;
-  }
-
-  &:active {
-    transform: scale(0.98);
-  }
+  &:hover { background-color: #7f1d1d; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
 `
-
-const PreviewCard = styled(SectionCard)`
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-  position: relative;
-  overflow: hidden;
-  background: #111827;
-  color: #f8fafc;
-
-  .stripe {
-    position: absolute;
-    top: -20px;
-    right: -20px;
-    opacity: 0.08;
-    font-size: 120px;
-  }
-
-  .content {
-    position: relative;
-    z-index: 1;
-  }
-
-  .preview-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    font-family: 'Work Sans', sans-serif;
-    font-size: 14px;
-  }
-
-  .total {
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    font-weight: 800;
-    font-size: 16px;
-  }
-`
-
-const TipsGrid = styled.div`
+const UsersGrid = styled.div`
   display: grid;
-  gap: 18px;
+  gap: 20px;
   grid-template-columns: 1fr;
-  @media (min-width: 768px) {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
+  @media (min-width: 768px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (min-width: 1280px) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 `
-
-const TipCard = styled.div`
+const UserCard = styled.div`
   background: #ffffff;
+  border-radius: 16px;
   padding: 24px;
-  border-radius: 22px;
-  border: 1px solid #e5e7eb;
   display: flex;
   flex-direction: column;
   gap: 12px;
-
-  span.icon {
-    color: ${(props) => props.color || '#991b1b'};
-    font-size: 28px;
+  border: 1px solid #e5e7eb;
+  .top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .avatar {
+    width: 48px; height: 48px; border-radius: 9999px;
+    background: #ffdad6; color: #610005;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Epilogue', sans-serif; font-weight: 900; font-size: 18px;
   }
-
-  h4 {
-    margin: 0;
-    font-size: 14px;
-    font-weight: 900;
-    color: #111827;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+  span.badge {
+    font-size: 10px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.12em; padding: 5px 10px; border-radius: 9999px;
+    background: ${p => p.$adm ? '#fef2f2' : '#e0f2fe'};
+    color: ${p => p.$adm ? '#b91c1c' : '#0369a1'};
   }
-
-  p {
-    margin: 0;
-    color: #6b7280;
-    font-size: 12px;
-    line-height: 1.5;
+  h3 { margin: 0; font-size: 17px; font-weight: 900; font-family: 'Epilogue', sans-serif; }
+  p { margin: 0; color: #6b7280; font-size: 13px; }
+  .footer {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-top: 12px; border-top: 1px solid #e5e7eb;
+    color: #6b7280; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
   }
+`
+const AddCard = styled.button`
+  background: #fff; border: 2px dashed #e5e7eb; border-radius: 16px;
+  padding: 24px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 8px;
+  cursor: pointer; color: #6b7280; font-weight: 700; font-size: 14px;
+  transition: border-color 0.2s;
+  &:hover { border-color: #610005; color: #610005; }
+`
+
+const Backdrop = styled.div`
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+  display: flex; align-items: center; justify-content: center; z-index: 60;
+`
+const Modal = styled.div`
+  width: 480px; max-width: calc(100% - 32px);
+  background: #fff; border-radius: 16px; padding: 28px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+`
+const ModalTitle = styled.h2`
+  font-family: 'Epilogue', sans-serif; font-weight: 900; color: #610005;
+  margin: 0 0 20px; font-size: 20px; text-transform: uppercase;
+`
+const Field = styled.div`margin-bottom: 14px;`
+const FieldLabel = styled.label`
+  font-size: 10px; font-weight: 700; color: #6b7280;
+  letter-spacing: 0.15em; text-transform: uppercase; display: block; margin-bottom: 6px;
+`
+const FieldInput = styled.input`
+  width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb;
+  border-radius: 8px; font-size: 14px; font-family: 'Work Sans', sans-serif;
+  box-sizing: border-box;
+`
+const FieldSelect = styled.select`
+  width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb;
+  border-radius: 8px; font-size: 14px; font-family: 'Work Sans', sans-serif;
+`
+const ModalActions = styled.div`display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px;`
+const BtnSecondary = styled.button`
+  padding: 10px 18px; border: 1px solid #e5e7eb; border-radius: 8px;
+  background: #fff; cursor: pointer; font-size: 13px; font-family: 'Work Sans', sans-serif;
+`
+const BtnPrimary = styled.button`
+  padding: 10px 18px; border: none; border-radius: 8px;
+  background: #610005; color: #fff; cursor: pointer;
+  font-size: 13px; font-family: 'Epilogue', sans-serif; font-weight: 700;
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
 `
 
 export const SettingsView = ({ navigate }) => {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [settings, setSettings] = useState({
-    unitName: 'CarneUp Matriz - Centro',
-    cnpj: '00.000.000/0001-00',
-    showWeight: true,
-    loyaltyQRCode: false,
-  })
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [form, setForm] = useState({ nome: '', email: '', senha: '', nivelAcesso: 'USUARIO' })
 
-  const handleFieldChange = (field) => (event) => {
-    setSettings((current) => ({
-      ...current,
-      [field]: event.target.value,
-    }))
+  const load = useCallback(() => {
+    setLoading(true)
+    getUsers()
+      .then(setUsers)
+      .catch(() => toast.error('Erro ao carregar usuários.'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Remover este usuário?')) return
+    try {
+      await deleteUser(id)
+      toast.success('Usuário removido.')
+      load()
+    } catch {
+      toast.error('Erro ao remover usuário.')
+    }
   }
 
-  const toggleSetting = (field) => {
-    setSettings((current) => ({
-      ...current,
-      [field]: !current[field],
-    }))
+  const handleCreate = async (e) => {
+    e.preventDefault()
+    setSubmitting(true)
+    try {
+      await createUser(form)
+      toast.success('Usuário criado com sucesso!')
+      setModalOpen(false)
+      setForm({ nome: '', email: '', senha: '', nivelAcesso: 'USUARIO' })
+      load()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Erro ao criar usuário.')
+    } finally {
+      setSubmitting(false)
+    }
   }
+
+  const initials = (nome) => nome ? nome.slice(0, 2).toUpperCase() : '?'
 
   return (
     <Wrapper>
       <Sidebar navigate={navigate} activeView='configuracoes' />
       <MainArea>
-        <Topbar searchQuery={searchQuery} onSearchChange={setSearchQuery} />
+        <Topbar searchQuery='' onSearchChange={() => {}} />
         <PageContent>
           <PageHeader>
             <div>
               <SectionTitle>Gerenciar Usuários</SectionTitle>
-              <SectionDescription>
-                Controle de acesso, cargos e convites da equipe CarneUp.
-              </SectionDescription>
+              <SectionDescription>Controle de acesso e cargos da equipe CarneUp.</SectionDescription>
             </div>
-            <HeaderActions>
-              <ActionButton type='button'>
-                <span className='material-symbols-outlined'>person_add</span>
-                Adicionar Colaborador
-              </ActionButton>
-            </HeaderActions>
+            <ActionButton onClick={() => setModalOpen(true)}>
+              <span className='material-symbols-outlined'>person_add</span>
+              Adicionar Colaborador
+            </ActionButton>
           </PageHeader>
 
-          <UsersSection>
+          {loading ? (
+            <p style={{ color: '#78716c' }}>Carregando usuários...</p>
+          ) : (
             <UsersGrid>
-              <UserCard>
-                <div className='top'>
-                  <img
-                    src='https://lh3.googleusercontent.com/aida-public/AB6AXuBWN0HTKbuVhnhktawYmvNeKj8731INtyXZPS_Q0gHFqflY3OAuYooXNUmWKSMf4AD5XdKWgpf_zGG0BCxWYQfUxRCMfpYORtTwRP-XD33fry_oF4gmOqVla0GAdRCvpg6W3HvQxxwDNpeUCHN9yGKouCqrFY2qUIKrPTH_ZGYFLH3Oh75Q7pm3oAxfVkiWlwPvhlNJsJwwArg0kDpmtAEAMXGAi5PPAgyHSDq9kvzTpZ0DqHRB69tt7av3ZiB4Mh1O4n8L_qUUw_M'
-                    alt='Ricardo Silva'
-                  />
-                  <span className='badge'>Master</span>
-                </div>
-                <h3>Ricardo Silva</h3>
-                <p>ricardo@carneup.com.br</p>
-                <div className='footer'>
-                  <span>Acesso Total</span>
-                  <button type='button'>
-                    <span className='material-symbols-outlined'>edit</span>
-                  </button>
-                </div>
-              </UserCard>
-
-              <UserCard>
-                <div className='top'>
-                  <img
-                    src='https://lh3.googleusercontent.com/aida-public/AB6AXuC1Le8uV8i_Ut_lmoPXl1Y9ldIWkTYcQxlje2S197qU4PHzIF5GvdRp15aVYAP0i4LuWAzUrTgGRkXodWIkbz5O_MPY102XAcjKXWKaPTlJMHw-nzriaoToPF7DsU7iLhJEnN_eWg5m8taL2wraLnwZjDfbFCE4WiMwDi0_JF90numienNdMbuEEgcg3CbLQKef_Nmh2OwDSwebu__gkj2i4QEjTYqz3qNX-pyzU8jpZV9e5ic_7XjUSqHO6vo74n2ss51MFVHok'
-                    alt='Ana Martins'
-                  />
-                  <span className='badge' style={{ background: '#e0f2fe', color: '#0369a1' }}>
-                    Caixa
-                  </span>
-                </div>
-                <h3>Ana Martins</h3>
-                <p>ana.pos@carneup.com.br</p>
-                <div className='footer'>
-                  <span>Vendas & Sangrias</span>
-                  <button type='button'>
-                    <span className='material-symbols-outlined'>edit</span>
-                  </button>
-                </div>
-              </UserCard>
-
-              <UserCard style={{ justifyContent: 'center', textAlign: 'center' }}>
-                <span className='material-symbols-outlined' style={{ fontSize: 36 }}>
-                  add_circle
-                </span>
-                <p style={{ marginTop: 8, color: '#6b7280', fontWeight: 700 }}>
-                  Novo Convite
-                </p>
-              </UserCard>
+              {users.map(u => (
+                <UserCard key={u.id} $adm={u.nivelAcesso === 'ADM'}>
+                  <div className='top'>
+                    <div className='avatar'>{initials(u.nome)}</div>
+                    <span className='badge'>{u.nivelAcesso === 'ADM' ? 'Admin' : 'Operador'}</span>
+                  </div>
+                  <h3>{u.nome}</h3>
+                  <p>{u.email}</p>
+                  <div className='footer'>
+                    <span>{u.nivelAcesso === 'ADM' ? 'Acesso Total' : 'Acesso Básico'}</span>
+                    <button type='button' onClick={() => handleDelete(u.id)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#b91c1c' }}>
+                      <span className='material-symbols-outlined' style={{ fontSize: 18 }}>delete</span>
+                    </button>
+                  </div>
+                </UserCard>
+              ))}
+              <AddCard onClick={() => setModalOpen(true)}>
+                <span className='material-symbols-outlined' style={{ fontSize: 32 }}>add_circle</span>
+                Novo Colaborador
+              </AddCard>
             </UsersGrid>
-          </UsersSection>
-
-          <SettingsGrid>
-            <SettingsCard>
-              <SettingsCardHeader>
-                <SettingsCardTitle>Configurações do Sistema</SettingsCardTitle>
-                <SettingsCardCaption>
-                  Defina o comportamento do comprovante, da unidade e do layout do sistema.
-                </SettingsCardCaption>
-              </SettingsCardHeader>
-
-              <FormGrid>
-                <FormRow>
-                  <FieldLabel>Nome da Unidade</FieldLabel>
-                  <SettingsInput
-                    type='text'
-                    value={settings.unitName}
-                    onChange={handleFieldChange('unitName')}
-                    placeholder='Nome da unidade'
-                  />
-                </FormRow>
-                <FormRow>
-                  <FieldLabel>CNPJ Operacional</FieldLabel>
-                  <SettingsInput
-                    type='text'
-                    value={settings.cnpj}
-                    onChange={handleFieldChange('cnpj')}
-                    placeholder='00.000.000/0001-00'
-                  />
-                </FormRow>
-                <CheckboxList>
-                  <CheckboxLabel>
-                    <input
-                      type='checkbox'
-                      checked={settings.showWeight}
-                      onChange={() => toggleSetting('showWeight')}
-                    />
-                    Exibir Peso por Peça
-                  </CheckboxLabel>
-                  <CheckboxLabel>
-                    <input
-                      type='checkbox'
-                      checked={settings.loyaltyQRCode}
-                      onChange={() => toggleSetting('loyaltyQRCode')}
-                    />
-                    QR Code de Fidelidade
-                  </CheckboxLabel>
-                </CheckboxList>
-                <SaveButton type='button'>Salvar Alterações</SaveButton>
-              </FormGrid>
-            </SettingsCard>
-
-            <PreviewCard title='Preview do Cupom' caption='Visualize o layout do comprovante antes de salvar.'>
-              <span className='stripe material-symbols-outlined'>receipt_long</span>
-              <div className='content'>
-                <div className='preview-row'>
-                  <span>Picanha Argentina 1.2kg</span>
-                  <span>R$ 142,80</span>
-                </div>
-                <div className='preview-row'>
-                  <span>Linguiça Artesanal</span>
-                  <span>R$ 28,90</span>
-                </div>
-                <div className='total'>
-                  <span>TOTAL</span>
-                  <span>R$ 171,70</span>
-                </div>
-              </div>
-            </PreviewCard>
-          </SettingsGrid>
-
-          <SectionCard title='Dicas de Uso & Suporte'>
-            <TipsGrid>
-              <TipCard>
-                <span className='material-symbols-outlined icon'>inventory</span>
-                <h4>Ajuste de Estoque</h4>
-                <p>Saiba como realizar baixas manuais por quebra ou consumo interno.</p>
-              </TipCard>
-              <TipCard color='#1d4ed8'>
-                <span className='material-symbols-outlined icon'>scale</span>
-                <h4>Integração Balança</h4>
-                <p>Configuração de protocolos seriais para balanças Prix e Filizola.</p>
-              </TipCard>
-              <TipCard color='#4338ca'>
-                <span className='material-symbols-outlined icon'>query_stats</span>
-                <h4>Relatórios de Margem</h4>
-                <p>Entenda como o CarneUp calcula seu CMV em tempo real.</p>
-              </TipCard>
-              <TipCard color='#047857'>
-                <span className='material-symbols-outlined icon'>credit_card</span>
-                <h4>Taxas de Cartão</h4>
-                <p>Configure suas taxas para ter o valor líquido correto nos relatórios.</p>
-              </TipCard>
-            </TipsGrid>
-          </SectionCard>
+          )}
         </PageContent>
       </MainArea>
+
+      {modalOpen && (
+        <Backdrop onClick={() => setModalOpen(false)}>
+          <Modal onClick={e => e.stopPropagation()}>
+            <ModalTitle>Novo Usuário</ModalTitle>
+            <form onSubmit={handleCreate}>
+              <Field>
+                <FieldLabel>Nome *</FieldLabel>
+                <FieldInput value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} required />
+              </Field>
+              <Field>
+                <FieldLabel>E-mail *</FieldLabel>
+                <FieldInput type='email' value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} required />
+              </Field>
+              <Field>
+                <FieldLabel>Senha *</FieldLabel>
+                <FieldInput type='password' value={form.senha} onChange={e => setForm(f => ({ ...f, senha: e.target.value }))} required />
+              </Field>
+              <Field>
+                <FieldLabel>Nível de Acesso</FieldLabel>
+                <FieldSelect value={form.nivelAcesso} onChange={e => setForm(f => ({ ...f, nivelAcesso: e.target.value }))}>
+                  <option value='USUARIO'>Operador (Acesso Básico)</option>
+                  <option value='ADM'>Admin (Acesso Total)</option>
+                </FieldSelect>
+              </Field>
+              <ModalActions>
+                <BtnSecondary type='button' onClick={() => setModalOpen(false)}>Cancelar</BtnSecondary>
+                <BtnPrimary type='submit' disabled={submitting}>{submitting ? 'Salvando...' : 'Criar Usuário'}</BtnPrimary>
+              </ModalActions>
+            </form>
+          </Modal>
+        </Backdrop>
+      )}
     </Wrapper>
   )
 }

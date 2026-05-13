@@ -14,6 +14,7 @@ import { SuccessView } from './views/SuccessView'
 import { DiscardView } from './views/DiscardView'
 import { PurchaseView } from './views/PurchaseView'
 import AttributesView from './views/AttributesView'
+import { ReportsView } from './views/ReportsView'
 
 export default function App() {
 	const [currentView, setCurrentView] = useState('login')
@@ -72,6 +73,8 @@ export default function App() {
 				return <SettingsView navigate={setCurrentView} />
 		case 'settings':
 				return <SettingsView navigate={setCurrentView} />
+		case 'reports':
+				return <ReportsView navigate={setCurrentView} />
 		default:
 				return <LoginView navigate={setCurrentView} />
 		}
