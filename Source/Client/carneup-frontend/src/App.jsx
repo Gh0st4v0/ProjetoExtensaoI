@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { ToastContainer } from 'react-toastify'
 
 import { GlobalStyle } from './GlobalStyle'
 
@@ -84,6 +85,15 @@ export default function App() {
 		<>
 			<GlobalStyle />
 			{renderView()}
+			<ToastContainer
+				position='top-right'
+				autoClose={3000}
+				hideProgressBar={false}
+				newestOnTop
+				closeOnClick
+				pauseOnHover
+				draggable
+			/>
 		</>
 	)
 }
