@@ -300,6 +300,47 @@ const Spinner = styled.span`
   border-radius:50%; animation:${spin} 0.7s linear infinite;
 `
 
+// ── Client Modal ───────────────────────────────────────────────────────────────
+const CModal = styled.div`
+  background:#fff; border-radius:16px; width:400px; max-width:calc(100% - 32px);
+  box-shadow:0 24px 48px rgba(0,0,0,0.2); animation:${slideIn} 0.2s ease;
+`
+const CModalHead = styled.div`
+  padding:20px 22px 16px;
+  display:flex; justify-content:space-between; align-items:flex-start;
+  border-bottom:1px solid #f5f5f4;
+  h2{font-family:'Epilogue',sans-serif;font-size:17px;font-weight:900;color:#1c1917;margin:0;}
+  p{font-size:12px;color:#78716c;margin:4px 0 0;}
+  button{background:none;border:none;cursor:pointer;color:#a8a29e;display:flex;align-items:center;padding:0;
+    &:hover{color:#dc2626;} span{font-size:20px;}}
+`
+const CModalBody = styled.div`padding:18px 22px;`
+const CModalField = styled.div`
+  margin-bottom:14px;
+  label{display:block;font-size:10px;font-weight:700;text-transform:uppercase;
+    letter-spacing:0.12em;color:#78716c;margin-bottom:6px;}
+  input{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;
+    font-size:14px;font-family:'Work Sans',sans-serif;box-sizing:border-box;
+    &:focus{outline:none;border-color:#610005;}
+  }
+  small{display:block;font-size:11px;color:#a8a29e;margin-top:4px;}
+`
+const CModalActions = styled.div`
+  display:flex;gap:8px;padding:0 22px 20px;
+`
+const CModalCancel = styled.button`
+  flex:1;padding:10px;border:1px solid #e5e7eb;border-radius:8px;
+  background:#fff;cursor:pointer;font-size:13px;font-family:'Work Sans',sans-serif;color:#78716c;
+  &:hover{background:#f5f5f4;}
+`
+const CModalConfirm = styled.button`
+  flex:2;padding:10px;border:none;border-radius:8px;
+  background:#610005;color:#fff;cursor:pointer;
+  font-family:'Epilogue',sans-serif;font-weight:900;font-size:13px;text-transform:uppercase;
+  &:hover{background:#7f1d1d;}
+  &:disabled{opacity:0.5;cursor:not-allowed;}
+`
+
 // ── Receipt Modal ──────────────────────────────────────────────────────────────
 const Overlay = styled.div`
   position:fixed;inset:0;background:rgba(0,0,0,0.55);
@@ -378,6 +419,9 @@ export const SalesView = ({ navigate }) => {
   const [clientResults, setClientResults] = useState([])
   const [selectedClient, setSelectedClient] = useState(null)
   const [showClientDrop, setShowClientDrop] = useState(false)
+  const [clientModal, setClientModal] = useState(false)
+  const [clientForm, setClientForm] = useState({ nickname: '' })
+  const [clientSaving, setClientSaving] = useState(false)
 
   // Payment & options
   const [payment, setPayment] = useState('DINHEIRO')
@@ -476,14 +520,25 @@ export const SalesView = ({ navigate }) => {
   const handleSelectClient = (c) => {
     setSelectedClient(c); setShowClientDrop(false); setClientSearch('')
   }
-  const handleCreateClient = async () => {
-    if (clientSearch.trim().length < 2) return
+
+  const openClientModal = () => {
+    setClientForm({ nickname: clientSearch.trim() })
+    setShowClientDrop(false)
+    setClientModal(true)
+  }
+
+  const handleClientModalSubmit = async (e) => {
+    e.preventDefault()
+    const nickname = clientForm.nickname.trim()
+    if (!nickname) return
+    setClientSaving(true)
     try {
-      const id = await createClient(clientSearch.trim())
-      setSelectedClient({ id: Number(id), nickname: clientSearch.trim() })
-      setClientSearch(''); setShowClientDrop(false)
-      toast.success(`Cliente "${clientSearch.trim()}" criado!`)
-    } catch { toast.error('Erro ao criar cliente.') }
+      const id = await createClient(nickname)
+      setSelectedClient({ id: Number(id), nickname })
+      setClientSearch(''); setClientModal(false); setAnonymous(false)
+      toast.success(`Cliente "${nickname}" identificado!`)
+    } catch { toast.error('Erro ao cadastrar cliente.') }
+    finally { setClientSaving(false) }
   }
 
   // Finalize
@@ -669,16 +724,25 @@ export const SalesView = ({ navigate }) => {
                             {c.nickname}
                           </ClientOpt>
                         ))}
-                        {clientSearch.trim().length >= 2 && (
-                          <ClientOpt onClick={handleCreateClient} style={{ borderTop:'1px solid #f0f0f0', color:'#610005', fontWeight:700 }}>
-                            <span className='ic material-symbols-outlined'>person_add</span>
-                            Criar "{clientSearch.trim()}"
-                          </ClientOpt>
-                        )}
-                        {clientResults.length === 0 && clientSearch.trim().length < 2 && (
-                          <ClientOpt style={{ color:'#a8a29e', cursor:'default' }}>Digite para buscar...</ClientOpt>
-                        )}
+                        <ClientOpt
+                          onClick={openClientModal}
+                          style={{ borderTop:'1px solid #f0f0f0', color:'#610005', fontWeight:700 }}
+                        >
+                          <span className='ic material-symbols-outlined'>person_add</span>
+                          {clientSearch.trim().length >= 2
+                            ? `Cadastrar "${clientSearch.trim()}"...`
+                            : 'Cadastrar novo cliente...'}
+                        </ClientOpt>
                       </ClientDropdown>
+                    )}
+                    {!showClientDrop && !anonymous && clientSearch === '' && (
+                      <ClientOpt
+                        onClick={openClientModal}
+                        style={{ marginTop:4, borderRadius:8, border:'1px dashed #e7e5e4', color:'#610005', fontWeight:700 }}
+                      >
+                        <span className='ic material-symbols-outlined'>person_add</span>
+                        Cadastrar novo cliente
+                      </ClientOpt>
                     )}
                   </>
                 )}
@@ -733,6 +797,45 @@ export const SalesView = ({ navigate }) => {
           </CartPanel>
         </Body>
       </PdvArea>
+
+      {/* ── MODAL CADASTRO CLIENTE ── */}
+      {clientModal && (
+        <Overlay onClick={() => setClientModal(false)}>
+          <CModal onClick={e => e.stopPropagation()}>
+            <CModalHead>
+              <div>
+                <h2>Identificar Cliente</h2>
+                <p>Informe o apelido ou nome para identificar o cliente nesta venda.</p>
+              </div>
+              <button onClick={() => setClientModal(false)}>
+                <span className='material-symbols-outlined'>close</span>
+              </button>
+            </CModalHead>
+
+            <form onSubmit={handleClientModalSubmit}>
+              <CModalBody>
+                <CModalField>
+                  <label>Apelido / Nome *</label>
+                  <input
+                    autoFocus
+                    placeholder='Ex: João da Silva, Mesa 3, Empresa XYZ...'
+                    value={clientForm.nickname}
+                    onChange={e => setClientForm({ nickname: e.target.value })}
+                    required
+                  />
+                  <small>O apelido é usado para identificar o cliente nos relatórios e histórico de vendas.</small>
+                </CModalField>
+              </CModalBody>
+              <CModalActions>
+                <CModalCancel type='button' onClick={() => setClientModal(false)}>Cancelar</CModalCancel>
+                <CModalConfirm type='submit' disabled={clientSaving || !clientForm.nickname.trim()}>
+                  {clientSaving ? 'Salvando...' : 'Confirmar Identificação'}
+                </CModalConfirm>
+              </CModalActions>
+            </form>
+          </CModal>
+        </Overlay>
+      )}
 
       {/* ── RECIBO ── */}
       {receipt && (
