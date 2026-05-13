@@ -580,28 +580,15 @@ export const StockView = ({ navigate }) => {
 							</form>
 						</FormCard>
 
-						{/* Info / Dica */}
-						<FormCard style={{ background: '#1a1c1c', color: '#fff' }}>
-							<FormTitle style={{ color: '#ff9085' }}>Dicas de Uso</FormTitle>
-							<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-								{[
-									{ icon: 'inventory_2', title: 'Entrada de Estoque', text: 'Use "Entrada de Estoque" para registrar compras de produtos já cadastrados.' },
-									{ icon: 'manage_search', title: 'Busca', text: 'Digite pelo menos 2 caracteres para buscar produtos pelo nome.' },
-									{ icon: 'label', title: 'Código', text: 'O código deve ter exatamente 6 caracteres alfanuméricos (A-Z, 0-9).' },
-									{ icon: 'category', title: 'Atributos', text: 'Cadastre marcas e categorias em "Atributos" antes de criar produtos.' },
-								].map(d => (
-									<div key={d.icon} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-										<span className='material-symbols-outlined' style={{ color: '#ff9085', fontSize: 20, flexShrink: 0, marginTop: 2 }}>{d.icon}</span>
-										<div>
-											<div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>{d.title}</div>
-											<div style={{ fontSize: 12, color: '#a8a29e', lineHeight: 1.5 }}>{d.text}</div>
-										</div>
-									</div>
-								))}
-								<Button full={false} small onClick={() => navigate('attributes')} style={{ marginTop: 8 }}>
-									Gerenciar Marcas e Categorias
-								</Button>
-							</div>
+						<FormCard>
+							<FormTitle>Marcas e Categorias</FormTitle>
+							<p style={{ fontSize: 13, color: '#78716c', marginBottom: 16, lineHeight: 1.6 }}>
+								Cadastre marcas e categorias antes de criar produtos. Elas aparecem nos filtros e relatórios.
+							</p>
+							<Button full onClick={() => navigate('attributes')}>
+								<span className='material-symbols-outlined' style={{ fontSize: 16, marginRight: 6 }}>label</span>
+								Gerenciar Marcas e Categorias
+							</Button>
 						</FormCard>
 					</LayoutGrid>
 
