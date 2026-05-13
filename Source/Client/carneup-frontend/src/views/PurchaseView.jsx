@@ -8,6 +8,7 @@ import DataTable from '../components/DataTable'
 import ConfirmModal from '../components/ConfirmModal'
 import productsApi from '../services/productsApi'
 import purchasesApi from '../services/purchasesApi'
+import { toast } from 'react-toastify'
 
 const Wrapper = styled.div`
   display:flex; min-height:100vh; background:#f9f9f9;
@@ -110,11 +111,10 @@ export const PurchaseView = ({ navigate }) => {
     }
     try {
       await purchasesApi.createPurchase(payload)
-      alert('Compra registrada com sucesso')
+      toast.success('Entrada de estoque registrada com sucesso!')
       setCart([])
     } catch (e) {
-      console.error('Erro ao registrar compra', e)
-      alert(e?.response?.data?.message || 'Falha ao registrar compra')
+      toast.error(e?.response?.data?.message || 'Falha ao registrar entrada. Verifique se produtos perecíveis têm data de validade.')
     }
   }
 
@@ -155,9 +155,15 @@ export const PurchaseView = ({ navigate }) => {
                   <option value=''>-- selecione --</option>
                   {products.map(p=> <option key={p.id} value={p.id}>{p.name} ({p.code})</option>)}
                 </select>
-                <Input value={qty} onChange={e=>setQty(e.target.value)} placeholder='Quantidade' />
-                <Input value={cost} onChange={e=>setCost(e.target.value)} placeholder='Preço de Compra (R$)' style={{marginTop:8}} />
-                <Input type='date' value={expiry} onChange={e=>setExpiry(e.target.value)} style={{marginTop:8}} />
+                <label style={{display:'block',fontSize:10,fontWeight:700,marginTop:8}}>Quantidade</label>
+                <Input value={qty} onChange={e=>setQty(e.target.value)} placeholder='Ex: 2.5' />
+                <label style={{display:'block',fontSize:10,fontWeight:700,marginTop:8}}>Preço de Custo (R$)</label>
+                <Input value={cost} onChange={e=>setCost(e.target.value)} placeholder='Ex: 45.90' />
+                <label style={{display:'block',fontSize:10,fontWeight:700,marginTop:8}}>
+                  Data de Validade
+                  <span style={{color:'#78716c',fontWeight:400,marginLeft:4}}>(obrigatório para perecíveis)</span>
+                </label>
+                <Input type='date' value={expiry} onChange={e=>setExpiry(e.target.value)} />
                 <Button onClick={addToCart} style={{marginTop:12}}>{editing ? 'Atualizar item' : 'Adicionar à lista'}</Button>
               </div>
             </FormRow>
