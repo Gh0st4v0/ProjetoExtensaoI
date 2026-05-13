@@ -34,7 +34,7 @@ class ClienteServiceTest {
 
         when(clienteRepository.save(any(Cliente.class))).thenReturn(c);
 
-        ClienteCreateDTO dto = new ClienteCreateDTO("Joao");
+        ClienteCreateDTO dto = new ClienteCreateDTO("Joao", null, null, null);
         Cliente saved = clienteService.createClient(dto);
         assertEquals(1L, saved.getId());
         assertEquals("Joao", saved.getNickname());

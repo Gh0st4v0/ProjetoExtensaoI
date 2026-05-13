@@ -44,7 +44,7 @@ class ClienteControllerTest {
 
     @Test
     void createClient_returns201() throws Exception {
-        ClienteCreateDTO dto = new ClienteCreateDTO("Joao");
+        ClienteCreateDTO dto = new ClienteCreateDTO("Joao", null, null, null);
         com.example.SpringBootApp.models.Cliente saved = new com.example.SpringBootApp.models.Cliente();
         saved.setId(1L);
         saved.setNickname("Joao");
