@@ -166,7 +166,7 @@ export const PurchaseView = ({ navigate }) => {
           <DataTable data={cart} columns={columns} actions={actions} currentPage={1} totalPages={1} totalItems={cart.length} onPageChange={()=>{}} loading={false} emptyMessage='Carrinho vazio.' />
 
           <div style={{display:'flex',justifyContent:'flex-end',marginTop:12}}>
-            <Button onClick={handleSubmitPurchase} disabled={!cart.length}>Finalizar Compra</Button>
+            <Button onClick={handleSubmitPurchase} disabled={!cart.length}>Registrar Entrada no Estoque</Button>
           </div>
 
         </Content>
