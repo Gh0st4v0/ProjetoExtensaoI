@@ -444,6 +444,7 @@ export const StockView = ({ navigate }) => {
 	]
 
 	return (
+		<>
 		<Wrapper>
 			<Sidebar navigate={navigate} activeView='stock' />
 			<MainArea>
@@ -672,5 +673,6 @@ export const StockView = ({ navigate }) => {
 				</ModalCard>
 			</Backdrop>
 		)}
+		</>
 	)
 }
