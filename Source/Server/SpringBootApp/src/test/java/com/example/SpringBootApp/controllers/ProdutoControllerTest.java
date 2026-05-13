@@ -201,8 +201,8 @@ class ProdutoControllerTest {
         setup();
 
         // Arrange
-        ProdutoQuantidadeEstoqueDTO produto1 = new ProdutoQuantidadeEstoqueDTO(1L, "Picanha", "001001", "Friboi", "Bovine", UnitMeasurement.KG, new BigDecimal("0"), new BigDecimal("0"));
-        ProdutoQuantidadeEstoqueDTO produto2 = new ProdutoQuantidadeEstoqueDTO(2L, "Alcatra", "001002", "Sadia", "Bovine", UnitMeasurement.KG, new BigDecimal("0"), new BigDecimal("0"));
+        ProdutoQuantidadeEstoqueDTO produto1 = new ProdutoQuantidadeEstoqueDTO(1L, "Picanha", "001001", "Friboi", "Bovine", UnitMeasurement.KG, new BigDecimal("0"), new BigDecimal("0"), null);
+        ProdutoQuantidadeEstoqueDTO produto2 = new ProdutoQuantidadeEstoqueDTO(2L, "Alcatra", "001002", "Sadia", "Bovine", UnitMeasurement.KG, new BigDecimal("0"), new BigDecimal("0"), null);
 
         Page<ProdutoQuantidadeEstoqueDTO> products = new PageImpl<>(List.of(produto1, produto2), PageRequest.of(0, 10), 2);
 
@@ -285,7 +285,8 @@ class ProdutoControllerTest {
                 "",
                 UnitMeasurement.KG,
                 new BigDecimal("0"),
-                new BigDecimal("15.5")
+                new BigDecimal("15.5"),
+                null
         );
 
         Page<ProdutoQuantidadeEstoqueDTO> resultPage = new PageImpl<>(
