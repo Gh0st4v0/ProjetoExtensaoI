@@ -294,7 +294,30 @@ export const ReportsView = ({ navigate }) => {
 
   // ── Render helpers ─────────────────────────────────────────────────────────
 
+  const reloadClients = () => {
+    setClientsLoading(true)
+    getAllClients()
+      .then(setClients)
+      .catch(() => toast.error('Erro ao carregar clientes.'))
+      .finally(() => setClientsLoading(false))
+  }
+
   const renderFilters = () => {
+    if (activeTab === 'clientes') return (
+      <FilterBar>
+        <FField style={{ flex: 1 }}>
+          <FLabel>Buscar cliente</FLabel>
+          <FInput
+            placeholder='Nome, telefone ou documento...'
+            value={clientSearch}
+            onChange={e => setClientSearch(e.target.value)}
+          />
+        </FField>
+        <GenBtn onClick={reloadClients} disabled={clientsLoading}>
+          {clientsLoading ? 'Carregando...' : 'Atualizar Lista'}
+        </GenBtn>
+      </FilterBar>
+    )
     if (['estoque','validade','descartes'].includes(activeTab)) {
       if (activeTab === 'validade') return (
         <FilterBar>
@@ -597,12 +620,6 @@ export const ReportsView = ({ navigate }) => {
           <SumGrid>
             <SumCard $c='var(--brand)'><p className='lbl'>Clientes Cadastrados</p><p className='val'>{clients.length}</p><p className='sub'>Total na base</p></SumCard>
           </SumGrid>
-          <FilterBar>
-            <FField style={{flex:1}}>
-              <FLabel>Buscar cliente</FLabel>
-              <FInput placeholder='Nome, telefone ou documento...' value={clientSearch} onChange={e => setClientSearch(e.target.value)} />
-            </FField>
-          </FilterBar>
           {clientsLoading ? <Loading>Carregando clientes...</Loading> : (
             <ClientsGrid>
               {filtered.length === 0 && <Empty><span className='material-symbols-outlined'>group_off</span>Nenhum cliente encontrado.</Empty>}
