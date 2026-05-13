@@ -226,8 +226,9 @@ const GROUPS = [
   {
     label: 'Sistema',
     items: [
-      { id: 'dashboard',     label: 'Painel Inicial', icon: 'dashboard', route: 'dashboard' },
-      { id: 'configuracoes', label: 'Usuários',       icon: 'manage_accounts', route: 'configuracoes' },
+      { id: 'dashboard',     label: 'Painel Inicial',    icon: 'dashboard',       route: 'dashboard' },
+      { id: 'configuracoes', label: 'Usuários',           icon: 'manage_accounts', route: 'configuracoes' },
+      { id: 'config-loja',   label: 'Configurações',      icon: 'store',           route: 'config-loja' },
     ],
   },
 ]

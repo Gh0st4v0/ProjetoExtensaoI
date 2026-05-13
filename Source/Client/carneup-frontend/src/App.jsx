@@ -17,6 +17,7 @@ import { PurchaseView } from './views/PurchaseView'
 import AttributesView from './views/AttributesView'
 import { ReportsView } from './views/ReportsView'
 import { ClienteHistoricoView } from './views/ClienteHistoricoView'
+import { ConfiguracaoView } from './views/ConfiguracaoView'
 
 export default function App() {
 	const [currentView, setCurrentView] = useState('login')
@@ -62,6 +63,8 @@ export default function App() {
 			case 'configuracoes':
 			case 'settings':
 				return <SettingsView navigate={navigate} />
+			case 'config-loja':
+				return <ConfiguracaoView navigate={navigate} />
 			case 'reports':
 				return <ReportsView navigate={navigate} />
 			case 'cliente-historico':

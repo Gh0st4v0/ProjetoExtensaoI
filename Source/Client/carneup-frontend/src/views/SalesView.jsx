@@ -4,6 +4,7 @@ import { Sidebar } from '../components/Sidebar'
 import productsApi from '../services/productsApi'
 import { createSale, getSale, searchClients, createClient } from '../services/salesApi'
 import { toast } from 'react-toastify'
+import { loadStoreConfig } from './ConfiguracaoView'
 
 // ── Animations ─────────────────────────────────────────────────────────────────
 const slideIn = keyframes`from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}`
@@ -341,50 +342,52 @@ const CModalConfirm = styled.button`
   &:disabled{opacity:0.5;cursor:not-allowed;}
 `
 
-// ── Receipt Modal ──────────────────────────────────────────────────────────────
+// ── Receipt Modal (formato térmico 80mm) ───────────────────────────────────────
 const Overlay = styled.div`
   position:fixed;inset:0;background:rgba(0,0,0,0.55);
   display:flex;align-items:center;justify-content:center;z-index:200;
 `
-const Receipt = styled.div`
-  background:#fff; border-radius:16px; width:400px; max-width:calc(100%-32px);
-  max-height:90vh; overflow-y:auto; box-shadow:0 24px 48px rgba(0,0,0,0.2);
+const ReceiptWrap = styled.div`
+  background:#fff; border-radius:12px; width:340px; max-width:calc(100%-32px);
+  max-height:92vh; overflow-y:auto; box-shadow:0 24px 48px rgba(0,0,0,0.2);
   animation:${slideIn} 0.2s ease;
+  @media print {
+    position:fixed; inset:0; width:80mm; max-width:80mm; border-radius:0;
+    max-height:none; overflow:visible; box-shadow:none; margin:0;
+  }
 `
-const RHead = styled.div`
-  background:#1c1917; padding:20px 24px; border-radius:16px 16px 0 0; text-align:center;
-  h2{font-family:'Epilogue',sans-serif;font-size:20px;font-weight:900;color:#fff;margin:0;}
-  p{font-size:11px;color:#78716c;margin:4px 0 0;}
+const Thermal = styled.div`
+  font-family:'Courier New',Courier,monospace;
+  font-size:12px; line-height:1.55; padding:16px 14px; color:#111;
+  @media print { padding:4mm 3mm; font-size:11px; }
 `
-const RBody = styled.div`padding:16px 24px;`
-const RRow = styled.div`
-  display:flex; justify-content:space-between; align-items:center;
-  padding:8px 0; border-bottom:1px solid #f5f5f4; font-size:13px;
-  &:last-child{border-bottom:none;}
-  .item{font-weight:600;color:#1c1917;}
-  .qty{color:#78716c;font-size:11px;margin-top:1px;}
-  .price{font-weight:700;color:#1c1917;font-family:'Epilogue',sans-serif;}
+const TCenter = styled.div`text-align:center;`
+const TBold = styled.div`font-weight:700; text-align:center; font-size:13px;`
+const TDash = styled.div`
+  border-top:1px dashed #999; margin:6px 0;
+  @media print { border-top:1px dashed #000; }
 `
-const RDivider = styled.div`height:1px;background:#e7e5e4;margin:8px 0;`
-const RTotal = styled.div`
-  display:flex; justify-content:space-between; align-items:center; padding:8px 0;
-  span.lbl{font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.05em;}
-  span.val{font-family:'Epilogue',sans-serif;font-size:22px;font-weight:900;color:#610005;}
+const TRow = styled.div`
+  display:flex; justify-content:space-between; align-items:flex-start;
+  gap:4px; margin:3px 0;
+  .name{flex:1;word-break:break-word;}
+  .price{flex-shrink:0;font-weight:700;text-align:right;}
 `
-const RInfo = styled.div`
-  background:#f9f9f9; border-radius:8px; padding:10px 12px; margin-top:8px; font-size:12px; color:#57534e;
-  display:flex; flex-direction:column; gap:4px;
-  span strong{color:#1c1917;}
+const TSubRow = styled.div`color:#555;font-size:11px;margin:-2px 0 4px 2px;`
+const TTotalRow = styled.div`
+  display:flex; justify-content:space-between; margin:4px 0;
+  font-weight:700; font-size:13px;
 `
+const TFooter = styled.div`text-align:center;margin-top:8px;font-size:11px;color:#555;`
 const RActions = styled.div`
-  display:flex; gap:8px; padding:16px 24px; border-top:1px solid #f5f5f4;
+  display:flex; gap:8px; padding:12px 14px; border-top:1px solid #eee;
+  @media print { display:none; }
 `
 const RBtn = styled.button`
-  flex:1; padding:12px; border-radius:8px; cursor:pointer; font-weight:700; font-size:13px;
+  flex:1; padding:10px; border-radius:8px; cursor:pointer; font-weight:700; font-size:12px;
   font-family:'Epilogue',sans-serif; text-transform:uppercase; letter-spacing:0.05em;
   border:${p=>p.$sec?'1px solid #e7e5e4':'none'};
-  background:${p=>p.$sec?'#fff':'#610005'};
-  color:${p=>p.$sec?'#1c1917':'#fff'};
+  background:${p=>p.$sec?'#fff':'#610005'}; color:${p=>p.$sec?'#1c1917':'#fff'};
   &:hover{opacity:0.9;}
 `
 
@@ -868,49 +871,56 @@ export const SalesView = ({ navigate }) => {
         </Overlay>
       )}
 
-      {/* ── RECIBO ── */}
-      {receipt && (
+      {/* ── RECIBO TÉRMICO 80mm ── */}
+      {receipt && (() => {
+        const cfg = loadStoreConfig()
+        const items = receipt.saleData?.items || receipt.cart
+        const subtotal = items.reduce((a,it) => a + (it.quantity||it.qty)*(it.precoUnitarioVenda||it.price), 0)
+        const now = new Date().toLocaleString('pt-BR')
+        return (
         <Overlay>
-          <Receipt>
-            <RHead>
-              <h2>🥩 CarneUp</h2>
-              <p>Comprovante de Venda {receipt.saleId ? `#${receipt.saleId}` : ''}</p>
-              <p>{new Date().toLocaleString('pt-BR')}</p>
-            </RHead>
+          <ReceiptWrap>
+            <Thermal>
+              <TBold>{cfg.storeName.toUpperCase()}</TBold>
+              {cfg.address && <TCenter>{cfg.address}</TCenter>}
+              {cfg.city    && <TCenter>{cfg.city}</TCenter>}
+              {cfg.phone   && <TCenter>Tel: {cfg.phone}</TCenter>}
+              <TDash />
+              <TCenter>{now}</TCenter>
+              {receipt.saleId && <TCenter>Venda #{receipt.saleId}</TCenter>}
+              <TDash />
 
-            <RBody>
-              {(receipt.saleData?.items || receipt.cart).map((it, i) => (
-                <RRow key={i}>
-                  <div>
-                    <div className='item'>{it.productName || it.name}</div>
-                    <div className='qty'>
-                      {Number(it.quantity || it.qty).toFixed(3).replace(/\.?0+$/, '')} {it.unit || ''} × {fmt(it.precoUnitarioVenda || it.price)}
-                    </div>
+              {items.map((it, i) => {
+                const qty   = Number(it.quantity || it.qty)
+                const price = Number(it.precoUnitarioVenda || it.price)
+                const total = qty * price
+                const name  = (it.productName || it.name || '').toUpperCase()
+                return (
+                  <div key={i}>
+                    <TRow>
+                      <span className='name'>{name}</span>
+                      <span className='price'>{fmt(total)}</span>
+                    </TRow>
+                    <TSubRow>
+                      {qty.toFixed(qty % 1 === 0 ? 0 : 3)} x {fmt(price)}
+                    </TSubRow>
                   </div>
-                  <span className='price'>{fmt((it.quantity || it.qty) * (it.precoUnitarioVenda || it.price))}</span>
-                </RRow>
-              ))}
+                )
+              })}
 
-              <RDivider />
-
+              <TDash />
               {receipt.discount > 0 && (
-                <RRow>
-                  <span style={{ color:'#b45309', fontWeight:600 }}>Desconto (5%)</span>
-                  <span style={{ color:'#b45309', fontWeight:700 }}>- {fmt(receipt.discount)}</span>
-                </RRow>
+                <TRow><span>DESCONTO (5%)</span><span>-{fmt(receipt.discount)}</span></TRow>
               )}
-
-              <RTotal>
-                <span className='lbl'>Total</span>
-                <span className='val'>{fmt(receipt.total)}</span>
-              </RTotal>
-
-              <RInfo>
-                <span><strong>Pagamento:</strong> {PAY_LABELS[receipt.payment]}</span>
-                <span><strong>Cliente:</strong> {receipt.client ? receipt.client.nickname : 'Sem identificação'}</span>
-                {receipt.discount > 0 && <span style={{ color:'#b45309' }}><strong>Desconto aplicado:</strong> {fmt(receipt.discount)}</span>}
-              </RInfo>
-            </RBody>
+              <TTotalRow>
+                <span>TOTAL</span>
+                <span>{fmt(receipt.total)}</span>
+              </TTotalRow>
+              <TRow><span>PAGAMENTO</span><span>{PAY_LABELS[receipt.payment] || receipt.payment}</span></TRow>
+              {receipt.client && <TRow><span>CLIENTE</span><span>{receipt.client.nickname}</span></TRow>}
+              <TDash />
+              <TFooter>{cfg.footerMsg}</TFooter>
+            </Thermal>
 
             <RActions>
               <RBtn $sec onClick={handlePrint}>
@@ -919,9 +929,10 @@ export const SalesView = ({ navigate }) => {
               </RBtn>
               <RBtn onClick={handleNewSale}>Nova Venda</RBtn>
             </RActions>
-          </Receipt>
+          </ReceiptWrap>
         </Overlay>
-      )}
+        )
+      })()}
     </Wrapper>
   )
 }
