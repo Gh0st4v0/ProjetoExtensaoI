@@ -529,11 +529,15 @@ export const SalesView = ({ navigate }) => {
 	// Finalize sale
 	const handleFinalize = async () => {
 		if (!cart.length || submitting) return
+		const userId = Number(localStorage.getItem('userId'))
+		if (!userId) { toast.error('Sessão expirada. Faça login novamente.'); return }
 		setSubmitting(true)
 		try {
 			await salesApi.createSale({
+				userId,
 				paymentMethod: payment,
-				discount: 0,
+				hasDiscount: false,
+				saleDate: new Date().toISOString().slice(0, 10),
 				items: cart.map(it => ({
 					productId: it.productId,
 					quantity: it.qty,
@@ -543,7 +547,14 @@ export const SalesView = ({ navigate }) => {
 			setSuccessSale({ total, count: cart.length, payment })
 			setCart([])
 		} catch (e) {
-			toast.error(e?.response?.data?.message || 'Erro ao finalizar venda.')
+			const msg = e?.response?.data?.message || ''
+			if (msg.includes('insuficiente') || msg.includes('Insufficient')) {
+				toast.error('Estoque insuficiente. Faça uma entrada de estoque antes de vender.')
+			} else if (msg.includes('Usuario') || msg.includes('usuario')) {
+				toast.error('Usuário não encontrado. Faça login novamente.')
+			} else {
+				toast.error(msg || 'Erro ao finalizar venda. Tente novamente.')
+			}
 		} finally {
 			setSubmitting(false)
 		}
