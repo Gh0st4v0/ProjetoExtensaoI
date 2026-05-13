@@ -136,6 +136,11 @@ public class CatalogoService {
 		return ProdutoRepository.searchProductsWithStock(termo, pageable);
 	}
 
+	public Produto getProductById(Long id) {
+		return ProdutoRepository.findById(id)
+				.orElseThrow(() -> new com.example.SpringBootApp.exceptions.ResourceNotFoundException("Product not found"));
+	}
+
 	public Produto updateProduct(Long id, ProdutoCreateDTO productDTO) {
 		Produto produto = ProdutoRepository.findById(id)
 				.orElseThrow(() -> new ResourceNotFoundException("Product not found"));

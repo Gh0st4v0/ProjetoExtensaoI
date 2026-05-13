@@ -5,7 +5,7 @@ import { Topbar } from '../components/Topbar'
 import DataTable from '../components/DataTable'
 import { Button } from '../components/Button'
 import { Footer } from '../components/Footer'
-import productsApi from '../services/productsApi'
+import productsApi, { getProductById, updateProduct } from '../services/productsApi'
 import { useAttributes } from '../context/AttributesContext'
 import { toast } from 'react-toastify'
 import { toTitleCase } from '../services/textUtils'
@@ -165,6 +165,47 @@ const Badge = styled.span`
 	display: inline-block; padding: 2px 8px; border-radius: 999px;
 	font-size: 11px; font-weight: 700; background: #ffdad6; color: #610005;
 `
+const Backdrop = styled.div`
+	position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+	display: flex; align-items: center; justify-content: center; z-index: 100;
+`
+const ModalCard = styled.div`
+	background: #fff; border-radius: 16px; padding: 28px;
+	width: 520px; max-width: calc(100% - 32px);
+	box-shadow: 0 20px 40px rgba(0,0,0,0.15); max-height: 90vh; overflow-y: auto;
+`
+const ModalTitle = styled.h2`
+	font-family: 'Epilogue', sans-serif; font-weight: 900; color: #610005;
+	font-size: 18px; text-transform: uppercase; margin: 0 0 20px;
+`
+const MField = styled.div`margin-bottom: 14px;`
+const MLabel = styled.label`
+	font-size: 10px; font-weight: 700; text-transform: uppercase;
+	letter-spacing: 0.1em; color: #5a403c; display: block; margin-bottom: 5px;
+`
+const MInput = styled.input`
+	width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb;
+	border-radius: 8px; font-size: 14px; font-family: 'Work Sans', sans-serif;
+	box-sizing: border-box;
+	&:focus { outline: none; border-color: #610005; }
+	&:disabled { background: #f5f5f4; color: #a8a29e; }
+`
+const MSelect = styled.select`
+	width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb;
+	border-radius: 8px; font-size: 14px; font-family: 'Work Sans', sans-serif; background: #fff;
+`
+const MGrid2 = styled.div`display: grid; grid-template-columns: 1fr 1fr; gap: 12px;`
+const ModalActions = styled.div`display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;`
+const BtnSec = styled.button`
+	padding: 10px 18px; border: 1px solid #e5e7eb; border-radius: 8px;
+	background: #fff; cursor: pointer; font-size: 13px; font-family: 'Work Sans', sans-serif;
+`
+const BtnPri = styled.button`
+	padding: 10px 20px; border: none; border-radius: 8px; background: #610005;
+	color: #fff; cursor: pointer; font-family: 'Epilogue', sans-serif; font-weight: 900;
+	font-size: 13px; text-transform: uppercase;
+	&:disabled { opacity: 0.6; cursor: not-allowed; }
+`
 const StockBadge = styled.span`
 	font-weight: 700;
 	color: ${p => p.$low ? '#ba1a1a' : '#15803d'};
@@ -199,6 +240,64 @@ export const StockView = ({ navigate }) => {
 	// product form state
 	const [form, setForm] = useState({ name: '', code: '', unit: 'KG', perecivel: false, price: '', categoryId: '', brandId: '' })
 	const [submitting, setSubmitting] = useState(false)
+
+	// edit modal state
+	const [editModal, setEditModal] = useState(null) // null = closed, object = product data
+	const [editForm, setEditForm] = useState({})
+	const [editSubmitting, setEditSubmitting] = useState(false)
+
+	const openEdit = useCallback(async (row) => {
+		try {
+			const p = await getProductById(row.id)
+			setEditForm({
+				name: p.name || '',
+				code: p.code || '',
+				unit: p.unitMeasurement || 'KG',
+				perecivel: p.perecivel ?? false,
+				price: p.precoVenda != null ? String(p.precoVenda) : '',
+				categoryId: p.categoryId != null ? String(p.categoryId) : '',
+				brandId: p.brandId != null ? String(p.brandId) : '',
+			})
+			setEditModal(p)
+		} catch {
+			toast.error('Erro ao carregar dados do produto.')
+		}
+	}, [])
+
+	const handleEditChange = (field) => (e) => {
+		const raw = e.target.type === 'checkbox' ? e.target.checked : e.target.value
+		const val = field === 'name' ? toTitleCase(raw)
+			: field === 'code' ? raw.toUpperCase()
+			: raw
+		setEditForm(f => ({ ...f, [field]: val }))
+	}
+
+	const handleEditSubmit = async (e) => {
+		e.preventDefault()
+		if (!editForm.name || !editForm.categoryId || !editForm.brandId) {
+			toast.error('Preencha todos os campos obrigatórios.')
+			return
+		}
+		setEditSubmitting(true)
+		try {
+			await updateProduct(editModal.id, {
+				name: editForm.name,
+				unitMeasurement: editForm.unit,
+				code: editForm.code,
+				perecivel: editForm.perecivel,
+				precoVenda: editForm.price !== '' ? parseFloat(editForm.price) : 0,
+				categoryId: Number(editForm.categoryId),
+				brandId: Number(editForm.brandId),
+			})
+			toast.success(`Produto "${editForm.name}" atualizado com sucesso!`)
+			setEditModal(null)
+			load(searchQuery, currentPage - 1)
+		} catch (err) {
+			toast.error(err.response?.data?.message || 'Erro ao atualizar produto.')
+		} finally {
+			setEditSubmitting(false)
+		}
+	}
 
 	const debounceRef = useRef(null)
 
@@ -340,6 +439,7 @@ export const StockView = ({ navigate }) => {
 	]
 
 	const actions = [
+		{ icon: 'edit', onClick: (row) => openEdit(row) },
 		{ icon: 'add_shopping_cart', onClick: () => navigate('purchases') },
 	]
 
@@ -508,5 +608,69 @@ export const StockView = ({ navigate }) => {
 				<Footer />
 			</MainArea>
 		</Wrapper>
+
+		{/* ── Modal de Edição ── */}
+		{editModal && (
+			<Backdrop onClick={() => setEditModal(null)}>
+				<ModalCard onClick={e => e.stopPropagation()}>
+					<ModalTitle>Editar Produto</ModalTitle>
+					<form onSubmit={handleEditSubmit}>
+						<MField>
+							<MLabel>Nome *</MLabel>
+							<MInput value={editForm.name} onChange={handleEditChange('name')} required />
+						</MField>
+						<MGrid2>
+							<MField>
+								<MLabel>Código (6 caracteres)</MLabel>
+								<MInput value={editForm.code} disabled title='O código não pode ser alterado após o cadastro' />
+							</MField>
+							<MField>
+								<MLabel>Unidade</MLabel>
+								<MInput value={editForm.unit} disabled title='A unidade não pode ser alterada após o cadastro' />
+							</MField>
+						</MGrid2>
+						<MGrid2>
+							<MField>
+								<MLabel>Categoria *</MLabel>
+								<MSelect value={editForm.categoryId} onChange={handleEditChange('categoryId')} required>
+									<option value=''>Selecione...</option>
+									{(categories || []).map(c => <option key={c.id} value={c.id}>{c.categoryName}</option>)}
+								</MSelect>
+							</MField>
+							<MField>
+								<MLabel>Marca *</MLabel>
+								<MSelect value={editForm.brandId} onChange={handleEditChange('brandId')} required>
+									<option value=''>Selecione...</option>
+									{(brands || []).map(b => <option key={b.id} value={b.id}>{b.brandName}</option>)}
+								</MSelect>
+							</MField>
+						</MGrid2>
+						<MGrid2>
+							<MField>
+								<MLabel>Preço de Venda (R$)</MLabel>
+								<MInput type='number' step='0.01' min='0' value={editForm.price} onChange={handleEditChange('price')} placeholder='0,00' />
+							</MField>
+							<MField>
+								<MLabel style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 20 }}>
+									<input
+										type='checkbox'
+										checked={editForm.perecivel}
+										onChange={handleEditChange('perecivel')}
+										style={{ width: 16, height: 16, accentColor: '#610005' }}
+									/>
+									Produto Perecível
+								</MLabel>
+							</MField>
+						</MGrid2>
+						<ModalActions>
+							<BtnSec type='button' onClick={() => setEditModal(null)}>Cancelar</BtnSec>
+							<BtnPri type='submit' disabled={editSubmitting}>
+								{editSubmitting ? 'Salvando...' : 'Salvar Alterações'}
+							</BtnPri>
+						</ModalActions>
+					</form>
+				</ModalCard>
+			</Backdrop>
+		)}
 	)
 }
