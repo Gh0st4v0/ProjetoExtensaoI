@@ -1,23 +1,23 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import styled from 'styled-components'
 import { Sidebar } from '../components/Sidebar'
 import { Topbar } from '../components/Topbar'
 import DataTable from '../components/DataTable'
 import { Button } from '../components/Button'
 import DiscardModal from '../components/DiscardModal'
+import { getDiscards, createDiscard } from '../services/discardApi'
+import { toast } from 'react-toastify'
 
 const Wrapper = styled.div`
 	display: flex;
 	min-height: 100vh;
 	background: #f9f9f9;
 `
-
 const MainArea = styled.main`
 	flex: 1;
 	display: flex;
 	flex-direction: column;
 `
-
 const ContentContainer = styled.div`
 	padding: 32px;
 	max-width: 1280px;
@@ -27,79 +27,63 @@ const ContentContainer = styled.div`
 	flex-direction: column;
 	gap: 24px;
 `
-
 const PageHeader = styled.div`
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
 `
 
+const TYPE_LABELS = {
+	VENCIMENTO: 'Vencimento',
+	DANO: 'Dano / Avaria',
+	ROUBO: 'Roubo',
+	PERDA_PESO: 'Perda de Peso',
+	CONSUMO_PESSOAL: 'Consumo Pessoal',
+	OUTRO: 'Outro',
+}
+
 export const DiscardView = ({ navigate }) => {
 	const [modalOpen, setModalOpen] = useState(false)
-	const [discards, setDiscards] = useState([
-		{
-			id: 1,
-			date: '2026-04-20',
-			product: 'Picanha Maturatta',
-			qty: 2.5,
-			unit: 'Kg',
-			reason: 'Contaminação',
-		},
-		{
-			id: 2,
-			date: '2026-04-22',
-			product: 'Linguiça Toscana',
-			qty: 3,
-			unit: 'Un',
-			reason: 'Vencimento',
-		},
-	])
+	const [discards, setDiscards] = useState([])
+	const [loading, setLoading] = useState(true)
 
-	// mock product list for modal select
-	const products = [
-		{ id: 1, name: 'Picanha Maturatta', code: '#001' },
-		{ id: 2, name: 'Linguiça Toscana', code: '#031' },
-		{ id: 3, name: 'Ribeye Premium', code: '#002' },
-	]
+	const load = useCallback(() => {
+		setLoading(true)
+		getDiscards()
+			.then(data => setDiscards(data))
+			.catch(() => toast.error('Erro ao carregar descartes.'))
+			.finally(() => setLoading(false))
+	}, [])
 
-	const handleAdd = (entry) => {
-		const prod = products.find((p) => String(p.id) === String(entry.productId))
-		const newEntry = {
-			id: entry.id || Date.now(),
-			date: entry.date || new Date().toISOString().slice(0, 10),
-			product: prod ? prod.name : entry.productId,
-			qty: parseFloat(entry.qty) || 0,
-			unit: entry.unit || 'Kg',
-			reason: entry.reason || '',
-		}
-		setDiscards((prev) => [newEntry, ...prev])
+	useEffect(() => { load() }, [load])
+
+	const handleSubmit = async (payload) => {
+		await createDiscard(payload)
+		toast.success('Descarte registrado com sucesso!')
+		load()
 	}
 
 	const columns = [
-		{ header: 'Data', key: 'date', render: (d) => <span>{d.date}</span> },
 		{
-			header: 'Produto',
-			key: 'product',
-			render: (d) => <strong>{d.product}</strong>,
+			header: 'Data',
+			key: 'date',
+			render: (d) => <span>{d.date}</span>,
 		},
 		{
-			header: 'Quantidade',
-			key: 'qty',
-			style: { textAlign: 'right' },
+			header: 'Produto(s)',
+			key: 'items',
 			render: (d) => (
-				<span>
-					{d.qty} {d.unit}
-				</span>
+				<div>
+					{(d.items || []).map((item, i) => (
+						<div key={i}><strong>{item.productName}</strong> — {item.quantity} {item.unitMeasurement}</div>
+					))}
+				</div>
 			),
 		},
-		{ header: 'Motivo', key: 'reason', render: (d) => <span>{d.reason}</span> },
-	]
-
-	const actions = [
 		{
-			icon: 'delete',
-			onClick: (item) =>
-				setDiscards((prev) => prev.filter((p) => p.id !== item.id)),
+			header: 'Motivo',
+			key: 'type',
+			render: (d) => <span>{TYPE_LABELS[d.type] || d.type}</span>,
 		},
 	]
 
@@ -111,38 +95,27 @@ export const DiscardView = ({ navigate }) => {
 				<ContentContainer>
 					<PageHeader>
 						<div>
-							<h2
-								style={{
-									fontFamily: 'Epilogue',
-									fontWeight: 900,
-									color: '#610005',
-									textTransform: 'uppercase',
-								}}
-							>
+							<h2 style={{ fontFamily: 'Epilogue', fontWeight: 900, color: '#610005', textTransform: 'uppercase' }}>
 								Histórico de Descartes
 							</h2>
-							<p style={{ color: '#5a403c' }}>
-								Registre perdas e visualize descartes realizados.
-							</p>
+							<p style={{ color: '#5a403c' }}>Registre perdas e visualize descartes realizados.</p>
 						</div>
-						<div>
-							<Button full={false} small onClick={() => setModalOpen(true)}>
-								Novo Descarte
-							</Button>
-						</div>
+						<Button full={false} small onClick={() => setModalOpen(true)}>
+							Novo Descarte
+						</Button>
 					</PageHeader>
 
 					<DataTable
 						data={discards}
 						columns={columns}
-						actions={actions}
+						actions={[]}
 						toolbarActions={null}
 						currentPage={1}
 						totalPages={1}
 						totalItems={discards.length}
 						onPageChange={() => {}}
-						loading={false}
-						emptyMessage='No discard records.'
+						loading={loading}
+						emptyMessage='Nenhum descarte registrado.'
 					/>
 				</ContentContainer>
 			</MainArea>
@@ -150,8 +123,7 @@ export const DiscardView = ({ navigate }) => {
 			<DiscardModal
 				open={modalOpen}
 				onClose={() => setModalOpen(false)}
-				onSubmit={handleAdd}
-				products={products}
+				onSubmit={handleSubmit}
 			/>
 		</Wrapper>
 	)

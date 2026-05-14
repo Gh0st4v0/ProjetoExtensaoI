@@ -11,7 +11,11 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ClienteCreateDTO {
 
-    @Schema(description = "Apelido do cliente", example = "Joao123")
+    @Schema(description = "Apelido do cliente", example = "João Silva")
     @NotBlank(message = "Nickname is required")
     private String nickname;
+
+    private String telefone;
+    private String documento;
+    private String email;
 }

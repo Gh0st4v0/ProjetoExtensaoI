@@ -25,6 +25,8 @@ public interface VendaRepository extends JpaRepository<Venda, Long> {
         ORDER BY v.dataVenda DESC
         """)
     List<Venda> findByDatavendaBetweenWithMovements(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    List<Venda> findByClienteIdOrderByDataVendaDesc(Long clienteId);
 }
 
 

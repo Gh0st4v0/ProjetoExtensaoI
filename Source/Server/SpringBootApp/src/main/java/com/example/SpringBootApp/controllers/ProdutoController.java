@@ -61,6 +61,23 @@ public class ProdutoController {
         return ResponseEntity.ok(products);
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getProductById(@PathVariable Long id) {
+        Produto p = CatalogoService.getProductById(id);
+        java.util.Map<String, Object> dto = new java.util.LinkedHashMap<>();
+        dto.put("id", p.getId());
+        dto.put("name", p.getNome());
+        dto.put("code", p.getCodigo());
+        dto.put("unitMeasurement", p.getUnidadeMedida());
+        dto.put("perecivel", p.getPerecivel());
+        dto.put("precoVenda", p.getPrecoVenda());
+        dto.put("categoryId", p.getCategoria() != null ? p.getCategoria().getId() : null);
+        dto.put("categoryName", p.getCategoria() != null ? p.getCategoria().getNome() : null);
+        dto.put("brandId", p.getMarca() != null ? p.getMarca().getId() : null);
+        dto.put("brandName", p.getMarca() != null ? p.getMarca().getNome() : null);
+        return ResponseEntity.ok(dto);
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<?> updateProduct(@PathVariable Long id, @Valid @RequestBody ProdutoCreateDTO productDTO) {
         Produto updated = CatalogoService.updateProduct(id, productDTO);

@@ -12,8 +12,11 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import com.example.SpringBootApp.models.Usuario;
+import com.example.SpringBootApp.infra.JwtTokenProvider;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.net.URI;
 import java.time.LocalDate;
@@ -26,6 +29,7 @@ public class VendaController {
 
     private final VendaService VendaService;
     private final RelatorioService RelatorioService;
+    private final JwtTokenProvider tokenProvider;
 
     @Operation(summary = "Create a new Venda")
     @ApiResponses(value = {
@@ -35,10 +39,23 @@ public class VendaController {
             @ApiResponse(responseCode = "422", description = "Insufficient quantity")
     })
     @PostMapping
-    public ResponseEntity<?> createSale(@AuthenticationPrincipal Usuario usuario, @Valid @RequestBody VendCreateDTO saleDTO) {
-        // If userId not provided in payload, use authenticated user from JWT
-        if (usuario != null) {
-            saleDTO.setUserId(usuario.getId());
+    public ResponseEntity<?> createSale(@Valid @RequestBody VendCreateDTO saleDTO, HttpServletRequest request) {
+        // Priority 1: JWT token claim (most reliable — doesn't depend on DB lookup in filter)
+        if (saleDTO.getUserId() == null) {
+            String header = request.getHeader("Authorization");
+            if (header != null && header.startsWith("Bearer ")) {
+                String token = header.substring(7);
+                if (tokenProvider.validateToken(token)) {
+                    saleDTO.setUserId(tokenProvider.getUserIdFromToken(token));
+                }
+            }
+        }
+        // Priority 2: SecurityContext principal (set by JWT filter when user found in DB)
+        if (saleDTO.getUserId() == null) {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof Usuario u) {
+                saleDTO.setUserId(u.getId());
+            }
         }
         Venda Venda = VendaService.createSale(saleDTO);
         return ResponseEntity.created(URI.create("/sales/" + Venda.getId())).build();
