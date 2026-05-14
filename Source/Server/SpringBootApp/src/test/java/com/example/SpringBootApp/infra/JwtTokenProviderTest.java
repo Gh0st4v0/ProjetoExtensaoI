@@ -16,6 +16,8 @@ class JwtTokenProviderTest {
         JwtTokenProvider provider = new JwtTokenProvider();
         String secret = Base64.getEncoder().encodeToString("01234567890123456789012345678901".getBytes());
         ReflectionTestUtils.setField(provider, "jwtSecret", secret);
+        // Ensure token doesn't expire immediately in tests
+        ReflectionTestUtils.setField(provider, "jwtExpiration", 3600000L);
 
         Usuario u = new Usuario();
         u.setId(42L);
