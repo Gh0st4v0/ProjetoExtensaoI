@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { getToken, isTokenValid } from './services/cookieUtils'
 import { ToastContainer } from 'react-toastify'
 
 import { GlobalStyle } from './GlobalStyle'
@@ -19,6 +20,8 @@ import { ReportsView } from './views/ReportsView'
 import { ClienteHistoricoView } from './views/ClienteHistoricoView'
 import { ConfiguracaoView } from './views/ConfiguracaoView'
 
+const ADMIN_ONLY_VIEWS = new Set(['discard', 'attributes', 'reports', 'configuracoes', 'settings', 'config-loja'])
+
 export default function App() {
 	const [currentView, setCurrentView] = useState('login')
 	const [recoveryEmail, setRecoveryEmail] = useState('')
@@ -26,17 +29,26 @@ export default function App() {
 	const [selectedClientId, setSelectedClientId] = useState(null)
 
 	useEffect(() => {
-		const token = localStorage.getItem('authToken')
-		if (token) setCurrentView('dashboard')
+		const token = getToken()
+		if (token && isTokenValid(token)) {
+			setCurrentView('dashboard')
+		}
 	}, [])
 
-	// navigate pode ser chamado como navigate('view') ou navigate('view', { clientId: 1 })
+	const isAdmin = () => localStorage.getItem('accessLevel') === 'ADM'
+
 	const navigate = (view, params = {}) => {
+		if (ADMIN_ONLY_VIEWS.has(view) && !isAdmin()) return
 		if (params.clientId) setSelectedClientId(params.clientId)
 		setCurrentView(view)
 	}
 
 	const renderView = () => {
+		// Bloqueia acesso direto a rotas admin por operadores
+		if (ADMIN_ONLY_VIEWS.has(currentView) && !isAdmin()) {
+			return <DashboardView navigate={navigate} />
+		}
+
 		switch (currentView) {
 			case 'login':
 				return <LoginView navigate={navigate} />
