@@ -205,30 +205,30 @@ const GROUPS = [
   {
     label: 'Operações',
     items: [
-      { id: 'vendas',    label: 'Nova Venda',    icon: 'point_of_sale', route: 'sales' },
+      { id: 'vendas',    label: 'Nova Venda',      icon: 'point_of_sale',    route: 'sales' },
       { id: 'purchases', label: 'Entrada Estoque', icon: 'add_shopping_cart', route: 'purchases' },
-      { id: 'discard',   label: 'Descartes',     icon: 'delete_forever', route: 'discard' },
+      { id: 'discard',   label: 'Descartes',       icon: 'delete_forever',   route: 'discard',   adminOnly: true },
     ],
   },
   {
     label: 'Catálogo',
     items: [
-      { id: 'estoque',    label: 'Produtos',    icon: 'inventory_2', route: 'stock' },
-      { id: 'attributes', label: 'Marcas e Categorias', icon: 'label', route: 'attributes' },
+      { id: 'estoque',    label: 'Produtos',             icon: 'inventory_2', route: 'stock' },
+      { id: 'attributes', label: 'Marcas e Categorias',  icon: 'label',       route: 'attributes', adminOnly: true },
     ],
   },
   {
     label: 'Análise',
     items: [
-      { id: 'relatorios', label: 'Relatórios', icon: 'bar_chart', route: 'reports' },
+      { id: 'relatorios', label: 'Relatórios', icon: 'bar_chart', route: 'reports', adminOnly: true },
     ],
   },
   {
     label: 'Sistema',
     items: [
-      { id: 'dashboard',     label: 'Painel Inicial',    icon: 'dashboard',       route: 'dashboard' },
-      { id: 'configuracoes', label: 'Usuários',           icon: 'manage_accounts', route: 'configuracoes' },
-      { id: 'config-loja',   label: 'Configurações',      icon: 'store',           route: 'config-loja' },
+      { id: 'dashboard',     label: 'Painel Inicial', icon: 'dashboard',       route: 'dashboard' },
+      { id: 'configuracoes', label: 'Usuários',        icon: 'manage_accounts', route: 'configuracoes', adminOnly: true },
+      { id: 'config-loja',   label: 'Configurações',   icon: 'store',           route: 'config-loja',   adminOnly: true },
     ],
   },
 ]
@@ -240,6 +240,7 @@ export const Sidebar = ({ navigate, activeView }) => {
 
   const userName    = localStorage.getItem('userName')    || 'Usuário'
   const accessLevel = localStorage.getItem('accessLevel') || ''
+  const isAdmin     = accessLevel === 'ADM'
   const initials    = userName.trim().split(' ').slice(0, 2).map(w => w[0]?.toUpperCase()).join('')
 
   return (
@@ -255,22 +256,26 @@ export const Sidebar = ({ navigate, activeView }) => {
       </QuickSale>
 
       <Nav>
-        {GROUPS.map((g, gi) => (
-          <Group key={gi}>
-            {gi > 0 && <Divider />}
-            <GroupLabel>{g.label}</GroupLabel>
-            {g.items.map(item => (
-              <Item
-                key={item.id}
-                $active={activeView === item.route}
-                onClick={() => navigate(item.route)}
-              >
-                <span className='ic material-symbols-outlined'>{item.icon}</span>
-                <span className='lbl'>{item.label}</span>
-              </Item>
-            ))}
-          </Group>
-        ))}
+        {GROUPS.map((g, gi) => {
+          const visibleItems = g.items.filter(item => !item.adminOnly || isAdmin)
+          if (visibleItems.length === 0) return null
+          return (
+            <Group key={gi}>
+              {gi > 0 && <Divider />}
+              <GroupLabel>{g.label}</GroupLabel>
+              {visibleItems.map(item => (
+                <Item
+                  key={item.id}
+                  $active={activeView === item.route}
+                  onClick={() => navigate(item.route)}
+                >
+                  <span className='ic material-symbols-outlined'>{item.icon}</span>
+                  <span className='lbl'>{item.label}</span>
+                </Item>
+              ))}
+            </Group>
+          )
+        })}
       </Nav>
 
       <Footer>

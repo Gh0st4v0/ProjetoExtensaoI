@@ -8,6 +8,20 @@ export const getAllProducts = async (page = 0) => {
 	return res.data
 }
 
+// Busca todas as páginas de produtos de uma vez — usado no PDV onde o caixa
+// precisa ver o catálogo completo sem paginação.
+export const getAllProductsUnpaged = async () => {
+	const first = await api.get('/products', { params: { page: 0 } })
+	const data = first.data
+	const totalPages = data.totalPages || 1
+	let all = data.content || []
+	for (let p = 1; p < totalPages; p++) {
+		const r = await api.get('/products', { params: { page: p } })
+		all = [...all, ...(r.data.content || [])]
+	}
+	return all
+}
+
 export const searchProducts = async (q, page = 0) => {
 	const res = await api.get('/products/search', { params: { q, page } })
 	return res.data
