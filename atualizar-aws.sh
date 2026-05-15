@@ -9,7 +9,7 @@ set -e
 APP_DIR="/opt/carneup"
 FRONTEND="$APP_DIR/Source/Client/carneup-frontend"
 BACKEND="$APP_DIR/Source/Server/SpringBootApp"
-EC2_PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || echo "localhost")
+EC2_PUBLIC_IP="98.89.113.235" # Elastic IP fixo — não muda ao reiniciar
 
 echo ""
 echo "======================================"
