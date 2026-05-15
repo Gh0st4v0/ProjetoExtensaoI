@@ -1,4 +1,5 @@
 import api from './apiClient'
+import { removeToken } from './cookieUtils'
 
 export const login = async (identifier, password) => {
 	const response = await api.post('/sessions', { identifier, password })
@@ -21,7 +22,8 @@ export const validateRecoveryCode = async (token) => {
 }
 
 export const logout = () => {
-	localStorage.removeItem('authToken')
+	removeToken()
 	localStorage.removeItem('userName')
 	localStorage.removeItem('userId')
+	localStorage.removeItem('accessLevel')
 }

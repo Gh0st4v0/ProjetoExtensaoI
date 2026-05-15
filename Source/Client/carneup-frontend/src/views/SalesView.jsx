@@ -1,7 +1,7 @@
 import styled, { keyframes } from 'styled-components'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Sidebar } from '../components/Sidebar'
-import productsApi from '../services/productsApi'
+import productsApi, { getAllProductsUnpaged } from '../services/productsApi'
 import { createSale, getSale, searchClients, createClient } from '../services/salesApi'
 import { toast } from 'react-toastify'
 import { loadStoreConfig } from './ConfiguracaoView'
@@ -439,11 +439,11 @@ export const SalesView = ({ navigate }) => {
   const qtyRef = useRef(null)
   const clientTimer = useRef(null)
 
-  // Load products
+  // Load products — busca TODAS as páginas para exibir catálogo completo no PDV
   useEffect(() => {
     setLoadingP(true)
-    productsApi.getAllProducts(0)
-      .then(d => setProducts((d.content || []).map(p => ({
+    getAllProductsUnpaged()
+      .then(all => setProducts(all.map(p => ({
         id: p.id, name: p.name || '', code: p.code || '',
         brand: p.brandName || '', category: p.categoryName || '',
         unit: p.unitMeasurement || 'UN', price: Number(p.precoVenda || 0),

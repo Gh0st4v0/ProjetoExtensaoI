@@ -8,6 +8,7 @@ import { Button } from '../components/Button'
 import QuickCreateModal from '../components/QuickCreateModal'
 import ConfirmModal from '../components/ConfirmModal'
 import { useAttributes } from '../context/AttributesContext'
+import { usePagination } from '../services/usePagination'
 
 const Page = styled.div`
   display:flex;
@@ -36,6 +37,9 @@ export default function AttributesView({ navigate }) {
 
   const brandRows = (brands || []).map((b) => ({ id: `brand-${b.id}`, name: b.brandName, refId: b.id }))
   const categoryRows = (categories || []).map((c) => ({ id: `cat-${c.id}`, name: c.categoryName, refId: c.id }))
+
+  const brandPag = usePagination(brandRows)
+  const catPag   = usePagination(categoryRows)
 
   const translateByStatus = (err) => {
     const status = err?.response?.status;
@@ -131,7 +135,7 @@ export default function AttributesView({ navigate }) {
                   <Button full={false} small onClick={() => setQuickOpen({ open:true, type:'brand'})}>Nova Marca</Button>
                 </div>
               </div>
-              <DataTable data={brandRows} columns={brandColumns} actions={rowActions('brand')} toolbarActions={null} currentPage={1} totalPages={1} totalItems={brandRows.length} onPageChange={()=>{}} loading={false} emptyMessage='Nenhuma marca cadastrada.' />
+              <DataTable data={brandPag.currentItems} columns={brandColumns} actions={rowActions('brand')} toolbarActions={null} currentPage={brandPag.page} totalPages={brandPag.totalPages} totalItems={brandPag.totalItems} onPageChange={brandPag.setPage} loading={false} emptyMessage='Nenhuma marca cadastrada.' />
             </div>
 
             <div style={{flex:1}}>
@@ -141,7 +145,7 @@ export default function AttributesView({ navigate }) {
                   <Button full={false} small onClick={() => setQuickOpen({ open:true, type:'category'})}>Nova Categoria</Button>
                 </div>
               </div>
-              <DataTable data={categoryRows} columns={categoryColumns} actions={rowActions('category')} toolbarActions={null} currentPage={1} totalPages={1} totalItems={categoryRows.length} onPageChange={()=>{}} loading={false} emptyMessage='Nenhuma categoria cadastrada.' />
+              <DataTable data={catPag.currentItems} columns={categoryColumns} actions={rowActions('category')} toolbarActions={null} currentPage={catPag.page} totalPages={catPag.totalPages} totalItems={catPag.totalItems} onPageChange={catPag.setPage} loading={false} emptyMessage='Nenhuma categoria cadastrada.' />
             </div>
           </div>
 

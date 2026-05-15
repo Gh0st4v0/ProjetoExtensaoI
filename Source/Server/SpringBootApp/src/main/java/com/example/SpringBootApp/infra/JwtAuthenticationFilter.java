@@ -1,6 +1,5 @@
 package com.example.SpringBootApp.infra;
 
-import com.example.SpringBootApp.models.Usuario;
 import com.example.SpringBootApp.repositories.UsuarioRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -8,19 +7,21 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
-    private final UsuarioRepository UsuarioRepository;
+    private final UsuarioRepository usuarioRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -32,15 +33,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (token != null && tokenProvider.validateToken(token)) {
             try {
                 String username = tokenProvider.getUsernameFromToken(token);
-                UsuarioRepository.findByNome(username).ifPresent(usuario -> {
+                String rawLevel = tokenProvider.getAccessLevelFromToken(token);
+                List<GrantedAuthority> authorities = rawLevel != null
+                        ? List.of(new SimpleGrantedAuthority("ROLE_" + rawLevel.toUpperCase()))
+                        : List.of();
+
+                usuarioRepository.findByNome(username).ifPresent(usuario -> {
                     UsernamePasswordAuthenticationToken authentication =
-                            new UsernamePasswordAuthenticationToken(usuario, null, new ArrayList<>());
+                            new UsernamePasswordAuthenticationToken(usuario, null, authorities);
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 });
-            } catch (Exception ignored) {
-                // Token válido mas usuário não encontrado — deixa a requisição prosseguir
-                // O controller usará o userId do payload ou do claim do token
-            }
+            } catch (Exception ignored) {}
         }
 
         filterChain.doFilter(request, response);
@@ -54,6 +57,3 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return null;
     }
 }
-
-
-

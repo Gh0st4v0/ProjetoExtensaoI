@@ -2,108 +2,29 @@ import React from 'react'
 import styled from 'styled-components'
 
 const TopbarContainer = styled.header`
-	height: 64px;
-	background-color: #ffffff;
-	border-bottom: 1px solid #e7e5e4;
+	height: 56px;
+	background: var(--sidebar-bg);
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	padding: 0 24px;
-	position: sticky;
-	top: 0;
-	z-index: 40;
-
-	.search-container {
-		display: flex;
-		align-items: center;
-		gap: 16px;
-		flex: 1;
-		max-width: 600px;
-		span.icon {
-			color: #a8a29e;
-		}
-		input {
-			border: none;
-			background: transparent;
-			outline: none;
-			font-size: 12px;
-			font-family: 'Work Sans', sans-serif;
-			text-transform: uppercase;
-			letter-spacing: 0.1em;
-			width: 100%;
-		}
-	}
-
-	.action-container {
-		display: flex;
-		align-items: center;
-		gap: 24px;
-		.icon-group {
-			display: flex;
-			gap: 16px;
-			border-right: 1px solid #e7e5e4;
-			padding-right: 24px;
-			button {
-				background: none;
-				border: none;
-				color: #78716c;
-				cursor: pointer;
-				&:hover {
-					color: #dc2626;
-				}
-			}
-		}
-		/* hide any avatar images passed as children to keep Topbar standardized */
-		img {
-			display: none;
-		}
-		.brand-text {
-			font-family: 'Epilogue', sans-serif;
-			font-weight: 900;
-			color: #610005;
-			font-size: 14px;
-		}
-	}
-
-			img {
-				width: 32px;
-				height: 32px;
-				border-radius: 50%;
-				border: 1px solid #e7e5e4;
-				object-fit: cover;
-			}
-		}
+	padding: 0 28px;
+	border-bottom: 1px solid rgba(255,255,255,0.06);
+	flex-shrink: 0;
 `
 
-export const Topbar = ({ searchQuery, onSearchChange, children }) => {
+const Title = styled.h1`
+	font-family: 'Epilogue', sans-serif;
+	font-size: 16px;
+	font-weight: 900;
+	color: #ffffff;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	margin: 0;
+`
+
+export const Topbar = ({ title }) => {
 	return (
 		<TopbarContainer>
-			<div className='search-container'>
-				<span className='material-symbols-outlined icon'>search</span>
-				<input
-					type='text'
-					placeholder='PESQUISAR POR NOME, CÓDIGO, MARCA OU CATEGORIA...'
-					value={searchQuery}
-					onChange={(e) => onSearchChange(e.target.value)}
-				/>
-			</div>
-			<div className='action-container'>
-				<div className='icon-group'>
-					<button>
-						<span className='material-symbols-outlined'>notifications</span>
-					</button>
-					<button>
-						<span className='material-symbols-outlined'>
-							account_balance_wallet
-						</span>
-					</button>
-					<button>
-						<span className='material-symbols-outlined'>help_outline</span>
-					</button>
-				</div>
-				
-				<span className='brand-text'>CarneUp</span>
-			</div>
+			<Title>{title}</Title>
 		</TopbarContainer>
 	)
 }

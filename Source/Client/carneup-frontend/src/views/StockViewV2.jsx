@@ -9,6 +9,7 @@ import productsApi, { getProductById, updateProduct } from '../services/products
 import { useAttributes } from '../context/AttributesContext'
 import { toast } from 'react-toastify'
 import { toTitleCase } from '../services/textUtils'
+import QuickCreateModal from '../components/QuickCreateModal'
 
 // ── Styled Components ──────────────────────────────────────────────────────────
 
@@ -210,6 +211,20 @@ const StockBadge = styled.span`
 	font-weight: 700;
 	color: ${p => p.$low ? '#ba1a1a' : '#15803d'};
 `
+const QuickAddBtn = styled.button`
+	padding: 0 12px;
+	height: 41px;
+	border: 1px solid #610005;
+	border-radius: 8px;
+	background: #610005;
+	color: #fff;
+	font-size: 20px;
+	font-weight: 700;
+	cursor: pointer;
+	flex-shrink: 0;
+	line-height: 1;
+	&:hover { background: #7f1d1d; }
+`
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -229,6 +244,30 @@ const mapDto = (p) => ({
 export const StockView = ({ navigate }) => {
 	const { brands, categories, addBrand, addCategory } = useAttributes()
 
+	const [quickCreate, setQuickCreate] = useState({ open: false, type: null })
+
+	const handleQuickCreate = async (type, value) => {
+		try {
+			if (type === 'brand') {
+				const created = await addBrand(toTitleCase(value))
+				if (created?.id) {
+					setForm(f => ({ ...f, brandId: String(created.id) }))
+					setEditForm(f => ({ ...f, brandId: String(created.id) }))
+				}
+			} else {
+				const created = await addCategory(toTitleCase(value))
+				if (created?.id) {
+					setForm(f => ({ ...f, categoryId: String(created.id) }))
+					setEditForm(f => ({ ...f, categoryId: String(created.id) }))
+				}
+			}
+			setQuickCreate({ open: false, type: null })
+			toast.success(`${type === 'brand' ? 'Marca' : 'Categoria'} criada com sucesso!`)
+		} catch (e) {
+			toast.error(e?.response?.data?.message || `Erro ao criar ${type === 'brand' ? 'marca' : 'categoria'}.`)
+		}
+	}
+
 	const [rows, setRows] = useState([])
 	const [loading, setLoading] = useState(true)
 	const [searchQuery, setSearchQuery] = useState('')
@@ -239,12 +278,30 @@ export const StockView = ({ navigate }) => {
 
 	// product form state
 	const [form, setForm] = useState({ name: '', code: '', unit: 'KG', perecivel: false, price: '', categoryId: '', brandId: '' })
+	const [formPriceDisplay, setFormPriceDisplay] = useState('')
 	const [submitting, setSubmitting] = useState(false)
 
 	// edit modal state
 	const [editModal, setEditModal] = useState(null) // null = closed, object = product data
 	const [editForm, setEditForm] = useState({})
+	const [editPriceDisplay, setEditPriceDisplay] = useState('')
 	const [editSubmitting, setEditSubmitting] = useState(false)
+
+	// Converte valor numérico para display BRL (ex: 45.9 → "45,90")
+	const toBrlDisplay = (value) => {
+		const cents = Math.round(Number(value || 0) * 100)
+		return cents === 0 ? '' : (cents / 100).toFixed(2).replace('.', ',')
+	}
+
+	// Handler da máscara BRL — retorna { display, value }
+	const applyBrlMask = (rawInput) => {
+		const digits = rawInput.replace(/\D/g, '')
+		const cents = parseInt(digits || '0', 10)
+		return {
+			display: cents === 0 ? '' : (cents / 100).toFixed(2).replace('.', ','),
+			value:   cents > 0   ? String(cents / 100) : '',
+		}
+	}
 
 	const openEdit = useCallback(async (row) => {
 		try {
@@ -258,6 +315,7 @@ export const StockView = ({ navigate }) => {
 				categoryId: p.categoryId != null ? String(p.categoryId) : '',
 				brandId: p.brandId != null ? String(p.brandId) : '',
 			})
+			setEditPriceDisplay(toBrlDisplay(p.precoVenda))
 			setEditModal(p)
 		} catch {
 			toast.error('Erro ao carregar dados do produto.')
@@ -386,6 +444,7 @@ export const StockView = ({ navigate }) => {
 			})
 			toast.success(`Produto "${form.name}" cadastrado com sucesso!`)
 			setForm({ name: '', code: '', unit: 'KG', perecivel: false, price: '', categoryId: '', brandId: '' })
+			setFormPriceDisplay('')
 			setSearchQuery('')
 			setCurrentPage(1)
 			load('', 0)
@@ -448,19 +507,19 @@ export const StockView = ({ navigate }) => {
 		<Wrapper>
 			<Sidebar navigate={navigate} activeView='stock' />
 			<MainArea>
-				<Topbar searchQuery={''} onSearchChange={() => {}} />
+				<Topbar title='Gerenciamento de Estoque' />
 				<Content>
 
 					{/* Header */}
 					<PageHeader>
-						<div>
-							<h2>Gerenciamento de Estoque</h2>
-							<p>Cadastre produtos, visualize estoque e gerencie seu catálogo.</p>
-						</div>
 						<BtnGroup>
 							<Button variant='secondary' full={false} small onClick={() => navigate('purchases')}>
 								<span className='material-symbols-outlined' style={{ fontSize: 16, marginRight: 6 }}>add_shopping_cart</span>
 								Entrada de Estoque
+							</Button>
+							<Button variant='secondary' full={false} small onClick={() => navigate('attributes')}>
+								<span className='material-symbols-outlined' style={{ fontSize: 16, marginRight: 6 }}>label</span>
+								Marcas e Categorias
 							</Button>
 						</BtnGroup>
 					</PageHeader>
@@ -484,6 +543,77 @@ export const StockView = ({ navigate }) => {
 							<p className='value'>{(categories || []).length}</p>
 						</StatCard>
 					</StatsGrid>
+
+					{/* Cadastrar Produto */}
+					<FormCard>
+						<FormTitle>Cadastrar Novo Produto</FormTitle>
+						<form onSubmit={handleSubmit}>
+							<Field>
+								<Label>Nome do Produto *</Label>
+								<Input value={form.name} onChange={handleFormChange('name')} placeholder='Ex: Picanha Maturada' required />
+							</Field>
+							<FormGrid2>
+								<Field>
+									<Label>Código (6 caracteres) *</Label>
+									<Input value={form.code} onChange={handleFormChange('code')} placeholder='ABC123' maxLength={6} required />
+								</Field>
+								<Field>
+									<Label>Unidade *</Label>
+									<Select value={form.unit} onChange={handleFormChange('unit')}>
+										<option value='KG'>KG — Quilograma</option>
+										<option value='UN'>UN — Unidade</option>
+									</Select>
+								</Field>
+							</FormGrid2>
+							<FormGrid2>
+								<Field>
+									<Label>Categoria *</Label>
+									<div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+										<Select value={form.categoryId} onChange={handleFormChange('categoryId')} required style={{ flex: 1 }}>
+											<option value=''>Selecione...</option>
+											{(categories || []).map(c => <option key={c.id} value={c.id}>{c.categoryName}</option>)}
+										</Select>
+										<QuickAddBtn type='button' onClick={() => setQuickCreate({ open: true, type: 'category' })} title='Nova categoria'>+</QuickAddBtn>
+									</div>
+								</Field>
+								<Field>
+									<Label>Marca *</Label>
+									<div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+										<Select value={form.brandId} onChange={handleFormChange('brandId')} required style={{ flex: 1 }}>
+											<option value=''>Selecione...</option>
+											{(brands || []).map(b => <option key={b.id} value={b.id}>{b.brandName}</option>)}
+										</Select>
+										<QuickAddBtn type='button' onClick={() => setQuickCreate({ open: true, type: 'brand' })} title='Nova marca'>+</QuickAddBtn>
+									</div>
+								</Field>
+							</FormGrid2>
+							<FormGrid2>
+								<Field>
+									<Label>Preço de Venda (R$)</Label>
+									<Input
+										type='text'
+										inputMode='numeric'
+										value={formPriceDisplay}
+										onChange={e => {
+											const { display, value } = applyBrlMask(e.target.value)
+											setFormPriceDisplay(display)
+											setForm(f => ({ ...f, price: value }))
+										}}
+										placeholder='0,00'
+									/>
+								</Field>
+								<Field>
+									<Label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 22 }}>
+										<input type='checkbox' checked={form.perecivel} onChange={handleFormChange('perecivel')} style={{ width: 16, height: 16, accentColor: '#610005' }} />
+										Produto Perecível
+									</Label>
+								</Field>
+							</FormGrid2>
+							<SubmitBtn type='submit' disabled={submitting}>
+								{submitting ? 'Cadastrando...' : 'Cadastrar Produto'}
+							</SubmitBtn>
+						</form>
+					</FormCard>
 
 					{/* Filters */}
 					<FilterRow>
@@ -523,75 +653,6 @@ export const StockView = ({ navigate }) => {
 						/>
 					</TableScroll>
 
-					{/* Forms */}
-					<LayoutGrid>
-						{/* Cadastrar Produto */}
-						<FormCard>
-							<FormTitle>Cadastrar Novo Produto</FormTitle>
-							<form onSubmit={handleSubmit}>
-								<Field>
-									<Label>Nome do Produto *</Label>
-									<Input value={form.name} onChange={handleFormChange('name')} placeholder='Ex: Picanha Maturada' required />
-								</Field>
-								<FormGrid2>
-									<Field>
-										<Label>Código (6 caracteres) *</Label>
-										<Input value={form.code} onChange={handleFormChange('code')} placeholder='ABC123' maxLength={6} required />
-									</Field>
-									<Field>
-										<Label>Unidade *</Label>
-										<Select value={form.unit} onChange={handleFormChange('unit')}>
-											<option value='KG'>KG — Quilograma</option>
-											<option value='UN'>UN — Unidade</option>
-										</Select>
-									</Field>
-								</FormGrid2>
-								<FormGrid2>
-									<Field>
-										<Label>Categoria *</Label>
-										<Select value={form.categoryId} onChange={handleFormChange('categoryId')} required>
-											<option value=''>Selecione...</option>
-											{(categories || []).map(c => <option key={c.id} value={c.id}>{c.categoryName}</option>)}
-										</Select>
-									</Field>
-									<Field>
-										<Label>Marca *</Label>
-										<Select value={form.brandId} onChange={handleFormChange('brandId')} required>
-											<option value=''>Selecione...</option>
-											{(brands || []).map(b => <option key={b.id} value={b.id}>{b.brandName}</option>)}
-										</Select>
-									</Field>
-								</FormGrid2>
-								<FormGrid2>
-									<Field>
-										<Label>Preço de Venda (R$)</Label>
-										<Input type='number' step='0.01' min='0' value={form.price} onChange={handleFormChange('price')} placeholder='0,00' />
-									</Field>
-									<Field>
-										<Label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 22 }}>
-											<input type='checkbox' checked={form.perecivel} onChange={handleFormChange('perecivel')} style={{ width: 16, height: 16, accentColor: '#610005' }} />
-											Produto Perecível
-										</Label>
-									</Field>
-								</FormGrid2>
-								<SubmitBtn type='submit' disabled={submitting}>
-									{submitting ? 'Cadastrando...' : 'Cadastrar Produto'}
-								</SubmitBtn>
-							</form>
-						</FormCard>
-
-						<FormCard>
-							<FormTitle>Marcas e Categorias</FormTitle>
-							<p style={{ fontSize: 13, color: '#78716c', marginBottom: 16, lineHeight: 1.6 }}>
-								Cadastre marcas e categorias antes de criar produtos. Elas aparecem nos filtros e relatórios.
-							</p>
-							<Button full onClick={() => navigate('attributes')}>
-								<span className='material-symbols-outlined' style={{ fontSize: 16, marginRight: 6 }}>label</span>
-								Gerenciar Marcas e Categorias
-							</Button>
-						</FormCard>
-					</LayoutGrid>
-
 				</Content>
 				<Footer />
 			</MainArea>
@@ -620,23 +681,39 @@ export const StockView = ({ navigate }) => {
 						<MGrid2>
 							<MField>
 								<MLabel>Categoria *</MLabel>
-								<MSelect value={editForm.categoryId} onChange={handleEditChange('categoryId')} required>
-									<option value=''>Selecione...</option>
-									{(categories || []).map(c => <option key={c.id} value={c.id}>{c.categoryName}</option>)}
-								</MSelect>
+								<div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+									<MSelect value={editForm.categoryId} onChange={handleEditChange('categoryId')} required style={{ flex: 1 }}>
+										<option value=''>Selecione...</option>
+										{(categories || []).map(c => <option key={c.id} value={c.id}>{c.categoryName}</option>)}
+									</MSelect>
+									<QuickAddBtn type='button' onClick={() => setQuickCreate({ open: true, type: 'category' })} title='Nova categoria'>+</QuickAddBtn>
+								</div>
 							</MField>
 							<MField>
 								<MLabel>Marca *</MLabel>
-								<MSelect value={editForm.brandId} onChange={handleEditChange('brandId')} required>
-									<option value=''>Selecione...</option>
-									{(brands || []).map(b => <option key={b.id} value={b.id}>{b.brandName}</option>)}
-								</MSelect>
+								<div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+									<MSelect value={editForm.brandId} onChange={handleEditChange('brandId')} required style={{ flex: 1 }}>
+										<option value=''>Selecione...</option>
+										{(brands || []).map(b => <option key={b.id} value={b.id}>{b.brandName}</option>)}
+									</MSelect>
+									<QuickAddBtn type='button' onClick={() => setQuickCreate({ open: true, type: 'brand' })} title='Nova marca'>+</QuickAddBtn>
+								</div>
 							</MField>
 						</MGrid2>
 						<MGrid2>
 							<MField>
 								<MLabel>Preço de Venda (R$)</MLabel>
-								<MInput type='number' step='0.01' min='0' value={editForm.price} onChange={handleEditChange('price')} placeholder='0,00' />
+								<MInput
+									type='text'
+									inputMode='numeric'
+									value={editPriceDisplay}
+									onChange={e => {
+										const { display, value } = applyBrlMask(e.target.value)
+										setEditPriceDisplay(display)
+										setEditForm(f => ({ ...f, price: value }))
+									}}
+									placeholder='0,00'
+								/>
 							</MField>
 							<MField>
 								<MLabel style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 20 }}>
@@ -659,6 +736,15 @@ export const StockView = ({ navigate }) => {
 					</form>
 				</ModalCard>
 			</Backdrop>
+		)}
+
+		{quickCreate.open && (
+			<QuickCreateModal
+				open={quickCreate.open}
+				type={quickCreate.type}
+				onClose={() => setQuickCreate({ open: false, type: null })}
+				onCreate={(value) => handleQuickCreate(quickCreate.type, value)}
+			/>
 		)}
 		</>
 	)

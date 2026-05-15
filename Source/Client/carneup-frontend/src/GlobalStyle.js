@@ -77,6 +77,10 @@ export const GlobalStyle = createGlobalStyle`
   *::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 4px; }
   *::-webkit-scrollbar-track { background: transparent; }
 
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
   @media print {
     .no-print { display: none !important; }
     body { background: white; }

@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir \"c:\\\\Users\\\\breno\\\\ProjetoExtensaoI\\\\Source\")",
+      "PowerShell(cd \"C:\\\\Users\\\\breno\\\\ProjetoExtensaoI\\\\Source\\\\Client\\\\carneup-frontend\"; $proc = Start-Process -FilePath \"npm\" -ArgumentList \"run\",\"dev\" -PassThru -RedirectStandardOutput \"$env:TEMP\\\\vite-out.txt\" -RedirectStandardError \"$env:TEMP\\\\vite-err.txt\" -NoNewWindow; Start-Sleep -Seconds 8; $proc.Kill\\(\\); Get-Content \"$env:TEMP\\\\vite-out.txt\" -ErrorAction SilentlyContinue; Get-Content \"$env:TEMP\\\\vite-err.txt\" -ErrorAction SilentlyContinue)",
+      "PowerShell($env:PGPASSWORD = \"1234\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -U postgres -c \"SELECT 1;\" 2>&1)",
+      "PowerShell($env:PGPASSWORD = \"1234\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -U postgres -d juniorprimebeef -f \"C:\\\\Users\\\\breno\\\\ProjetoExtensaoI\\\\Source\\\\Server\\\\SpringBootApp\\\\src\\\\main\\\\resources\\\\migrations\\\\V2_DATABASE-MODEL.sql\" 2>&1)",
+      "PowerShell($env:PGPASSWORD = \"1234\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -U postgres -d juniorprimebeef -f \"C:\\\\Users\\\\breno\\\\ProjetoExtensaoI\\\\Source\\\\Server\\\\SpringBootApp\\\\src\\\\main\\\\resources\\\\migrations\\\\V3_DATABASE-MIGRATION-ALTER-FOREIGN-KEYS.sql\" 2>&1)",
+      "PowerShell($env:DB_PATH = \"jdbc:postgresql://localhost:5432/juniorprimebeef\"; $env:DB_USERNAME = \"postgres\"; $env:DB_PASSWORD = \"1234\"; cd \"C:\\\\Users\\\\breno\\\\ProjetoExtensaoI\\\\Source\\\\Server\\\\SpringBootApp\"; $proc = Start-Process -FilePath \"cmd.exe\" -ArgumentList \"/c\",\"mvnw.cmd spring-boot:run > $env:TEMP\\\\backend-out.txt 2>&1\" -PassThru -NoNewWindow; Start-Sleep -Seconds 35; $output = Get-Content \"$env:TEMP\\\\backend-out.txt\" -ErrorAction SilentlyContinue; try { $proc.Kill\\(\\) } catch {}; $output | Select-String -Pattern \"Started|ERROR|FATAL|Exception|Failed\" | Select-Object -Last 20)",
+      "PowerShell(Get-Content \"$env:TEMP\\\\backend-out.txt\" -ErrorAction SilentlyContinue | Select-Object -Last 40)",
+      "PowerShell(Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force)",
+      "PowerShell(Get-ExecutionPolicy -Scope CurrentUser)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\breno\\\\ProjetoExtensaoI\" -Recurse -Directory)",
+      "Bash(Select-Object -First 30)",
+      "Bash(Format-Table FullName)",
+      "PowerShell(Get-Content \"$env:TEMP\\\\backend-r2-err.txt\" -ErrorAction SilentlyContinue | Select-Object -Last 20)",
+      "PowerShell(Get-Content \"$env:TEMP\\\\back-final.txt\" | Select-Object -Last 15)"
+    ]
+  }
+}

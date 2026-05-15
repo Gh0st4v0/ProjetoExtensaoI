@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import styled from 'styled-components'
 import { Sidebar } from '../components/Sidebar'
 import { Topbar } from '../components/Topbar'
 import { Button } from '../components/Button'
+import { ConfirmModal } from '../components/ConfirmModal'
 import DataTable from '../components/DataTable'
 import productsApi from '../services/productsApi'
 import purchasesApi from '../services/purchasesApi'
@@ -202,44 +203,149 @@ const SubmitRow = styled.div`
   justify-content: flex-end;
   gap: 12px;
 `
+const InputWithSuffix = styled.div`
+  display: flex;
+  align-items: stretch;
+`
+const UnitSuffix = styled.span`
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background: #610005;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 0 8px 8px 0;
+  border: 1px solid #610005;
+  white-space: nowrap;
+`
+const PrefixLabel = styled.span`
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  background: #f5f5f4;
+  color: #5a403c;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid #e5e7eb;
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  white-space: nowrap;
+`
+const PaginationRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 0 2px;
+`
+const PageBtn = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  &:hover:not(:disabled) { background: #fef2f2; border-color: #610005; }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+`
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+const mapProduct = (p) => ({
+  id: p.id,
+  name: p.name || '',
+  code: p.code || '',
+  brand: p.brandName || '',
+  unit: p.unitMeasurement || 'UN',
+  perecivel: p.perecivel,
+})
+
 export const PurchaseView = ({ navigate }) => {
-  const [allProducts, setAllProducts] = useState([])
+  // ── Product search ──
+  const [products, setProducts] = useState([])
+  const [productPage, setProductPage] = useState(0)
+  const [productTotalPages, setProductTotalPages] = useState(0)
+  const [productLoading, setProductLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(null)
 
+  // ── Form ──
   const [qty, setQty] = useState('')
+  const [costDisplay, setCostDisplay] = useState('')
   const [cost, setCost] = useState('')
   const [expiry, setExpiry] = useState('')
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().slice(0, 10))
 
+  // ── Cart ──
   const [cart, setCart] = useState([])
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
 
-  // Load all products
+  // ── Guard de saída ──
+  const [leaveConfirm, setLeaveConfirm] = useState({ open: false, to: null, params: null })
+
+  const safeNavigate = useCallback((to, params = {}) => {
+    if (cart.length > 0) {
+      setLeaveConfirm({ open: true, to, params })
+    } else {
+      navigate(to, params)
+    }
+  }, [cart.length, navigate])
+
+  // Avisa se fechar/recarregar a aba com itens no carrinho
   useEffect(() => {
-    productsApi.getAllProducts(0)
-      .then(res => setAllProducts((res?.content || []).map(p => ({
-        id: p.id,
-        name: p.name || '',
-        code: p.code || '',
-        brand: p.brandName || '',
-        unit: p.unitMeasurement || 'UN',
-        perecivel: p.perecivel,
-      }))))
-      .catch(() => toast.error('Erro ao carregar produtos.'))
+    const handleBeforeUnload = (e) => {
+      if (cart.length > 0) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [cart.length])
+
+  // ── Load products — sempre usa /products/search (q é opcional no backend) ──
+  const loadProducts = useCallback(async (query, page) => {
+    setProductLoading(true)
+    try {
+      const data = await productsApi.searchProducts(query?.trim() ?? '', page)
+      setProducts((data.content || []).map(mapProduct))
+      setProductTotalPages(data.totalPages || 0)
+    } catch {
+      toast.error('Erro ao carregar produtos.')
+    } finally {
+      setProductLoading(false)
+    }
   }, [])
 
-  const filtered = allProducts.filter(p => {
-    const q = search.toLowerCase()
-    return !q || p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q)
-  })
+  const debounceRef = useRef(null)
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setProductPage(0)
+      loadProducts(search, 0)
+    }, 400)
+    return () => clearTimeout(debounceRef.current)
+  }, [search, loadProducts])
 
-  // ── Validação do formulário de item ──────────────────────────────────────────
+  const handleProductPage = (page) => {
+    setProductPage(page)
+    loadProducts(search, page)
+  }
 
+  // ── BRL currency mask ──
+  const handleCostChange = (e) => {
+    const digits = e.target.value.replace(/\D/g, '')
+    const cents = parseInt(digits || '0', 10)
+    setCostDisplay(cents === 0 ? '' : (cents / 100).toFixed(2).replace('.', ','))
+    setCost(cents > 0 ? String(cents / 100) : '')
+  }
+
+  // ── Validation ──
   const validate = () => {
     const e = {}
     if (!selected) e.product = 'Selecione um produto.'
@@ -248,8 +354,14 @@ export const PurchaseView = ({ navigate }) => {
     if (selected?.unit === 'UN' && !Number.isInteger(parsedQty)) e.qty = 'Produtos UN exigem quantidade inteira.'
     const parsedCost = parseFloat(cost)
     if (!cost || isNaN(parsedCost) || parsedCost <= 0) e.cost = 'Informe um preço de custo maior que zero.'
-    if (selected?.perecivel === true && !expiry) e.expiry = 'Data de validade obrigatória para produtos perecíveis.'
-    if (selected?.perecivel === false && expiry) e.expiry = 'Produto não perecível não deve ter data de validade.'
+    if (selected?.perecivel === true) {
+      if (!expiry) {
+        e.expiry = 'Data de validade obrigatória para produtos perecíveis.'
+      } else {
+        const today = new Date().toISOString().slice(0, 10)
+        if (expiry < today) e.expiry = 'A validade não pode ser uma data passada.'
+      }
+    }
     return e
   }
 
@@ -266,19 +378,19 @@ export const PurchaseView = ({ navigate }) => {
       perecivel: selected.perecivel,
       qty: parseFloat(qty),
       cost: parseFloat(cost),
-      expiry: expiry || null,
+      expiry: selected.perecivel ? expiry : null,
     }])
     setSelected(null)
     setSearch('')
     setQty('')
+    setCostDisplay('')
     setCost('')
     setExpiry('')
   }
 
   const removeFromCart = (key) => setCart(prev => prev.filter(it => it.key !== key))
 
-  // ── Envio ─────────────────────────────────────────────────────────────────────
-
+  // ── Submit ──
   const handleSubmit = async () => {
     if (!cart.length) { toast.warning('Adicione pelo menos um produto à lista antes de registrar.'); return }
     setSubmitting(true)
@@ -308,8 +420,7 @@ export const PurchaseView = ({ navigate }) => {
     }
   }
 
-  // ── Tabela do carrinho ────────────────────────────────────────────────────────
-
+  // ── Table ──
   const columns = [
     { header: 'Produto', key: 'name', render: i => (
       <div>
@@ -318,28 +429,23 @@ export const PurchaseView = ({ navigate }) => {
       </div>
     )},
     { header: 'Qtd', key: 'qty', style: { textAlign: 'right' },
-      render: i => <span>{i.qty} {i.unit}</span> },
+      render: i => <span>{i.unit === 'KG' ? `${Number(i.qty).toFixed(3)} kg` : `${i.qty} un`}</span> },
     { header: 'Custo Unit.', key: 'cost', style: { textAlign: 'right' },
-      render: i => <span>R$ {Number(i.cost).toFixed(2)}</span> },
-    { header: 'Data de Validade', key: 'expiry',
+      render: i => <span>R$ {Number(i.cost).toFixed(2).replace('.', ',')}</span> },
+    { header: 'Validade', key: 'expiry',
       render: i => i.expiry
         ? <span style={{ color: '#b45309', fontWeight: 600 }}>{i.expiry}</span>
-        : <span style={{ color: '#a8a29e' }}>Não perecível</span> },
+        : <span style={{ color: '#a8a29e' }}>—</span> },
   ]
 
-  const actions = [
-    { icon: 'delete', onClick: (it) => removeFromCart(it.key) },
-  ]
+  const actions = [{ icon: 'delete', onClick: (it) => removeFromCart(it.key) }]
 
   return (
     <Wrapper>
-      <Sidebar navigate={navigate} activeView='purchases' />
+      <Sidebar navigate={safeNavigate} activeView='purchases' />
       <MainArea>
-        <Topbar searchQuery='' onSearchChange={() => {}} />
+        <Topbar title='Entrada de Estoque' />
         <Content>
-          <PageTitle>Entrada de Estoque</PageTitle>
-          <PageDesc>Registre compras de produtos para atualizar o estoque disponível.</PageDesc>
-
           <Grid>
             {/* ── Busca de produto ── */}
             <Card>
@@ -357,7 +463,7 @@ export const PurchaseView = ({ navigate }) => {
                       {selected.perecivel && <PerishableTag style={{ marginLeft: 6 }}>Perecível</PerishableTag>}
                     </div>
                   </div>
-                  <ClearBtn onClick={() => setSelected(null)} title='Trocar produto'>
+                  <ClearBtn onClick={() => { setSelected(null); setExpiry('') }} title='Trocar produto'>
                     <span className='material-symbols-outlined'>close</span>
                   </ClearBtn>
                 </SelectedBadge>
@@ -372,12 +478,15 @@ export const PurchaseView = ({ navigate }) => {
                     />
                   </Field>
                   <SearchResult>
-                    {filtered.length === 0 && (
+                    {productLoading && (
+                      <div style={{ padding: 16, color: '#78716c', fontSize: 13, textAlign: 'center' }}>Carregando...</div>
+                    )}
+                    {!productLoading && products.length === 0 && (
                       <div style={{ padding: 16, color: '#78716c', fontSize: 13, textAlign: 'center' }}>
                         Nenhum produto encontrado.
                       </div>
                     )}
-                    {filtered.map(p => (
+                    {!productLoading && products.map(p => (
                       <ProductRow key={p.id}>
                         <div>
                           <div className='name'>{p.name}
@@ -391,6 +500,17 @@ export const PurchaseView = ({ navigate }) => {
                       </ProductRow>
                     ))}
                   </SearchResult>
+                  {productTotalPages > 1 && (
+                    <PaginationRow>
+                      <PageBtn disabled={productPage === 0} onClick={() => handleProductPage(productPage - 1)}>
+                        <span className='material-symbols-outlined' style={{ fontSize: 16 }}>chevron_left</span>
+                      </PageBtn>
+                      <span style={{ fontSize: 12, color: '#5a403c' }}>{productPage + 1} / {productTotalPages}</span>
+                      <PageBtn disabled={productPage >= productTotalPages - 1} onClick={() => handleProductPage(productPage + 1)}>
+                        <span className='material-symbols-outlined' style={{ fontSize: 16 }}>chevron_right</span>
+                      </PageBtn>
+                    </PaginationRow>
+                  )}
                 </>
               )}
               {errors.product && <ErrorHint>{errors.product}</ErrorHint>}
@@ -410,53 +530,59 @@ export const PurchaseView = ({ navigate }) => {
 
               <Grid2>
                 <Field>
-                  <Label>Quantidade *</Label>
-                  <InputBase
-                    type='number'
-                    min='0'
-                    step={selected?.unit === 'UN' ? '1' : '0.001'}
-                    value={qty}
-                    onChange={e => setQty(e.target.value)}
-                    placeholder={selected?.unit === 'UN' ? 'Ex: 10' : 'Ex: 2.500'}
-                    $error={!!errors.qty}
-                  />
+                  <Label>
+                    Quantidade *
+                    {selected && <LabelHint>— {selected.unit === 'KG' ? 'kg (3 decimais)' : 'unidades inteiras'}</LabelHint>}
+                  </Label>
+                  <InputWithSuffix>
+                    <InputBase
+                      type='number'
+                      min='0'
+                      step={selected?.unit === 'UN' ? '1' : '0.001'}
+                      value={qty}
+                      onChange={e => setQty(e.target.value)}
+                      placeholder={selected?.unit === 'UN' ? '0' : '0.000'}
+                      $error={!!errors.qty}
+                      style={{ borderRadius: selected ? '8px 0 0 8px' : '8px' }}
+                    />
+                    {selected && <UnitSuffix>{selected.unit}</UnitSuffix>}
+                  </InputWithSuffix>
                   {errors.qty && <ErrorHint>{errors.qty}</ErrorHint>}
                 </Field>
 
                 <Field>
-                  <Label>Preço de Custo (R$) *</Label>
-                  <InputBase
-                    type='number'
-                    min='0.01'
-                    step='0.01'
-                    value={cost}
-                    onChange={e => setCost(e.target.value)}
-                    placeholder='Ex: 45.90'
-                    $error={!!errors.cost}
-                  />
+                  <Label>Preço de Custo *</Label>
+                  <InputWithSuffix>
+                    <PrefixLabel>R$</PrefixLabel>
+                    <InputBase
+                      type='text'
+                      inputMode='numeric'
+                      value={costDisplay}
+                      onChange={handleCostChange}
+                      placeholder='0,00'
+                      $error={!!errors.cost}
+                      style={{ borderRadius: '0 8px 8px 0', borderLeft: 'none' }}
+                    />
+                  </InputWithSuffix>
                   {errors.cost && <ErrorHint>{errors.cost}</ErrorHint>}
                 </Field>
               </Grid2>
 
-              <Field>
-                <Label>
-                  Data de Validade
-                  {selected?.perecivel === true
-                    ? <LabelHint>* obrigatório — produto perecível</LabelHint>
-                    : selected?.perecivel === false
-                      ? <LabelHint>— não preencher para não perecíveis</LabelHint>
-                      : <LabelHint>— preencha se o produto tiver validade</LabelHint>
-                  }
-                </Label>
-                <InputBase
-                  type='date'
-                  value={expiry}
-                  onChange={e => setExpiry(e.target.value)}
-                  disabled={selected?.perecivel === false}
-                  $error={!!errors.expiry}
-                />
-                {errors.expiry && <ErrorHint>{errors.expiry}</ErrorHint>}
-              </Field>
+              {selected?.perecivel === true && (
+                <Field>
+                  <Label>
+                    Data de Validade
+                    <LabelHint>* obrigatório — produto perecível</LabelHint>
+                  </Label>
+                  <InputBase
+                    type='date'
+                    value={expiry}
+                    onChange={e => setExpiry(e.target.value)}
+                    $error={!!errors.expiry}
+                  />
+                  {errors.expiry && <ErrorHint>{errors.expiry}</ErrorHint>}
+                </Field>
+              )}
 
               <AddBtn onClick={handleAddToCart} disabled={!selected}>
                 <span className='material-symbols-outlined' style={{ fontSize: 16, verticalAlign: 'middle', marginRight: 6 }}>add_shopping_cart</span>
@@ -481,11 +607,8 @@ export const PurchaseView = ({ navigate }) => {
                   emptyMessage='Nenhum item adicionado.'
                 />
               </TableWrapper>
-
               <SubmitRow>
-                <Button variant='secondary' full={false} small onClick={() => setCart([])}>
-                  Limpar Lista
-                </Button>
+                <Button variant='secondary' full={false} small onClick={() => setCart([])}>Limpar Lista</Button>
                 <Button full={false} onClick={handleSubmit} disabled={submitting}>
                   {submitting ? 'Registrando...' : 'Registrar Entrada no Estoque'}
                 </Button>
@@ -501,6 +624,19 @@ export const PurchaseView = ({ navigate }) => {
           )}
         </Content>
       </MainArea>
+
+      <ConfirmModal
+        open={leaveConfirm.open}
+        title='Sair sem registrar?'
+        message={`Você tem ${leaveConfirm.open ? cart.length : 0} ${cart.length === 1 ? 'produto' : 'produtos'} na lista que ainda não foi registrado no estoque. Se sair agora, a lista será perdida.`}
+        confirmLabel='Sair mesmo assim'
+        onConfirm={() => {
+          const { to, params } = leaveConfirm
+          setLeaveConfirm({ open: false, to: null, params: null })
+          navigate(to, params)
+        }}
+        onCancel={() => setLeaveConfirm({ open: false, to: null, params: null })}
+      />
     </Wrapper>
   )
 }

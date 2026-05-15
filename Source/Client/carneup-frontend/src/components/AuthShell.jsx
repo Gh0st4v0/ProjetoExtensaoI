@@ -1,149 +1,139 @@
 import styled from 'styled-components'
 
 const Wrapper = styled.div`
-	background-color: #eeeeee;
-	min-height: 100vh;
-	display: flex;
-	flex-direction: column;
-	font-family: 'Work Sans', sans-serif;
-	color: #1a1c1c;
-`
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  font-family: 'Work Sans', sans-serif;
+  background: linear-gradient(145deg, #0d0001 0%, #2c0004 55%, #610005 100%);
+  position: relative;
+  overflow: hidden;
 
-const Header = styled.header`
-	width: 100%;
-	padding: 24px;
-	display: flex;
-	justify-content: flex-end;
-`
+  /* grid de pontos sutil */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+  }
 
-const HelpButton = styled.button`
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	background: transparent;
-	border: none;
-	color: #5a403c;
-	cursor: pointer;
-
-	span:first-child {
-		font-weight: 500;
-		font-size: 14px;
-	}
-`
-
-const Main = styled.main`
-	flex: 1;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 24px;
+  /* brilho difuso no canto superior */
+  &::after {
+    content: '';
+    position: absolute;
+    top: -120px;
+    right: -120px;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(180,40,30,0.25) 0%, transparent 70%);
+    pointer-events: none;
+  }
 `
 
 const Card = styled.div`
-	width: 100%;
-	max-width: 480px;
-	background-color: #ffffff;
-	border-radius: 4px;
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-	overflow: hidden;
-	display: flex;
-	flex-direction: column;
+  width: 100%;
+  max-width: 440px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.06);
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
 `
 
-const HeroImage = styled.div`
-	width: 100%;
-	height: 160px;
-	background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCyu5khZZOK69PnDwJDilUi261VWwxEbGMLZiPd9eNhwQH15Jqt7pOPc4T-Q_uGTS2cl7RykRMc3TrEokgT7n6nCHDOUqdJ09heX-37UZdFUNPCejCEJZOBeec7joOWmFDdJv13-AKKlYryYUcEX7zE9kiyhumIzJregf1Xhx4lGgNMZDhVwZ7BaRiPL2nzAUxZx7QbgDawhxJ73MQVbN03E9z-4xIJhUyKtYqcrFNI1bLC_E_aNLH1FWvS_kStvsK31a2fLuFANOY');
-	background-position: center;
-	background-size: cover;
-	background-repeat: no-repeat;
-	position: relative;
+const CardHeader = styled.div`
+  background: linear-gradient(135deg, #1a0002 0%, #610005 100%);
+  padding: 32px 32px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
 
-	&::after {
-		content: '';
-		position: absolute;
-		inset: 0;
-		background-color: rgba(249, 249, 249, 0.2);
-	}
+  /* brilho interno */
+  &::after {
+    content: '';
+    position: absolute;
+    top: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
 `
 
-const ContentContainer = styled.div`
-	padding: 0 32px 40px;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
+const LogoCircle = styled.div`
+  width: 68px;
+  height: 68px;
+  background: rgba(255,255,255,0.12);
+  border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  position: relative;
+  z-index: 1;
 `
 
-const LogoBox = styled.div`
-	width: 96px;
-	height: 96px;
-	border-radius: 50%;
-	border: 4px solid #ffffff;
-	margin-top: -48px;
-	background-color: #f9f9f9;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	position: relative;
-	z-index: 10;
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-	background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuApmaDLSHGHO5fognudTS_Uxh00Y8IRppqxSqR9owIO7Ly-O1DA_5PtVR4eUL34GOuy5qJ8lgdgQh1Z8o3Aqqo3gvQUPRUjvV6CGOLIuT4FCTCo8RGrk8hyVZnWtIssIpIMF77a_gTWdgcx8F8zBTjcXWhzwV-0XjC0Z7cRAVdXj7N-au1JueuGJQKfykBQF2GzhB96tO4DWdLmDjKIYsaurYIECJt2ybcuZc4LNzefh8gJP83jbJ3pS112rTA--eJXDLx8wfW_jr8');
-	background-position: center;
-	background-size: cover;
+const BrandName = styled.h1`
+  font-family: 'Epilogue', sans-serif;
+  font-weight: 900;
+  font-size: 26px;
+  color: #ffffff;
+  letter-spacing: -0.03em;
+  margin: 0;
+  position: relative;
+  z-index: 1;
 `
 
-const BrandTitle = styled.h1`
-	font-family: 'Epilogue', sans-serif;
-	font-size: 30px;
-	font-weight: 700;
-	color: #1a1c1c;
-	letter-spacing: -0.025em;
-	margin-top: 24px;
-	margin-bottom: 8px;
-	text-align: center;
+const Tagline = styled.p`
+  font-size: 11px;
+  color: rgba(255,255,255,0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  margin: 0;
+  font-weight: 600;
+  position: relative;
+  z-index: 1;
 `
 
-const SectionTitle = styled.h2`
-	font-family: 'Work Sans', sans-serif;
-	font-size: 20px;
-	font-weight: 600;
-	color: #1a1c1c;
-	margin-bottom: 24px;
-	text-align: center;
+const FormArea = styled.div`
+  padding: 32px;
 `
 
 const Footer = styled.footer`
-	width: 100%;
-	padding: 16px 0;
-	text-align: center;
-	font-size: 12px;
-	color: #5a403c;
+  margin-top: 20px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.25);
+  text-align: center;
+  position: relative;
+  z-index: 1;
+  letter-spacing: 0.04em;
 `
 
-export const AuthShell = ({ sectionTitle, children }) => {
-	return (
-		<Wrapper>
-			<Header>
-				<HelpButton>
-					<span>Precisa de ajuda?</span>
-					<span className='material-symbols-outlined'>help</span>
-				</HelpButton>
-			</Header>
-
-			<Main>
-				<Card>
-					<HeroImage />
-					<ContentContainer>
-						<LogoBox />
-						<BrandTitle>CarneUp</BrandTitle>
-						{sectionTitle ? <SectionTitle>{sectionTitle}</SectionTitle> : null}
-						{children}
-					</ContentContainer>
-				</Card>
-			</Main>
-
-			<Footer>CarneUp System v1.0.0 © 2026</Footer>
-		</Wrapper>
-	)
+export const AuthShell = ({ children }) => {
+  return (
+    <Wrapper>
+      <Card>
+        <CardHeader>
+          <LogoCircle>🥩</LogoCircle>
+          <BrandName>CarneUp</BrandName>
+          <Tagline>Gestão de Açougue</Tagline>
+        </CardHeader>
+        <FormArea>
+          {children}
+        </FormArea>
+      </Card>
+      <Footer>CarneUp System v1.0 &copy; 2026</Footer>
+    </Wrapper>
+  )
 }
-
