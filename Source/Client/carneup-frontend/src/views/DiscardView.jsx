@@ -6,6 +6,7 @@ import DataTable from '../components/DataTable'
 import { Button } from '../components/Button'
 import DiscardModal from '../components/DiscardModal'
 import { getDiscards, createDiscard } from '../services/discardApi'
+import { usePagination } from '../services/usePagination'
 import { toast } from 'react-toastify'
 
 const Wrapper = styled.div`
@@ -46,6 +47,7 @@ export const DiscardView = ({ navigate }) => {
 	const [modalOpen, setModalOpen] = useState(false)
 	const [discards, setDiscards] = useState([])
 	const [loading, setLoading] = useState(true)
+	const { page, setPage, totalPages, totalItems, currentItems } = usePagination(discards)
 
 	const load = useCallback(() => {
 		setLoading(true)
@@ -91,29 +93,23 @@ export const DiscardView = ({ navigate }) => {
 		<Wrapper>
 			<Sidebar navigate={navigate} activeView='discard' />
 			<MainArea>
-				<Topbar searchQuery={''} onSearchChange={() => {}} />
+				<Topbar title='Histórico de Descartes' />
 				<ContentContainer>
 					<PageHeader>
-						<div>
-							<h2 style={{ fontFamily: 'Epilogue', fontWeight: 900, color: '#610005', textTransform: 'uppercase' }}>
-								Histórico de Descartes
-							</h2>
-							<p style={{ color: '#5a403c' }}>Registre perdas e visualize descartes realizados.</p>
-						</div>
 						<Button full={false} small onClick={() => setModalOpen(true)}>
 							Novo Descarte
 						</Button>
 					</PageHeader>
 
 					<DataTable
-						data={discards}
+						data={currentItems}
 						columns={columns}
 						actions={[]}
 						toolbarActions={null}
-						currentPage={1}
-						totalPages={1}
-						totalItems={discards.length}
-						onPageChange={() => {}}
+						currentPage={page}
+						totalPages={totalPages}
+						totalItems={totalItems}
+						onPageChange={setPage}
 						loading={loading}
 						emptyMessage='Nenhum descarte registrado.'
 					/>

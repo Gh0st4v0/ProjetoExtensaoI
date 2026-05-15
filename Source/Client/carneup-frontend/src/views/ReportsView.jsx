@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import styled from 'styled-components'
 import { Sidebar } from '../components/Sidebar'
 import api from '../services/apiClient'
 import { getAllClients, updateClient, getClientSales } from '../services/salesApi'
 import { toast } from 'react-toastify'
+import PaginationBar from '../components/PaginationBar'
 
 // ── Styles ─────────────────────────────────────────────────────────────────────
 
@@ -213,6 +214,8 @@ const HRow = styled.div`
 
 export const ReportsView = ({ navigate }) => {
   const [activeTab, setActiveTab] = useState('vendas')
+  const [tablePage, setTablePage] = useState(1)
+  const PAGE_SIZE = 10
 
   // Filters
   const [startDate, setStartDate] = useState(firstOfMonth())
@@ -254,6 +257,9 @@ export const ReportsView = ({ navigate }) => {
     } catch { setError('Erro ao buscar dados. Verifique se o backend está rodando.') }
     setLoading(false)
   }, [activeTab, startDate, endDate])
+
+  // Reseta página ao trocar aba ou quando novos dados chegam
+  useEffect(() => { setTablePage(1) }, [activeTab, data])
 
   // Auto-load estoque, validade, descartes on tab change
   useEffect(() => {
@@ -398,28 +404,28 @@ export const ReportsView = ({ navigate }) => {
 
           <TableWrap>
             <TableHead><h3>Detalhamento</h3><span className='cnt'>{sales.length} registros</span></TableHead>
-            {sales.length === 0
-              ? <Empty><span className='material-symbols-outlined'>receipt_long</span>Nenhuma venda no período.</Empty>
-              : <Table><thead><tr>
-                  <th>#</th><th>Data</th><th>Vendedor</th><th>Pagamento</th>
-                  <th style={{textAlign:'right'}}>Custo</th>
-                  <th style={{textAlign:'right'}}>Faturamento</th>
-                  <th style={{textAlign:'right'}}>Margem</th>
-                </tr></thead>
-                <tbody>{sales.map(s => {
-                  const r=s.totalPrice||0, c=s.totalCost||0
-                  const m=r>0?((r-c)/r*100):0
-                  const pc=PAY_COLORS[s.paymentMethod]||{}
-                  return (<tr key={s.id}>
-                    <td style={{color:'var(--muted)'}}>#{s.id}</td>
-                    <td>{s.saleDate}</td>
-                    <td>{s.salesmanName||'—'}</td>
-                    <td><Badge $c={pc.c} $t={pc.t}>{s.paymentMethod}</Badge></td>
-                    <td style={{textAlign:'right'}}>{fmt(c)}</td>
-                    <td style={{textAlign:'right',fontWeight:700}}>{fmt(r)}</td>
-                    <td style={{textAlign:'right',color:m>=20?'var(--success)':m>=10?'var(--warning)':'var(--danger)'}}>{pct(m)}</td>
-                  </tr>)
-                })}</tbody></Table>}
+            {sales.length === 0 && <Empty><span className='material-symbols-outlined'>receipt_long</span>Nenhuma venda no período.</Empty>}
+            {sales.length > 0 && <Table><thead><tr>
+                <th>#</th><th>Data</th><th>Vendedor</th><th>Pagamento</th>
+                <th style={{textAlign:'right'}}>Custo</th>
+                <th style={{textAlign:'right'}}>Faturamento</th>
+                <th style={{textAlign:'right'}}>Margem</th>
+              </tr></thead>
+              <tbody>{sales.slice((tablePage-1)*PAGE_SIZE, tablePage*PAGE_SIZE).map(s => {
+                const r=s.totalPrice||0, c=s.totalCost||0
+                const m=r>0?((r-c)/r*100):0
+                const pc=PAY_COLORS[s.paymentMethod]||{}
+                return (<tr key={s.id}>
+                  <td style={{color:'var(--muted)'}}>#{s.id}</td>
+                  <td>{s.saleDate}</td>
+                  <td>{s.salesmanName||'—'}</td>
+                  <td><Badge $c={pc.c} $t={pc.t}>{s.paymentMethod}</Badge></td>
+                  <td style={{textAlign:'right'}}>{fmt(c)}</td>
+                  <td style={{textAlign:'right',fontWeight:700}}>{fmt(r)}</td>
+                  <td style={{textAlign:'right',color:m>=20?'var(--success)':m>=10?'var(--warning)':'var(--danger)'}}>{pct(m)}</td>
+                </tr>)
+              })}</tbody></Table>}
+            {sales.length > 0 && <PaginationBar page={tablePage} totalPages={Math.ceil(sales.length/PAGE_SIZE)} totalItems={sales.length} onPageChange={setTablePage} />}
           </TableWrap>
         </>
       )
@@ -438,25 +444,25 @@ export const ReportsView = ({ navigate }) => {
           </SumGrid>
           <TableWrap>
             <TableHead><h3>Estoque por Produto</h3><span className='cnt'>{products.length} produtos</span></TableHead>
-            {products.length === 0
-              ? <Empty><span className='material-symbols-outlined'>inventory_2</span>Nenhum produto com estoque.</Empty>
-              : <Table><thead><tr><th>Produto</th><th>Código</th><th>Marca</th><th>Unid.</th><th>Lotes</th><th style={{textAlign:'right'}}>Qtd. Total</th><th>Status</th></tr></thead>
-                <tbody>{products.map(p => {
-                  const qty = (p.purchases||[]).reduce((a,l)=>a+Number(l.quantity||0),0)
-                  return (<tr key={p.id}>
-                    <td style={{fontWeight:700}}>{p.product_name}</td>
-                    <td style={{color:'var(--muted)'}}>{p.code}</td>
-                    <td>{p.brand_name||'—'}</td>
-                    <td><Badge $c='#f5f5f4' $t='var(--text-sub)'>{p.unitMeasurement}</Badge></td>
-                    <td style={{textAlign:'center'}}>{(p.purchases||[]).length}</td>
-                    <td style={{textAlign:'right',fontWeight:700}}>{qty.toFixed(3).replace(/\.?0+$/,'')}</td>
-                    <td>
-                      {qty<=0 ? <Badge $c='#fef2f2' $t='var(--danger)'>Sem Estoque</Badge>
-                        : qty<5 ? <Badge $c='#fffbeb' $t='var(--warning)'>Baixo</Badge>
-                        : <Badge $c='#f0fdf4' $t='var(--success)'>OK</Badge>}
-                    </td>
-                  </tr>)
-                })}</tbody></Table>}
+            {products.length === 0 && <Empty><span className='material-symbols-outlined'>inventory_2</span>Nenhum produto com estoque.</Empty>}
+            {products.length > 0 && <Table><thead><tr><th>Produto</th><th>Código</th><th>Marca</th><th>Unid.</th><th>Lotes</th><th style={{textAlign:'right'}}>Qtd. Total</th><th>Status</th></tr></thead>
+              <tbody>{products.slice((tablePage-1)*PAGE_SIZE, tablePage*PAGE_SIZE).map(p => {
+                const qty = (p.purchases||[]).reduce((a,l)=>a+Number(l.quantity||0),0)
+                return (<tr key={p.id}>
+                  <td style={{fontWeight:700}}>{p.product_name}</td>
+                  <td style={{color:'var(--muted)'}}>{p.code}</td>
+                  <td>{p.brand_name||'—'}</td>
+                  <td><Badge $c='#f5f5f4' $t='var(--text-sub)'>{p.unitMeasurement}</Badge></td>
+                  <td style={{textAlign:'center'}}>{(p.purchases||[]).length}</td>
+                  <td style={{textAlign:'right',fontWeight:700}}>{qty.toFixed(3).replace(/\.?0+$/,'')}</td>
+                  <td>
+                    {qty<=0 ? <Badge $c='#fef2f2' $t='var(--danger)'>Sem Estoque</Badge>
+                      : qty<5 ? <Badge $c='#fffbeb' $t='var(--warning)'>Baixo</Badge>
+                      : <Badge $c='#f0fdf4' $t='var(--success)'>OK</Badge>}
+                  </td>
+                </tr>)
+              })}</tbody></Table>}
+            {products.length > 0 && <PaginationBar page={tablePage} totalPages={Math.ceil(products.length/PAGE_SIZE)} totalItems={products.length} onPageChange={setTablePage} />}
           </TableWrap>
         </>
       )
@@ -487,23 +493,23 @@ export const ReportsView = ({ navigate }) => {
           </SumGrid>
           <TableWrap>
             <TableHead><h3>Lotes por Validade</h3><span className='cnt'>{lots.length} lotes</span></TableHead>
-            {lots.length === 0
-              ? <Empty><span className='material-symbols-outlined'>event_available</span>Nenhum lote vencendo nos próximos {expiryDays} dias.</Empty>
-              : <Table><thead><tr><th>Produto</th><th>Código</th><th>Lote #</th><th>Validade</th><th style={{textAlign:'right'}}>Qtd</th><th>Situação</th></tr></thead>
-                <tbody>{lots.map((l,i) => (
-                  <tr key={i}>
-                    <td style={{fontWeight:700}}>{l.productName}</td>
-                    <td style={{color:'var(--muted)'}}>{l.code}</td>
-                    <td style={{color:'var(--muted)'}}>#{l.purchase_id}</td>
-                    <td>{l.expiring_date}</td>
-                    <td style={{textAlign:'right'}}>{Number(l.quantity||0).toFixed(3).replace(/\.?0+$/,'')} {l.unit}</td>
-                    <td>
-                      <AlertBadge $d={l.daysLeft}>
-                        {l.daysLeft <= 0 ? '⚠ Vencido' : `${l.daysLeft}d restante${l.daysLeft!==1?'s':''}`}
-                      </AlertBadge>
-                    </td>
-                  </tr>
-                ))}</tbody></Table>}
+            {lots.length === 0 && <Empty><span className='material-symbols-outlined'>event_available</span>Nenhum lote vencendo nos próximos {expiryDays} dias.</Empty>}
+            {lots.length > 0 && <Table><thead><tr><th>Produto</th><th>Código</th><th>Lote #</th><th>Validade</th><th style={{textAlign:'right'}}>Qtd</th><th>Situação</th></tr></thead>
+              <tbody>{lots.slice((tablePage-1)*PAGE_SIZE, tablePage*PAGE_SIZE).map((l,i) => (
+                <tr key={i}>
+                  <td style={{fontWeight:700}}>{l.productName}</td>
+                  <td style={{color:'var(--muted)'}}>{l.code}</td>
+                  <td style={{color:'var(--muted)'}}>#{l.purchase_id}</td>
+                  <td>{l.expiring_date}</td>
+                  <td style={{textAlign:'right'}}>{Number(l.quantity||0).toFixed(3).replace(/\.?0+$/,'')} {l.unit}</td>
+                  <td>
+                    <AlertBadge $d={l.daysLeft}>
+                      {l.daysLeft <= 0 ? '⚠ Vencido' : `${l.daysLeft}d restante${l.daysLeft!==1?'s':''}`}
+                    </AlertBadge>
+                  </td>
+                </tr>
+              ))}</tbody></Table>}
+            {lots.length > 0 && <PaginationBar page={tablePage} totalPages={Math.ceil(lots.length/PAGE_SIZE)} totalItems={lots.length} onPageChange={setTablePage} />}
           </TableWrap>
         </>
       )
@@ -523,21 +529,21 @@ export const ReportsView = ({ navigate }) => {
           </SumGrid>
           <TableWrap>
             <TableHead><h3>Histórico de Descartes</h3><span className='cnt'>{data.length} registros</span></TableHead>
-            {data.length === 0
-              ? <Empty><span className='material-symbols-outlined'>delete_forever</span>Nenhum descarte registrado.</Empty>
-              : <Table><thead><tr><th>#</th><th>Data</th><th>Motivo</th><th>Produtos Descartados</th></tr></thead>
-                <tbody>{data.map(d => (
-                  <tr key={d.id}>
-                    <td style={{color:'var(--muted)'}}>#{d.id}</td>
-                    <td>{d.date}</td>
-                    <td><Badge $c='#fef2f2' $t='var(--danger)'>{MOTIVO_LABELS[d.type]||d.type}</Badge></td>
-                    <td>{(d.items||[]).map((it,i) => (
-                      <span key={i} style={{display:'block',fontSize:11}}>
-                        {it.productName} — {Number(it.quantity||0).toFixed(3).replace(/\.?0+$/,'')} {it.unitMeasurement}
-                      </span>
-                    ))}</td>
-                  </tr>
-                ))}</tbody></Table>}
+            {data.length === 0 && <Empty><span className='material-symbols-outlined'>delete_forever</span>Nenhum descarte registrado.</Empty>}
+            {data.length > 0 && <Table><thead><tr><th>#</th><th>Data</th><th>Motivo</th><th>Produtos Descartados</th></tr></thead>
+              <tbody>{data.slice((tablePage-1)*PAGE_SIZE, tablePage*PAGE_SIZE).map(d => (
+                <tr key={d.id}>
+                  <td style={{color:'var(--muted)'}}>#{d.id}</td>
+                  <td>{d.date}</td>
+                  <td><Badge $c='#fef2f2' $t='var(--danger)'>{MOTIVO_LABELS[d.type]||d.type}</Badge></td>
+                  <td>{(d.items||[]).map((it,i) => (
+                    <span key={i} style={{display:'block',fontSize:11}}>
+                      {it.productName} — {Number(it.quantity||0).toFixed(3).replace(/\.?0+$/,'')} {it.unitMeasurement}
+                    </span>
+                  ))}</td>
+                </tr>
+              ))}</tbody></Table>}
+            {data.length > 0 && <PaginationBar page={tablePage} totalPages={Math.ceil(data.length/PAGE_SIZE)} totalItems={data.length} onPageChange={setTablePage} />}
           </TableWrap>
         </>
       )
@@ -553,17 +559,17 @@ export const ReportsView = ({ navigate }) => {
           </SumGrid>
           <TableWrap>
             <TableHead><h3>Histórico de Compras</h3><span className='cnt'>{data.length} registros</span></TableHead>
-            {data.length === 0
-              ? <Empty><span className='material-symbols-outlined'>shopping_cart</span>Nenhuma compra registrada.</Empty>
-              : <Table><thead><tr><th>#</th><th>Data</th><th>Itens</th><th style={{textAlign:'right'}}>Total</th></tr></thead>
-                <tbody>{data.map(c => (
-                  <tr key={c.id}>
-                    <td style={{color:'var(--muted)'}}>#{c.id}</td>
-                    <td>{c.date}</td>
-                    <td style={{color:'var(--muted)',fontSize:11}}>{(c.items||[]).length} produto{(c.items||[]).length!==1?'s':''}</td>
-                    <td style={{textAlign:'right',fontWeight:700}}>{fmt(c.totalValue)}</td>
-                  </tr>
-                ))}</tbody></Table>}
+            {data.length === 0 && <Empty><span className='material-symbols-outlined'>shopping_cart</span>Nenhuma compra registrada.</Empty>}
+            {data.length > 0 && <Table><thead><tr><th>#</th><th>Data</th><th>Itens</th><th style={{textAlign:'right'}}>Total</th></tr></thead>
+              <tbody>{data.slice((tablePage-1)*PAGE_SIZE, tablePage*PAGE_SIZE).map(c => (
+                <tr key={c.id}>
+                  <td style={{color:'var(--muted)'}}>#{c.id}</td>
+                  <td>{c.date}</td>
+                  <td style={{color:'var(--muted)',fontSize:11}}>{(c.items||[]).length} produto{(c.items||[]).length!==1?'s':''}</td>
+                  <td style={{textAlign:'right',fontWeight:700}}>{fmt(c.totalValue)}</td>
+                </tr>
+              ))}</tbody></Table>}
+            {data.length > 0 && <PaginationBar page={tablePage} totalPages={Math.ceil(data.length/PAGE_SIZE)} totalItems={data.length} onPageChange={setTablePage} />}
           </TableWrap>
         </>
       )
