@@ -48,12 +48,17 @@ public class EmailService {
                     .html(htmlContent)
                     .build();
 
-            CreateEmailResponse response = resend.emails().send(params);
-            log.info("Password recovery email sent successfully. Email ID: {}", response.getId());
+            CreateEmailResponse response = doSend(params);
+            log.info("Password recovery email sent successfully. Email ID: {}", response != null ? response.getId() : "<no-id>");
             
         } catch (ResendException e) {
             log.error("Failed to send password recovery email to: {}", toEmail, e);
             throw new RuntimeException("Failed to send recovery email", e);
         }
+    }
+
+    // package-private hook for tests
+    protected CreateEmailResponse doSend(CreateEmailOptions params) throws ResendException {
+        return resend.emails().send(params);
     }
 }
