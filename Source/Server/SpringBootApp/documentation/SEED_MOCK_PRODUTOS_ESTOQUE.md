@@ -39,7 +39,7 @@ Use o `token` retornado:
 Gerar JWT localmente com Node usando o mesmo secret da aplicação:
 
 ```bash
-node -e "const crypto=require('crypto'); const secret='404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970'; const key=Buffer.from(secret,'base64'); const h={alg:'HS256',typ:'JWT'}; const now=Math.floor(Date.now()/1000); const p={sub:'Gustavo',userId:1,name:'Gustavo',accessLevel:'ADMIN',iat:now,exp:now+86400}; const b64u=(o)=>Buffer.from(JSON.stringify(o)).toString('base64url'); const msg=b64u(h)+'.'+b64u(p); const sig=crypto.createHmac('sha256',key).update(msg).digest('base64url'); console.log(msg+'.'+sig);"
+node -e "const crypto=require('crypto'); const secret=(process.env.JWT_SECRET_KEY || '<JWT_SECRET_KEY>'); const key=Buffer.from(secret,'base64'); const h={alg:'HS256',typ:'JWT'}; const now=Math.floor(Date.now()/1000); const p={sub:'Gustavo',userId:1,name:'Gustavo',accessLevel:'ADMIN',iat:now,exp:now+86400}; const b64u=(o)=>Buffer.from(JSON.stringify(o)).toString('base64url'); const msg=b64u(h)+'.'+b64u(p); const sig=crypto.createHmac('sha256',key).update(msg).digest('base64url'); console.log(msg+'.'+sig);"
 ```
 
 ---
