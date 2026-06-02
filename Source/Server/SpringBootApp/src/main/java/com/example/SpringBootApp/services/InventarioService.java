@@ -11,7 +11,6 @@ import com.example.SpringBootApp.repositories.CompraRepository;
 import com.example.SpringBootApp.repositories.MovimentacaoRepository;
 import com.example.SpringBootApp.repositories.ProdutoRepository;
 import com.example.SpringBootApp.repositories.DecarteRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,15 +21,25 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
-@RequiredArgsConstructor
 public class InventarioService {
 
     private final CompraRepository CompraRepository;
     private final MovimentacaoRepository movimentacaoRepository;
     private final ProdutoRepository ProdutoRepository;
     private final DecarteRepository decarteRepository;
+    private DecarteQueryService decarteQueryService;
     private final com.example.SpringBootApp.repositories.VendaRepository vendaRepository;
     private final com.example.SpringBootApp.services.ConfiguracaoService configuracaoService;
+
+    public InventarioService(CompraRepository CompraRepository, MovimentacaoRepository movimentacaoRepository, ProdutoRepository ProdutoRepository, DecarteRepository decarteRepository, com.example.SpringBootApp.repositories.VendaRepository vendaRepository, com.example.SpringBootApp.services.ConfiguracaoService configuracaoService) {
+        this.CompraRepository = CompraRepository;
+        this.movimentacaoRepository = movimentacaoRepository;
+        this.ProdutoRepository = ProdutoRepository;
+        this.decarteRepository = decarteRepository;
+        this.decarteQueryService = new DecarteQueryService(decarteRepository);
+        this.vendaRepository = vendaRepository;
+        this.configuracaoService = configuracaoService;
+    }
 
     public Compra createPurchase(CompraCreateDTO purchaseDTO) {
         for (CompraItemDTO itemDTO : purchaseDTO.getItems()) {
@@ -342,10 +351,14 @@ public class InventarioService {
             java.time.LocalDate startDate, java.time.LocalDate endDate,
             org.springframework.data.domain.Pageable pageable) {
         List<Descarte> all = null;
-        // Prefer legacy repository method (helps unit tests that mock it). If it fails (e.g., JDBC type ambiguity),
-        // fall back to safer, explicitly-typed query methods.
+        // Ensure decarteQueryService is available for tests that instantiate this service directly
+        if (decarteQueryService == null && decarteRepository != null) {
+            decarteQueryService = new DecarteQueryService(decarteRepository);
+        }
+
+        // Try legacy repository in a separate transaction so that DB errors there don't abort the current transaction.
         try {
-            all = decarteRepository.findByDateRange(startDate, endDate);
+            all = decarteQueryService != null ? decarteQueryService.findByDateRangeInNewTx(startDate, endDate) : null;
         } catch (Throwable ignored) {
             all = null;
         }
