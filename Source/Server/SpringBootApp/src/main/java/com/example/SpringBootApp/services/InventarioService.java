@@ -31,14 +31,19 @@ public class InventarioService {
     private final com.example.SpringBootApp.repositories.VendaRepository vendaRepository;
     private final com.example.SpringBootApp.services.ConfiguracaoService configuracaoService;
 
-    public InventarioService(CompraRepository CompraRepository, MovimentacaoRepository movimentacaoRepository, ProdutoRepository ProdutoRepository, DecarteRepository decarteRepository, com.example.SpringBootApp.repositories.VendaRepository vendaRepository, com.example.SpringBootApp.services.ConfiguracaoService configuracaoService) {
+    public InventarioService(CompraRepository CompraRepository, MovimentacaoRepository movimentacaoRepository, ProdutoRepository ProdutoRepository, DecarteRepository decarteRepository, DecarteQueryService decarteQueryService, com.example.SpringBootApp.repositories.VendaRepository vendaRepository, com.example.SpringBootApp.services.ConfiguracaoService configuracaoService) {
         this.CompraRepository = CompraRepository;
         this.movimentacaoRepository = movimentacaoRepository;
         this.ProdutoRepository = ProdutoRepository;
         this.decarteRepository = decarteRepository;
-        this.decarteQueryService = new DecarteQueryService(decarteRepository);
+        this.decarteQueryService = decarteQueryService;
         this.vendaRepository = vendaRepository;
         this.configuracaoService = configuracaoService;
+    }
+
+    // Compatibility constructor used by unit tests and manual instantiation
+    public InventarioService(CompraRepository CompraRepository, MovimentacaoRepository movimentacaoRepository, ProdutoRepository ProdutoRepository, DecarteRepository decarteRepository, com.example.SpringBootApp.repositories.VendaRepository vendaRepository, com.example.SpringBootApp.services.ConfiguracaoService configuracaoService) {
+        this(CompraRepository, movimentacaoRepository, ProdutoRepository, decarteRepository, new DecarteQueryService(decarteRepository), vendaRepository, configuracaoService);
     }
 
     public Compra createPurchase(CompraCreateDTO purchaseDTO) {
@@ -351,13 +356,9 @@ public class InventarioService {
             java.time.LocalDate startDate, java.time.LocalDate endDate,
             org.springframework.data.domain.Pageable pageable) {
         List<Descarte> all = null;
-        // Ensure decarteQueryService is available for tests that instantiate this service directly
-        if (decarteQueryService == null && decarteRepository != null) {
-            decarteQueryService = new DecarteQueryService(decarteRepository);
-        }
-
         // Try legacy repository in a separate transaction so that DB errors there don't abort the current transaction.
         try {
+            // Call the Spring-managed DecarteQueryService so @Transactional(REQUIRES_NEW) is applied
             all = decarteQueryService != null ? decarteQueryService.findByDateRangeInNewTx(startDate, endDate) : null;
         } catch (Throwable ignored) {
             all = null;

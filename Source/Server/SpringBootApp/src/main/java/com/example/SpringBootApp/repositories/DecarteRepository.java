@@ -54,8 +54,8 @@ public interface DecarteRepository extends JpaRepository<Descarte, Long> {
         SELECT DISTINCT d FROM Descarte d
         LEFT JOIN FETCH d.movements m
         LEFT JOIN FETCH m.produto
-        WHERE (:startDate IS NULL OR d.disposalDate >= :startDate)
-          AND (:endDate   IS NULL OR d.disposalDate <= :endDate)
+        WHERE d.disposalDate >= COALESCE(:startDate, d.disposalDate)
+          AND d.disposalDate <= COALESCE(:endDate, d.disposalDate)
         ORDER BY d.disposalDate DESC NULLS LAST
         """)
     List<Descarte> findByDateRange(
@@ -63,6 +63,6 @@ public interface DecarteRepository extends JpaRepository<Descarte, Long> {
         @Param("endDate")   LocalDate endDate
     );
 
-    @Query("SELECT COUNT(d) FROM Descarte d WHERE (:startDate IS NULL OR d.disposalDate >= :startDate) AND (:endDate IS NULL OR d.disposalDate <= :endDate)")
+    @Query("SELECT COUNT(d) FROM Descarte d WHERE d.disposalDate >= COALESCE(:startDate, d.disposalDate) AND d.disposalDate <= COALESCE(:endDate, d.disposalDate)")
     long countByDateRange(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 }

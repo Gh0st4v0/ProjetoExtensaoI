@@ -1,6 +1,0 @@
-Fix Unpaged serialization and InventarioService test/bean compatibility
-
-- Ignore PageImpl.pageable during Jackson serialization to avoid Unpaged.getOffset error
-- Ensure InventarioService has a stable constructor for Spring and tests; lazy-init DecarteQueryService for Mockito usage
-
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
