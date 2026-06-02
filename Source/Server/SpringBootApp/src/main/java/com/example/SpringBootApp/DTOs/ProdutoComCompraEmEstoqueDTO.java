@@ -20,6 +20,8 @@ public class ProdutoComCompraEmEstoqueDTO {
 
     private List<CompraEmEstoqueDTO> purchases;
 
+    private Integer minStock;
+
 }
 
 

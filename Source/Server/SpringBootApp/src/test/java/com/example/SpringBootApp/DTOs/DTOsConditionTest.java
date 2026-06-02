@@ -105,7 +105,7 @@ class DTOsConditionTest {
     void vendaResponse_and_produtoComCompraDTO_nestedEquals() {
         VendaResponseDTO vr1 = new VendaResponseDTO();
         vr1.setId(2L);
-        vr1.setDataVenda(LocalDate.of(2022,1,1));
+        vr1.setDataVenda(java.time.LocalDate.of(2022,1,1).atStartOfDay());
         vr1.setUsuarioId(3L);
         vr1.setUsuarioNome("U");
         vr1.setClienteId(4L);
@@ -117,7 +117,7 @@ class DTOsConditionTest {
 
         VendaResponseDTO vr2 = new VendaResponseDTO();
         vr2.setId(2L);
-        vr2.setDataVenda(LocalDate.of(2022,1,1));
+        vr2.setDataVenda(java.time.LocalDate.of(2022,1,1).atStartOfDay());
         vr2.setUsuarioId(3L);
         vr2.setUsuarioNome("U");
         vr2.setClienteId(4L);
@@ -159,8 +159,8 @@ class DTOsConditionTest {
 
     @Test
     void compraItemResponse_cliente_login_message_equals() {
-        CompraItemResponseDTO cr1 = new CompraItemResponseDTO(100L, new BigDecimal("1.5"), new BigDecimal("3.5"), LocalDate.of(2024,5,1));
-        CompraItemResponseDTO cr2 = new CompraItemResponseDTO(100L, new BigDecimal("1.5"), new BigDecimal("3.5"), LocalDate.of(2024,5,1));
+        CompraItemResponseDTO cr1 = new CompraItemResponseDTO(100L, null, null, new BigDecimal("1.5"), new BigDecimal("3.5"), LocalDate.of(2024,5,1));
+        CompraItemResponseDTO cr2 = new CompraItemResponseDTO(100L, null, null, new BigDecimal("1.5"), new BigDecimal("3.5"), LocalDate.of(2024,5,1));
         assertTrue(cr1.equals(cr2));
         assertEquals(cr1.hashCode(), cr2.hashCode());
 
@@ -168,16 +168,14 @@ class DTOsConditionTest {
         cl1.setId(55L);
         cl1.setNickname("nick");
         cl1.setTelefone("t");
-        cl1.setDocumento("d");
-        cl1.setEmail("e");
+        cl1.setAniversario(java.time.LocalDate.of(1990,1,1));
         cl1.setDataCadastro(LocalDateTime.of(2023,2,3,4,5));
 
         ClienteResponseDTO cl2 = new ClienteResponseDTO();
         cl2.setId(55L);
         cl2.setNickname("nick");
         cl2.setTelefone("t");
-        cl2.setDocumento("d");
-        cl2.setEmail("e");
+        cl2.setAniversario(java.time.LocalDate.of(1990,1,1));
         cl2.setDataCadastro(LocalDateTime.of(2023,2,3,4,5));
 
         assertTrue(cl1.equals(cl2));

@@ -106,7 +106,7 @@ class UsuarioControllerTest {
         Map<String, Object> body = Map.of(
                 "nome", "New User",
                 "email", "new@example.com",
-                "senha", "password",
+                "senha", "Password1!",
                 "nivelAcesso", "ADM"
         );
 
@@ -135,7 +135,7 @@ class UsuarioControllerTest {
         Map<String, Object> body = Map.of(
                 "nome", "Joao Silva",
                 "email", "outro@example.com",
-                "senha", "password"
+                "senha", "Password1!"
         );
 
         mockMvc.perform(post("/users")
@@ -153,7 +153,7 @@ class UsuarioControllerTest {
         Map<String, Object> body = Map.of(
                 "nome", "Novo Usuario",
                 "email", "taken@example.com",
-                "senha", "password"
+                "senha", "Password1!"
         );
 
         mockMvc.perform(post("/users")
@@ -173,7 +173,7 @@ class UsuarioControllerTest {
         Map<String, Object> body = Map.of(
                 "nome", "Corrida",
                 "email", "corrida@example.com",
-                "senha", "password"
+                "senha", "Password1!"
         );
 
         mockMvc.perform(post("/users")

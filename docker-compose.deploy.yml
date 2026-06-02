@@ -1,0 +1,46 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USERNAME}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+
+  backend:
+    image: ${BACKEND_IMAGE}
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - db
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+
+  migrate:
+    image: postgres:18
+    env_file:
+      - .env
+    volumes:
+      - ./migrations:/migrations:ro
+    depends_on:
+      - db
+    entrypoint: ["/bin/sh", "-c"]
+    command: |
+      until pg_isready -h db -p 5432 -U "$DB_USERNAME"; do sleep 1; done
+      for f in /migrations/*.sql; do
+        echo "Applying $f"
+        psql -h db -U "$DB_USERNAME" -d "$DB_NAME" -f "$f"
+      done
+      echo "Migrations completed"
+
+volumes:
+  db-data: {}

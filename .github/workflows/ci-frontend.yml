@@ -1,0 +1,113 @@
+name: CI Frontend
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'Source/Client/carneup-frontend/**'
+      - '.github/workflows/ci-frontend.yml'
+  pull_request:
+    paths:
+      - 'Source/Client/carneup-frontend/**'
+      - '.github/workflows/ci-frontend.yml'
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  FRONTEND_DIR: Source/Client/carneup-frontend
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/projeto-frontend
+  SONAR_PROJECT_KEY_FRONTEND: Gh0st4v0_ProjetoExtensaoI_Frontend
+  SONAR_ORGANIZATION: gh0st4v0
+
+jobs:
+  pipeline:
+    name: Validate, build and push frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          if [ -d "${{ env.FRONTEND_DIR }}" ]; then
+            cd "${{ env.FRONTEND_DIR }}"
+            if [ -f package-lock.json ]; then
+              npm ci
+            else
+              npm install
+            fi
+          else
+            echo "No frontend directory; skipping install"
+          fi
+
+      - name: Run tests (if present)
+        run: |
+          if [ -d "${{ env.FRONTEND_DIR }}" ]; then
+            cd "${{ env.FRONTEND_DIR }}"
+            npm test --if-present
+          else
+            echo "No frontend directory; skipping tests"
+          fi
+
+      - name: Build (if present)
+        run: |
+          if [ -d "${{ env.FRONTEND_DIR }}" ]; then
+            cd "${{ env.FRONTEND_DIR }}"
+            npm run build --if-present
+          else
+            echo "No frontend directory; skipping build"
+          fi
+
+      # - name: Analise SonarCloud
+      #   env:
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      #   run: |
+      #     if [ -d "${{ env.FRONTEND_DIR }}" ]; then
+      #       cd "${{ env.FRONTEND_DIR }}"
+      #       test -n "$SONAR_TOKEN"
+      #       docker run --rm -e SONAR_HOST_URL="https://sonarcloud.io" -e SONAR_LOGIN="$SONAR_TOKEN" -v "$(pwd):/usr/src" sonarsource/sonar-scanner-cli \
+      #         -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY_FRONTEND }} \
+      #         -Dsonar.organization=${{ env.SONAR_ORGANIZATION }} \
+      #         -Dsonar.sources=/usr/src
+      #     else
+      #       echo "No frontend directory, skipping Sonar"
+      #     fi
+
+      - name: Login to GitHub Container Registry
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate image metadata
+        if: github.event_name == 'push'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+            type=sha,prefix=sha-
+
+      - name: Build and push Docker image
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ env.FRONTEND_DIR }}
+          file: ${{ env.FRONTEND_DIR }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

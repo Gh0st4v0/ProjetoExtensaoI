@@ -13,6 +13,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+import org.springframework.data.domain.PageRequest;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -69,12 +71,12 @@ class InventarioServiceExtraTest {
         m.setQuantidade(new BigDecimal("-3"));
         m.setTipoMovimentacao(MovementType.DESCARTE);
         d.setMovements(List.of(m));
-        when(decarteRepository.findAll(any(org.springframework.data.domain.Sort.class))).thenReturn(List.of(d));
+        when(decarteRepository.findByDateRange(null, null)).thenReturn(List.of(d));
 
-        var discs = inventarioService.getDiscards();
+        var discs = inventarioService.getDiscards(null, null, PageRequest.of(0, 20));
         assertNotNull(discs);
-        assertEquals(1, discs.size());
-        var map = discs.get(0);
+        assertEquals(1, discs.getContent().size());
+        var map = discs.getContent().get(0);
         assertEquals(200L, map.get("id"));
         assertEquals(1, ((List)map.get("items")).size());
     }

@@ -1,6 +1,8 @@
 spring:
   application:
     name: JuniorPrimeBeef
+  flyway:
+    enabled: false
   datasource:
     url: ${DB_PATH:jdbc:postgresql://localhost:5432/JuniorPrimeBeef}
     username: ${DB_USERNAME:postgres}
@@ -13,6 +15,6 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-  expiration: 86400000
+  secret: ${JWT_SECRET_KEY:mySecretKey}
+  expiration: ${JWT_EXPIRATION:86400000}
 

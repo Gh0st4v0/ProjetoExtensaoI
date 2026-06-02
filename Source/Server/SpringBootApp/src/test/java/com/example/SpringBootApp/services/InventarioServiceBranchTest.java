@@ -36,7 +36,9 @@ public class InventarioServiceBranchTest {
 
         when(pr.findById(1L)).thenReturn(Optional.empty());
 
-        InventarioService svc = new InventarioService(cr, mr, pr, dr);
+        com.example.SpringBootApp.repositories.VendaRepository vr = mock(com.example.SpringBootApp.repositories.VendaRepository.class);
+        com.example.SpringBootApp.services.ConfiguracaoService cs = mock(com.example.SpringBootApp.services.ConfiguracaoService.class);
+        InventarioService svc = new InventarioService(cr, mr, pr, dr, vr, cs);
 
         assertThrows(ResourceNotFoundException.class, () -> svc.createPurchase(dto));
     }
@@ -62,7 +64,9 @@ public class InventarioServiceBranchTest {
 
         when(pr.findById(2L)).thenReturn(Optional.of(p));
 
-        InventarioService svc = new InventarioService(cr, mr, pr, dr);
+        com.example.SpringBootApp.repositories.VendaRepository vr = mock(com.example.SpringBootApp.repositories.VendaRepository.class);
+        com.example.SpringBootApp.services.ConfiguracaoService cs = mock(com.example.SpringBootApp.services.ConfiguracaoService.class);
+        InventarioService svc = new InventarioService(cr, mr, pr, dr, vr, cs);
 
         assertThrows(BusinessException.class, () -> svc.createPurchase(dto));
     }
@@ -88,7 +92,9 @@ public class InventarioServiceBranchTest {
 
         when(pr.findById(3L)).thenReturn(Optional.of(p));
 
-        InventarioService svc = new InventarioService(cr, mr, pr, dr);
+        com.example.SpringBootApp.repositories.VendaRepository vr = mock(com.example.SpringBootApp.repositories.VendaRepository.class);
+        com.example.SpringBootApp.services.ConfiguracaoService cs = mock(com.example.SpringBootApp.services.ConfiguracaoService.class);
+        InventarioService svc = new InventarioService(cr, mr, pr, dr, vr, cs);
 
         assertThrows(BusinessException.class, () -> svc.createPurchase(dto));
     }
@@ -113,7 +119,9 @@ public class InventarioServiceBranchTest {
 
         when(pr.findById(4L)).thenReturn(Optional.of(p));
 
-        InventarioService svc = new InventarioService(cr, mr, pr, dr);
+        com.example.SpringBootApp.repositories.VendaRepository vr = mock(com.example.SpringBootApp.repositories.VendaRepository.class);
+        com.example.SpringBootApp.services.ConfiguracaoService cs = mock(com.example.SpringBootApp.services.ConfiguracaoService.class);
+        InventarioService svc = new InventarioService(cr, mr, pr, dr, vr, cs);
 
         assertThrows(BusinessException.class, () -> svc.createPurchase(dto));
     }

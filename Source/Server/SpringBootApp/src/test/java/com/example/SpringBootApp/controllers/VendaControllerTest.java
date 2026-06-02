@@ -161,7 +161,7 @@ class VendaControllerTest {
         
         VendReportDTO reportDTO = new VendReportDTO();
         reportDTO.setId(1L);
-        reportDTO.setSaleDate(LocalDate.of(2026, 1, 15));
+        reportDTO.setSaleDate(java.time.LocalDate.of(2026, 1, 15).atStartOfDay());
         reportDTO.setPaymentMethod("DINHEIRO");
         reportDTO.setSalesmanName("Test User");
         reportDTO.setHasDiscount(false);

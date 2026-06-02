@@ -19,6 +19,7 @@ import AttributesView from './views/AttributesView'
 import { ReportsView } from './views/ReportsView'
 import { ClienteHistoricoView } from './views/ClienteHistoricoView'
 import { ConfiguracaoView } from './views/ConfiguracaoView'
+import { DespesasView } from './views/DespesasView'
 
 const ADMIN_ONLY_VIEWS = new Set(['discard', 'attributes', 'reports', 'configuracoes', 'settings', 'config-loja'])
 
@@ -27,6 +28,8 @@ export default function App() {
 	const [recoveryEmail, setRecoveryEmail] = useState('')
 	const [recoveryCode, setRecoveryCode] = useState('')
 	const [selectedClientId, setSelectedClientId] = useState(null)
+	const [selectedReportsTab, setSelectedReportsTab] = useState(null)
+	const [preselectProduct, setPreselectProduct] = useState(null)
 
 	useEffect(() => {
 		const token = getToken()
@@ -40,6 +43,8 @@ export default function App() {
 	const navigate = (view, params = {}) => {
 		if (ADMIN_ONLY_VIEWS.has(view) && !isAdmin()) return
 		if (params.clientId) setSelectedClientId(params.clientId)
+		if (params.tab) setSelectedReportsTab(params.tab)
+		setPreselectProduct(params.preselectProduct || null)
 		setCurrentView(view)
 	}
 
@@ -69,7 +74,9 @@ export default function App() {
 			case 'discard':
 				return <DiscardView navigate={navigate} />
 			case 'purchases':
-				return <PurchaseView navigate={navigate} />
+				return <PurchaseView navigate={navigate} preselectProduct={preselectProduct} />
+			case 'despesas':
+				return <DespesasView navigate={navigate} />
 			case 'attributes':
 				return <AttributesView navigate={navigate} />
 			case 'configuracoes':
@@ -78,7 +85,7 @@ export default function App() {
 			case 'config-loja':
 				return <ConfiguracaoView navigate={navigate} />
 			case 'reports':
-				return <ReportsView navigate={navigate} />
+				return <ReportsView navigate={navigate} initialTab={selectedReportsTab} />
 			case 'cliente-historico':
 				return <ClienteHistoricoView navigate={navigate} clientId={selectedClientId} />
 			default:

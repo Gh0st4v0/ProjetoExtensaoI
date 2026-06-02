@@ -75,6 +75,7 @@ public class ProdutoController {
         dto.put("categoryName", p.getCategoria() != null ? p.getCategoria().getNome() : null);
         dto.put("brandId", p.getMarca() != null ? p.getMarca().getId() : null);
         dto.put("brandName", p.getMarca() != null ? p.getMarca().getNome() : null);
+        dto.put("minStock", p.getEstoqueMinimo());
         return ResponseEntity.ok(dto);
     }
 

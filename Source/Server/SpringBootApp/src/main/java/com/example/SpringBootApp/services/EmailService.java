@@ -16,7 +16,7 @@ public class EmailService {
     private final String apiKey;
     private final Resend resend;
 
-    @Value("${app.email.from:onboarding@resend.dev}")
+    @Value("${app.email.from:no-reply@mail.carneup.com.br}")
     private String fromEmail;
 
     public EmailService(

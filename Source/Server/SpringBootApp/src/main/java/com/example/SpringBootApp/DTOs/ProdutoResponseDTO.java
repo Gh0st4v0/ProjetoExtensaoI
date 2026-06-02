@@ -10,5 +10,6 @@ public class ProdutoResponseDTO {
     private String brandName;
     private String unitMeasurement;
     private String categoryName;
+    private Integer minStock;
 }
 

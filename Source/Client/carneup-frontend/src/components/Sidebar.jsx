@@ -221,6 +221,7 @@ const GROUPS = [
     label: 'Análise',
     items: [
       { id: 'relatorios', label: 'Relatórios', icon: 'bar_chart', route: 'reports', adminOnly: true },
+      { id: 'despesas', label: 'Despesas', icon: 'paid', route: 'despesas', adminOnly: true },
     ],
   },
   {

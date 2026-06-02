@@ -8,7 +8,6 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
-import java.time.LocalDate;
 import java.util.List;
 
 @Repository
@@ -21,10 +20,10 @@ public interface VendaRepository extends JpaRepository<Venda, Long> {
         LEFT JOIN FETCH m.produto p
         LEFT JOIN FETCH p.marca
         LEFT JOIN FETCH v.usuario
-        WHERE v.dataVenda BETWEEN :startDate AND :endDate
+        WHERE v.dataVenda >= :startDateTime AND v.dataVenda < :endDateTime
         ORDER BY v.dataVenda DESC
         """)
-    List<Venda> findByDatavendaBetweenWithMovements(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    List<Venda> findByDatavendaBetweenWithMovements(@Param("startDateTime") java.time.LocalDateTime startDateTime, @Param("endDateTime") java.time.LocalDateTime endDateTime);
 
     List<Venda> findByClienteIdOrderByDataVendaDesc(Long clienteId);
 }

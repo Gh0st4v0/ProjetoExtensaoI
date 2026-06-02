@@ -5,6 +5,7 @@ import { Topbar } from '../components/Topbar'
 import { getUsers, createUser, updateUser, deleteUser } from '../services/usersApi'
 import { toast } from 'react-toastify'
 import { toTitleCase } from '../services/textUtils'
+import { ConfirmModal } from '../components/ConfirmModal'
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
@@ -170,6 +171,7 @@ const FieldSelect = styled.select`
   border-radius: 8px; font-size: 14px; font-family: 'Work Sans', sans-serif;
 `
 const FieldError = styled.p`color: #ba1a1a; font-size: 11px; margin: 4px 0 0;`
+const FieldHint = styled.p`color: #888; font-size: 11px; margin: 4px 0 0;`
 const ModalActions = styled.div`display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px;`
 const BtnSecondary = styled.button`
   padding: 10px 18px; border: 1px solid #e5e7eb; border-radius: 8px;
@@ -184,6 +186,8 @@ const BtnPrimary = styled.button`
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
+
 const EMPTY_FORM = { nome: '', email: '', senha: '', confirmar: '', nivelAcesso: 'USUARIO' }
 
 export const SettingsView = ({ navigate }) => {
@@ -193,6 +197,8 @@ export const SettingsView = ({ navigate }) => {
   const [form, setForm] = useState(EMPTY_FORM)
   const [formErrors, setFormErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, userId: null, userName: '' })
+  const [deleting, setDeleting] = useState(false)
 
   const loggedUserId = Number(localStorage.getItem('userId'))
 
@@ -230,7 +236,7 @@ export const SettingsView = ({ navigate }) => {
     if (!form.nome.trim()) errs.nome = 'Nome é obrigatório.'
     if (!form.email.trim()) errs.email = 'E-mail é obrigatório.'
     if (modal.mode === 'create' && !form.senha) errs.senha = 'Senha é obrigatória.'
-    if (form.senha && form.senha.length < 4) errs.senha = 'Senha deve ter pelo menos 4 caracteres.'
+    if (form.senha && !PASSWORD_REGEX.test(form.senha)) errs.senha = 'A senha deve ter no mínimo 8 caracteres, com 1 maiúscula, 1 minúscula, 1 número e 1 símbolo.'
     if (form.senha && form.senha !== form.confirmar) errs.confirmar = 'As senhas não coincidem.'
     if (!form.senha && form.confirmar) errs.confirmar = 'Preencha a nova senha antes de confirmar.'
     return errs
@@ -277,14 +283,21 @@ export const SettingsView = ({ navigate }) => {
   }
 
   // ── Delete ──
-  const handleDelete = async (id) => {
-    if (!window.confirm('Remover este usuário?')) return
+  const handleDelete = (id, nome) => {
+    setDeleteConfirm({ open: true, userId: id, userName: nome })
+  }
+
+  const confirmDelete = async () => {
+    setDeleting(true)
     try {
-      await deleteUser(id)
+      await deleteUser(deleteConfirm.userId)
       toast.success('Usuário removido.')
+      setDeleteConfirm({ open: false, userId: null, userName: '' })
       load()
     } catch {
       toast.error('Erro ao remover usuário.')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -333,7 +346,7 @@ export const SettingsView = ({ navigate }) => {
                           <span className='material-symbols-outlined' style={{ fontSize: 18 }}>edit</span>
                         </IconBtn>
                         {!isSelf && (
-                          <IconBtn type='button' $danger onClick={() => handleDelete(u.id)} title='Remover usuário'>
+                          <IconBtn type='button' $danger onClick={() => handleDelete(u.id, u.nome)} title='Remover usuário'>
                             <span className='material-symbols-outlined' style={{ fontSize: 18 }}>delete</span>
                           </IconBtn>
                         )}
@@ -346,6 +359,16 @@ export const SettingsView = ({ navigate }) => {
           )}
         </PageContent>
       </MainArea>
+
+      <ConfirmModal
+        open={deleteConfirm.open}
+        title='Remover Usuário'
+        message={`Tem certeza que deseja remover o usuário "${deleteConfirm.userName}"? Esta ação não pode ser desfeita e o acesso será revogado imediatamente.`}
+        confirmLabel='Sim, Remover'
+        loading={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteConfirm({ open: false, userId: null, userName: '' })}
+      />
 
       {modal.open && (
         <Backdrop onClick={closeModal}>
@@ -392,7 +415,9 @@ export const SettingsView = ({ navigate }) => {
                   $error={!!formErrors.senha}
                   placeholder={isEditMode ? 'Deixe em branco para não alterar' : ''}
                 />
-                {formErrors.senha && <FieldError>{formErrors.senha}</FieldError>}
+                {formErrors.senha
+                  ? <FieldError>{formErrors.senha}</FieldError>
+                  : <FieldHint>Mínimo 8 caracteres, com maiúscula, minúscula, número e símbolo.</FieldHint>}
               </Field>
 
               <Field>

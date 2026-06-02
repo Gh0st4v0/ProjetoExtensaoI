@@ -8,6 +8,7 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Getter
@@ -20,12 +21,21 @@ public class Despesa {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "data")
-    private LocalDate date;
+    @Column(nullable = false)
+    private String descricao;
 
-    @Column(name = "valor")
-    private BigDecimal value;
+    private String categoria;
 
-    @Column(name = "tipo")
-    private String type;
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal valor;
+
+    @Column(name = "data_despesa")
+    private java.time.LocalDate dataDespesa;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
 }

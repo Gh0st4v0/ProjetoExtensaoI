@@ -34,7 +34,8 @@ class ClienteServiceTest {
 
         when(clienteRepository.save(any(Cliente.class))).thenReturn(c);
 
-        ClienteCreateDTO dto = new ClienteCreateDTO("Joao", null, null, null);
+        ClienteCreateDTO dto = new ClienteCreateDTO("Joao", null, null);
+        dto.setAceitaTermosServico(true); // must accept terms to be created
         Cliente saved = clienteService.createClient(dto);
         assertEquals(1L, saved.getId());
         assertEquals("Joao", saved.getNickname());
@@ -47,7 +48,7 @@ class ClienteServiceTest {
         c.setNickname("Maria");
 
         Page<Cliente> page = new PageImpl<>(List.of(c), PageRequest.of(0,10), 1);
-        when(clienteRepository.findByNicknameContainingIgnoreCase(eq("ma"), any(Pageable.class))).thenReturn(page);
+        when(clienteRepository.searchActive(eq("ma"), eq("APAGADO"), any(Pageable.class))).thenReturn(page);
 
         var result = clienteService.searchClients("ma", 0);
         assertEquals(1, result.getTotalElements());

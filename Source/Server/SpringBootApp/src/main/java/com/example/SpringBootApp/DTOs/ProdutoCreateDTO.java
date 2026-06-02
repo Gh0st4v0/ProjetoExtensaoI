@@ -41,5 +41,19 @@ public class ProdutoCreateDTO {
     @Schema(description = "Marca ID", example = "1")
     @NotNull(message = "Marca ID is required")
     private Long brandId;
+
+    @Schema(description = "Minimum stock", example = "5")
+    private Integer minStock = 5;
+
+    public ProdutoCreateDTO(String name, UnitMeasurement unitMeasurement, String code, Boolean perecivel, java.math.BigDecimal precoVenda, Long categoryId, Long brandId) {
+        this.name = name;
+        this.unitMeasurement = unitMeasurement;
+        this.code = code;
+        this.perecivel = perecivel;
+        this.precoVenda = precoVenda;
+        this.categoryId = categoryId;
+        this.brandId = brandId;
+        this.minStock = 5;
+    }
 }
 

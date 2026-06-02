@@ -2,6 +2,7 @@ import styled, { keyframes } from 'styled-components'
 import { Sidebar } from '../components/Sidebar'
 import { useState, useEffect, useCallback } from 'react'
 import api from '../services/apiClient'
+import { loadStoreConfig } from './ConfiguracaoView'
 
 // ── Animations ─────────────────────────────────────────────────────────────────
 const fadeUp = keyframes`from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); }`
@@ -223,8 +224,8 @@ const SaleIcon = styled.div`
 `
 const SaleInfo = styled.div`
 	flex: 1; min-width: 0;
-	p.id { font-weight: 700; font-size: 13px; color: #1c1917; margin: 0; }
-	p.date { font-size: 11px; color: #a8a29e; margin: 1px 0 0; }
+	p.id { font-weight: 700; font-size: 14px; color: #1c1917; margin: 0; }
+	p.date { font-size: 14px; color: #374151; margin: 1px 0 0; }
 `
 const SaleRight = styled.div`
 	text-align: right;
@@ -264,6 +265,26 @@ const MASK = '••••••'
 const DAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
 const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 
+const formatISODate = (s) => {
+	if (!s) return null
+	if (typeof s === 'string') {
+		const iso = s.slice(0,10)
+		const parts = iso.split('-')
+		if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`
+		return s
+	}
+	if (s instanceof Date) return s.toLocaleDateString('pt-BR')
+	return String(s)
+}
+
+const formatQuantity = (value, unit) => {
+	const n = Number(value || 0)
+	if (unit === 'KG') {
+		return `${new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(n)} kg`
+	}
+	return `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 }).format(n)} un`
+}
+
 const ACTIONS = [
 	{ icon: 'point_of_sale', label: 'Nova Venda', desc: 'Iniciar atendimento', view: 'sales', primary: true },
 	{ icon: 'add_shopping_cart', label: 'Entrada', desc: 'Registrar compra', view: 'purchases', primary: false },
@@ -281,7 +302,9 @@ export const DashboardView = ({ navigate }) => {
 	const [recentSales, setRecentSales] = useState([])
 	const [loading, setLoading] = useState(true)
 	const [hidden, setHidden] = useState(true)   // valores ocultos por padrão
-
+	const [birthdayClients, setBirthdayClients] = useState([])
+	const [alerts, setAlerts] = useState({ expiryAlerts: [], lowStockAlerts: [], dailyMarginSummary: null })
+		
 	const val = (formatted) => hidden ? MASK : formatted
 
 	// Clock
@@ -292,19 +315,42 @@ export const DashboardView = ({ navigate }) => {
 
 	// Data
 	const loadData = useCallback(() => {
-		const today = new Date().toISOString().slice(0, 10)
+		const nowLocal = new Date();
+		const yyyy = nowLocal.getFullYear();
+		const mm = String(nowLocal.getMonth() + 1).padStart(2, '0');
+		const dd = String(nowLocal.getDate()).padStart(2, '0');
+		const today = `${yyyy}-${mm}-${dd}`
 		setLoading(true)
 
+		const cfg = loadStoreConfig();
+		const expiry = cfg.expiryDays || 7;
 		Promise.all([
 			api.get(`/sales?startDate=${today}&endDate=${today}`).catch(() => ({ data: [] })),
 			api.get('/sales?page=0&size=5').catch(() => ({ data: { content: [] } })),
-		]).then(([todayResp, recentResp]) => {
+			api.get('/clients').catch(() => ({ data: [] })),
+			api.get(`/alerts?expiryDays=${expiry}`).catch(() => ({ data: { expiryAlerts: [], lowStockAlerts: [] } })),
+		]).then(([todayResp, recentResp, clientsResp, alertsResp]) => {
 			const todaySales = todayResp.data || []
 			const total = todaySales.reduce((a, s) => a + (s.totalPrice || 0), 0)
 			setTodayTotal(total)
 			setTodayCount(todaySales.length)
 			setAvgTicket(todaySales.length > 0 ? total / todaySales.length : 0)
 			setRecentSales(recentResp.data?.content || [])
+					
+			const clients = clientsResp.data || []
+			const todayMD = today.slice(5)
+			const bdays = (clients || []).filter(c => {
+				const ann = String(c.aniversario || c.aniversario_date || c.birthday || '')
+				if (!ann) return false
+				const md = ann.slice(-5)
+				const optedIn = Boolean(
+					c.receberPromocoes || c.receber_promocoes || c.receber_promocao || c.receivePromocao ||
+					(Array.isArray(c.permissoes) && c.permissoes.includes("RECEBER_PROMOCOES"))
+				)
+				return md === todayMD && optedIn
+			})
+			setBirthdayClients(bdays)
+			setAlerts(alertsResp.data || { expiryAlerts: [], lowStockAlerts: [], dailyMarginSummary: null })
 		}).finally(() => setLoading(false))
 	}, [])
 
@@ -325,53 +371,12 @@ export const DashboardView = ({ navigate }) => {
 							<h1>🥩 CarneUp</h1>
 							<p>Painel Operacional · {userName}</p>
 						</Brand>
-						<div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-							<button
-								onClick={() => setHidden(h => !h)}
-								title={hidden ? 'Exibir valores' : 'Ocultar valores'}
-								style={{
-									background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)',
-									borderRadius: 8, padding: '6px 10px', cursor: 'pointer',
-									display: 'flex', alignItems: 'center', gap: 6,
-									color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: 700,
-									textTransform: 'uppercase', letterSpacing: '0.08em',
-								}}
-							>
-								<span className='material-symbols-outlined' style={{ fontSize: 16 }}>
-									{hidden ? 'visibility' : 'visibility_off'}
-								</span>
-								{hidden ? 'Exibir' : 'Ocultar'}
-							</button>
-							<Clock>
-								<p className='time'>{timeStr}</p>
-								<p className='date'>{dateStr}</p>
-							</Clock>
-						</div>
+						<Clock>
+							<p className="time">{timeStr}</p>
+							<p className="date">{dateStr}</p>
+						</Clock>
 					</HeroTop>
 
-					<MetricsRow>
-						<Metric>
-							<p className='label'>Faturamento Hoje</p>
-							<p className='value' style={hidden ? { letterSpacing: 3 } : {}}>
-								{loading ? '—' : val(fmt(todayTotal))}
-							</p>
-							<p className='sub'>{val(`${todayCount} venda${todayCount !== 1 ? 's' : ''} realizadas`)}</p>
-						</Metric>
-						<Metric>
-							<p className='label'>Qtd. de Vendas</p>
-							<p className='value' style={hidden ? { letterSpacing: 3 } : {}}>
-								{loading ? '—' : val(String(todayCount))}
-							</p>
-							<p className='sub'>no dia de hoje</p>
-						</Metric>
-						<Metric>
-							<p className='label'>Ticket Médio</p>
-							<p className='value' style={hidden ? { letterSpacing: 3 } : {}}>
-								{loading ? '—' : val(fmt(avgTicket))}
-							</p>
-							<p className='sub'>por atendimento</p>
-						</Metric>
-					</MetricsRow>
 				</Hero>
 
 				<Content>
@@ -395,40 +400,118 @@ export const DashboardView = ({ navigate }) => {
 						</ActionsGrid>
 					</div>
 
-					{/* ── Últimas Vendas ── */}
-					<div>
-						<SectionLabel>Últimas Vendas</SectionLabel>
-						<SalesCard>
-							<SalesHeader>
-								<h3>Transações Recentes</h3>
-								{isAdmin && <button onClick={() => navigate('reports')}>Ver relatório completo →</button>}
-							</SalesHeader>
+					<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+						{/* Birthdays Panel */}
+						<div>
+							<SectionLabel>Aniversariantes de Hoje</SectionLabel>
+							<SalesCard style={{height: '360px', overflowY: 'auto'}}>
+								<SalesHeader>
+									<h3>Aniversários</h3>
+									{isAdmin && <button onClick={() => navigate('reports', { tab: 'clientes' })}>Ver clientes →</button>}
+								</SalesHeader>
 
-							{loading && (
-								<EmptyMsg><span className='material-symbols-outlined'>hourglass_empty</span>Carregando...</EmptyMsg>
-							)}
-							{!loading && recentSales.length === 0 && (
-								<EmptyMsg>
-									<span className='material-symbols-outlined'>receipt_long</span>
-									Nenhuma venda registrada ainda.
-								</EmptyMsg>
-							)}
-							{recentSales.map(s => (
-								<SaleRow key={s.id}>
-									<SaleIcon><span className='material-symbols-outlined'>receipt_long</span></SaleIcon>
-									<SaleInfo>
-										<p className='id'>Venda #{s.id}</p>
-										<p className='date'>{s.saleDate || s.date || '—'}</p>
-									</SaleInfo>
-									<SaleRight>
-										<p className='value' style={hidden ? { letterSpacing: 3 } : {}}>
-											{val(fmt(s.totalValue || s.totalPrice))}
-										</p>
-										<PayBadge $m={s.paymentMethod}>{s.paymentMethod}</PayBadge>
-									</SaleRight>
-								</SaleRow>
-							))}
-						</SalesCard>
+								{loading && (
+									<EmptyMsg><span className='material-symbols-outlined'>hourglass_empty</span>Carregando...</EmptyMsg>
+								)}
+
+								{!loading && birthdayClients.length === 0 && (
+									<EmptyMsg>
+										<span className='material-symbols-outlined'>cake</span>
+										Nenhum aniversariante com promoções hoje.
+									</EmptyMsg>
+								)}
+
+								{birthdayClients.map(c => (
+									<SaleRow key={c.id}>
+										<SaleIcon><span className='material-symbols-outlined'>cake</span></SaleIcon>
+										<SaleInfo>
+											<p className='id'>{c.nickname || c.name || '—'}</p>
+											<p className='date'>{c.telefone || '—'}</p>
+										</SaleInfo>
+										<SaleRight>
+											<p className='value'>{c.aniversario ? String(c.aniversario).slice(-5).split('-').reverse().join('/') : '—'}</p>
+										</SaleRight>
+									</SaleRow>
+								))}
+
+							</SalesCard>
+						</div>
+
+						{/* Alerts Panel */}
+						<div>
+							<SectionLabel>Alertas</SectionLabel>
+							<SalesCard style={{height: '360px', overflowY: 'auto'}}>
+								<SalesHeader>
+									<h3>Alertas</h3>
+								</SalesHeader>
+
+								{loading && (
+									<div style={{ padding: 16 }}>
+										<EmptyMsg><span className='material-symbols-outlined'>hourglass_empty</span>Carregando...</EmptyMsg>
+									</div>
+								)}
+
+								{!loading && (alerts.expiryAlerts?.length === 0 && alerts.lowStockAlerts?.length === 0) && (
+									<div style={{ padding: 16 }}>
+										<EmptyMsg>
+											<span className='material-symbols-outlined'>campaign</span>
+											Sem alertas por enquanto.
+										</EmptyMsg>
+									</div>
+								)}
+
+								{!loading && (alerts.expiryAlerts?.length > 0) && (
+									<div>
+										<SectionLabel style={{ padding: '12px 16px 0' }}>Vencimentos Próximos</SectionLabel>
+										{alerts.expiryAlerts.map((a, idx) => {
+											const product = a.productName || ''
+											const brand = a.brandName ? ` (${a.brandName})` : ''
+											const title = `${product}${brand}`
+											const expDate = formatISODate(a.expiringDate)
+											const daysNum = a.daysToExpiry != null ? Number(a.daysToExpiry) : null
+											let dateColor = '#374151'
+											if (typeof daysNum === 'number' && !isNaN(daysNum)) {
+												if (daysNum <= 0) dateColor = '#ef4444'
+												else if (daysNum <= 3) dateColor = '#f97316'
+												else if (daysNum <= 7) dateColor = '#f59e0b'
+												else dateColor = '#10b981'
+											}
+											const days = daysNum != null ? `${daysNum} dia(s)` : ''
+											return (
+												<SaleRow key={`exp-${idx}`}>
+													<SaleIcon><span className='material-symbols-outlined'>inventory_2</span></SaleIcon>
+													<SaleInfo>
+														<p className='date'><strong style={{ fontSize: '14px' }}>{title}</strong> vence em <strong style={{ color: dateColor }}>{days}</strong> - <strong style={{ color: dateColor }}>{expDate}</strong>{a.quantity != null ? <> · Quantidade: <strong>{formatQuantity(a.quantity, a.unitMeasurement || 'KG')}</strong></> : null}</p>
+													</SaleInfo>
+												</SaleRow>
+											)
+										})}
+									</div>
+								)}
+
+								{!loading && (alerts.lowStockAlerts?.length > 0) && (
+									<div>
+										<SectionLabel style={{ padding: '12px 16px 0' }}>Estoque Baixo</SectionLabel>
+										{alerts.lowStockAlerts.map((a, idx) => {
+											const product = a.productName || ''
+											const brand = a.brandName ? ` (${a.brandName})` : ''
+											const title = `${product}${brand}`
+											const current = a.currentStock != null ? String(a.currentStock) : '0'
+											const min = a.minStock != null ? String(a.minStock) : '0'
+											return (
+												<SaleRow key={`low-${idx}`}>
+													<SaleIcon><span className='material-symbols-outlined'>warning</span></SaleIcon>
+													<SaleInfo>
+														<p className='date'><strong>{title}</strong> — Estoque atual: <strong>{formatQuantity(a.currentStock, a.unitMeasurement || 'KG')}</strong> · Mínimo: <strong>{formatQuantity(a.minStock, a.unitMeasurement || 'KG')}</strong></p>
+													</SaleInfo>
+												</SaleRow>
+											)
+										})}
+									</div>
+								)}
+
+							</SalesCard>
+						</div>
 					</div>
 				</Content>
 
