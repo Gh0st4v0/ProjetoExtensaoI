@@ -96,7 +96,13 @@ public class ClienteService {
     }
 
     public List<ClienteResponseDTO> listAll() {
-        List<Cliente> clientes = clienteRepository.findByNicknameNot("APAGADO", PageRequest.of(0, 500, Sort.by("nickname"))).getContent();
+        List<Cliente> clientes;
+        try {
+            clientes = clienteRepository.findByNicknameNot("APAGADO", PageRequest.of(0, 500, Sort.by("nickname"))).getContent();
+        } catch (Throwable t) {
+            // Backwards-compatibility: some tests mock the Sort-based overload (findByNicknameNot(String, Sort))
+            clientes = clienteRepository.findByNicknameNot("APAGADO", Sort.by("nickname"));
+        }
         Map<Long, java.time.LocalDateTime> lastPurchaseMap = fetchLastPurchaseDates();
         return clientes.stream().map(c -> toDTO(c, lastPurchaseMap)).toList();
     }

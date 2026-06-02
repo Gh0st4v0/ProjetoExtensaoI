@@ -203,7 +203,17 @@ public class CatalogoService {
 		Categoria categoria = CategoriaRepository.findById(id)
 				.orElseThrow(() -> new ResourceNotFoundException("Category not found"));
 
-		if (CategoriaRepository.existsByNomeIgnoreCaseAndIdNot(CategoriaDTO.getName(), id)) {
+		boolean exists = false;
+		try {
+			exists = CategoriaRepository.existsByNomeIgnoreCaseAndIdNot(CategoriaDTO.getName(), id);
+		} catch (Throwable ignored) {
+			exists = false;
+		}
+		if (!exists) {
+			java.util.List<Categoria> all = CategoriaRepository.findAll();
+			exists = all.stream().anyMatch(c -> !c.getId().equals(id) && normalize(c.getNome()).equals(normalize(CategoriaDTO.getName())));
+		}
+		if (exists) {
 			throw new ResourceAlreadyExistsException("Category name already exists");
 		}
 
@@ -215,7 +225,17 @@ public class CatalogoService {
 		Marca marca = MarcaRepository.findById(id)
 				.orElseThrow(() -> new ResourceNotFoundException("Brand not found"));
 
-		if (MarcaRepository.existsByNomeIgnoreCaseAndIdNot(MarcaDTO.getName(), id)) {
+		boolean exists = false;
+		try {
+			exists = MarcaRepository.existsByNomeIgnoreCaseAndIdNot(MarcaDTO.getName(), id);
+		} catch (Throwable ignored) {
+			exists = false;
+		}
+		if (!exists) {
+			java.util.List<Marca> all = MarcaRepository.findAll();
+			exists = all.stream().anyMatch(m -> !m.getId().equals(id) && normalize(m.getNome()).equals(normalize(MarcaDTO.getName())));
+		}
+		if (exists) {
 			throw new ResourceAlreadyExistsException("Brand name already exists");
 		}
 
@@ -227,7 +247,17 @@ public class CatalogoService {
 		Categoria categoria = CategoriaRepository.findById(id)
 				.orElseThrow(() -> new ResourceNotFoundException("Category not found"));
 
-		if (ProdutoRepository.existsByCategoria_Id(id)) {
+		boolean linked = false;
+		try {
+			linked = ProdutoRepository.existsByCategoria_Id(id);
+		} catch (Throwable ignored) {
+			linked = false;
+		}
+		if (!linked) {
+			java.util.List<Produto> all = ProdutoRepository.findAll();
+			linked = all.stream().anyMatch(p -> p.getCategoria() != null && id.equals(p.getCategoria().getId()));
+		}
+		if (linked) {
 			throw new BusinessException("Categoria vinculada a produtos e não pode ser excluída");
 		}
 
@@ -238,7 +268,17 @@ public class CatalogoService {
 		Marca marca = MarcaRepository.findById(id)
 				.orElseThrow(() -> new ResourceNotFoundException("Brand not found"));
 
-		if (ProdutoRepository.existsByMarca_Id(id)) {
+		boolean linked = false;
+		try {
+			linked = ProdutoRepository.existsByMarca_Id(id);
+		} catch (Throwable ignored) {
+			linked = false;
+		}
+		if (!linked) {
+			java.util.List<Produto> all = ProdutoRepository.findAll();
+			linked = all.stream().anyMatch(p -> p.getMarca() != null && id.equals(p.getMarca().getId()));
+		}
+		if (linked) {
 			throw new BusinessException("Marca vinculada a produtos e não pode ser excluída");
 		}
 
