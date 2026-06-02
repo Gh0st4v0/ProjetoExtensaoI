@@ -585,7 +585,7 @@ export const SalesView = ({ navigate }) => {
   const clientTimer = useRef(null)
 
   // Load products — busca TODAS as páginas para exibir catálogo completo no PDV
-  useEffect(() => {
+  const loadProducts = useCallback(() => {
     setLoadingP(true)
     getAllProductsUnpaged()
       .then(all => setProducts(all.map(p => ({
@@ -597,6 +597,8 @@ export const SalesView = ({ navigate }) => {
       .catch(() => toast.error('Erro ao carregar produtos.'))
       .finally(() => setLoadingP(false))
   }, [])
+
+  useEffect(() => { loadProducts() }, [loadProducts])
 
   // Focus search on mount
   useEffect(() => { searchRef.current?.focus() }, [])
@@ -619,6 +621,12 @@ export const SalesView = ({ navigate }) => {
     const cats = [...new Set(products.map(p => p.category).filter(Boolean))].sort()
     return ['TODOS', ...cats]
   }, [products])
+
+  // Qty already reserved in cart per product (for display only; validation uses original stock)
+  const cartQtyById = useMemo(
+    () => cart.reduce((acc, it) => { acc[it.productId] = (acc[it.productId] || 0) + it.qty; return acc }, {}),
+    [cart]
+  )
 
   // Filtered products
   const displayed = useMemo(() => {
@@ -814,6 +822,7 @@ export const SalesView = ({ navigate }) => {
     setInlinePrice('')
     setSearch('')
     searchRef.current?.focus()
+    loadProducts()
   }
 
   const equalSplit = (n) => {
@@ -885,9 +894,11 @@ export const SalesView = ({ navigate }) => {
                       <div className='name'>{p.name}</div>
                       <div className='sub'>
                         {p.code}{p.brand ? ` · ${p.brand}` : ''}
-                        <span style={{ marginLeft:6, color: p.stock <= 0 ? '#dc2626' : p.stock < (p.unit==='UN' ? 2 : 0.1) ? '#f59e0b' : '#a8a29e' }}>
-                          · {fmtStock(p.stock, p.unit)}
-                        </span>
+                        {(() => { const avail = Math.max(0, p.stock - (cartQtyById[p.id] || 0)); return (
+                          <span style={{ marginLeft:6, color: avail <= 0 ? '#dc2626' : avail < (p.unit==='UN' ? 2 : 0.1) ? '#f59e0b' : '#a8a29e' }}>
+                            · {fmtStock(avail, p.unit)}
+                          </span>
+                        )})()}
                       </div>
                     </PName>
                     <CBadge>{p.category || '—'}</CBadge>
