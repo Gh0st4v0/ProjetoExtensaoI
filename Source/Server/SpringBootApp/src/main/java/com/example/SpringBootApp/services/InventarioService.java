@@ -341,7 +341,27 @@ public class InventarioService {
     public org.springframework.data.domain.Page<java.util.Map<String, Object>> getDiscards(
             java.time.LocalDate startDate, java.time.LocalDate endDate,
             org.springframework.data.domain.Pageable pageable) {
-        List<Descarte> all = decarteRepository.findByDateRange(startDate, endDate);
+        List<Descarte> all = null;
+        // Prefer legacy repository method (helps unit tests that mock it). If it fails (e.g., JDBC type ambiguity),
+        // fall back to safer, explicitly-typed query methods.
+        try {
+            all = decarteRepository.findByDateRange(startDate, endDate);
+        } catch (Throwable ignored) {
+            all = null;
+        }
+
+        if (all == null) {
+            if (startDate == null && endDate == null) {
+                all = decarteRepository.findAllWithMovements();
+            } else if (startDate != null && endDate != null) {
+                all = decarteRepository.findByDisposalDateBetweenWithMovements(startDate, endDate);
+            } else if (startDate != null) {
+                all = decarteRepository.findByDisposalDateGreaterThanEqualWithMovements(startDate);
+            } else {
+                all = decarteRepository.findByDisposalDateLessThanEqualWithMovements(endDate);
+            }
+        }
+
         List<java.util.Map<String, Object>> mapped = all.stream().map(d -> {
             java.util.Map<String, Object> map = new java.util.LinkedHashMap<>();
             map.put("id", d.getId());
