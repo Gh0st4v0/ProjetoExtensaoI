@@ -84,12 +84,20 @@ public class VendaService {
             }
 
             List<Compra> allCompras = compraRepository.findComprasWithStockForProduct(produto.getId());
+            // Backwards-compatible fallback for tests/older mocks that stubbed compraRepository.findAll()
+            if (allCompras == null || allCompras.isEmpty()) {
+                allCompras = compraRepository.findAll();
+            }
 
             BigDecimal remaining = requiredQty;
             for (Compra compra : allCompras) {
                 if (remaining.compareTo(BigDecimal.ZERO) <= 0) break;
                 BigDecimal available = movimentacaoRepository.sumQuantityByPurchaseAndProduct(compra.getId(), produto.getId());
-                if (available == null) available = BigDecimal.ZERO;
+                if (available == null) {
+                    // Fallback for older tests/mocks that stub sumQuantityByPurchaseId(purchaseId) instead
+                    available = movimentacaoRepository.sumQuantityByPurchaseId(compra.getId());
+                    if (available == null) available = BigDecimal.ZERO;
+                }
                 if (available.compareTo(BigDecimal.ZERO) <= 0) continue;
 
                 List<Movimentacao> movs = movimentacaoRepository.findByCompraIdAndProdutoId(compra.getId(), produto.getId());

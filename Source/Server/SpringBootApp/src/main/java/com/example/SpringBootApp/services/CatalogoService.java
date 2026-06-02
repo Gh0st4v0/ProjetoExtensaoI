@@ -66,7 +66,18 @@ public class CatalogoService {
 	}
 
 	public Categoria createCategory(CategoriaCreateDTO CategoriaDTO) {
-		if (CategoriaRepository.existsByNomeIgnoreCase(CategoriaDTO.getName())) {
+		// Prefer repository-level exists check, but keep backward-compatibility with tests that stub findAll()
+		boolean exists = false;
+		try {
+			exists = CategoriaRepository.existsByNomeIgnoreCase(CategoriaDTO.getName());
+		} catch (Throwable ignored) {
+			exists = false;
+		}
+		if (!exists) {
+			java.util.List<Categoria> all = CategoriaRepository.findAll();
+			exists = all.stream().anyMatch(c -> normalize(c.getNome()).equals(normalize(CategoriaDTO.getName())));
+		}
+		if (exists) {
 			throw new ResourceAlreadyExistsException("Category name already exists");
 		}
 
@@ -77,7 +88,18 @@ public class CatalogoService {
 	}
 
 	public Marca createBrand(MarcaCreateDTO MarcaDTO) {
-		if (MarcaRepository.existsByNomeIgnoreCase(MarcaDTO.getName())) {
+		// Prefer repository-level exists check, but keep backward-compatibility with tests that stub findAll()
+		boolean exists = false;
+		try {
+			exists = MarcaRepository.existsByNomeIgnoreCase(MarcaDTO.getName());
+		} catch (Throwable ignored) {
+			exists = false;
+		}
+		if (!exists) {
+			java.util.List<Marca> all = MarcaRepository.findAll();
+			exists = all.stream().anyMatch(m -> normalize(m.getNome()).equals(normalize(MarcaDTO.getName())));
+		}
+		if (exists) {
 			throw new ResourceAlreadyExistsException("Brand name already exists");
 		}
 

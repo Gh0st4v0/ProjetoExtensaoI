@@ -238,7 +238,7 @@ class AuthControllerTest {
         // Arrange
         ResetPasswordDTO request = new ResetPasswordDTO();
         request.setToken("valid-token-123");
-        request.setNewPassword("newPassword123");
+        request.setNewPassword("NewPassword123!");
         
         MessageResponseDTO response = new MessageResponseDTO("Password reset successful");
 
@@ -258,7 +258,7 @@ class AuthControllerTest {
         // Arrange
         ResetPasswordDTO request = new ResetPasswordDTO();
         request.setToken("invalid-token");
-        request.setNewPassword("newPassword123");
+        request.setNewPassword("NewPassword123!");
 
         when(authService.resetPassword(any(ResetPasswordDTO.class)))
                 .thenThrow(new ResourceNotFoundException("Invalid or expired token"));
@@ -277,7 +277,7 @@ class AuthControllerTest {
         // Arrange
         ResetPasswordDTO request = new ResetPasswordDTO();
         request.setToken("used-token");
-        request.setNewPassword("newPassword123");
+        request.setNewPassword("NewPassword123!");
 
         when(authService.resetPassword(any(ResetPasswordDTO.class)))
                 .thenThrow(new RuntimeException("Token has already been used"));
@@ -294,7 +294,7 @@ class AuthControllerTest {
         // Arrange
         ResetPasswordDTO request = new ResetPasswordDTO();
         request.setToken("expired-token");
-        request.setNewPassword("newPassword123");
+        request.setNewPassword("NewPassword123!");
 
         when(authService.resetPassword(any(ResetPasswordDTO.class)))
                 .thenThrow(new RuntimeException("Token has expired"));
@@ -321,7 +321,7 @@ class AuthControllerTest {
     @Test
     void resetPassword_ShouldReturn400_WhenMissingToken() throws Exception {
         // Arrange
-        String invalidJson = "{\"newPassword\": \"newPassword123\"}";
+        String invalidJson = "{\"newPassword\": \"NewPassword123!\"}";
 
         // Act & Assert
         mockMvc.perform(post("/sessions/reset-password")
