@@ -338,31 +338,37 @@ public class InventarioService {
         return result;
     }
 
-    public List<java.util.Map<String, Object>> getDiscards() {
-        return decarteRepository.findAll(org.springframework.data.domain.PageRequest.of(
-                0, 200, org.springframework.data.domain.Sort.by(
-                        org.springframework.data.domain.Sort.Direction.DESC, "disposalDate"))).getContent().stream()
-            .map(d -> {
-                java.util.Map<String, Object> map = new java.util.LinkedHashMap<>();
-                map.put("id", d.getId());
-                map.put("date", d.getDisposalDate());
-                map.put("type", d.getMotivo() != null ? d.getMotivo().name() : null);
-                List<java.util.Map<String, Object>> items = new ArrayList<>();
-                if (d.getMovements() != null) {
-                    d.getMovements().stream()
-                        .filter(m -> m.getTipoMovimentacao() == MovementType.DESCARTE)
-                        .forEach(m -> {
-                            java.util.Map<String, Object> item = new java.util.LinkedHashMap<>();
-                            item.put("productName", m.getProduto() != null ? m.getProduto().getNome() : "");
-                            item.put("quantity", m.getQuantidade() != null ? m.getQuantidade().abs() : BigDecimal.ZERO);
-                            item.put("unitMeasurement", m.getProduto() != null && m.getProduto().getUnidadeMedida() != null
-                                ? m.getProduto().getUnidadeMedida().name() : "");
-                            items.add(item);
-                        });
-                }
-                map.put("items", items);
-                return map;
-            }).collect(Collectors.toList());
+    public org.springframework.data.domain.Page<java.util.Map<String, Object>> getDiscards(
+            java.time.LocalDate startDate, java.time.LocalDate endDate,
+            org.springframework.data.domain.Pageable pageable) {
+        List<Descarte> all = decarteRepository.findByDateRange(startDate, endDate);
+        List<java.util.Map<String, Object>> mapped = all.stream().map(d -> {
+            java.util.Map<String, Object> map = new java.util.LinkedHashMap<>();
+            map.put("id", d.getId());
+            map.put("date", d.getDisposalDate());
+            map.put("type", d.getMotivo() != null ? d.getMotivo().name() : null);
+            List<java.util.Map<String, Object>> items = new ArrayList<>();
+            if (d.getMovements() != null) {
+                d.getMovements().stream()
+                    .filter(m -> m.getTipoMovimentacao() == MovementType.DESCARTE)
+                    .forEach(m -> {
+                        java.util.Map<String, Object> item = new java.util.LinkedHashMap<>();
+                        item.put("productName", m.getProduto() != null ? m.getProduto().getNome() : "");
+                        item.put("quantity", m.getQuantidade() != null ? m.getQuantidade().abs() : BigDecimal.ZERO);
+                        item.put("unitMeasurement", m.getProduto() != null && m.getProduto().getUnidadeMedida() != null
+                            ? m.getProduto().getUnidadeMedida().name() : "");
+                        items.add(item);
+                    });
+            }
+            map.put("items", items);
+            return map;
+        }).collect(Collectors.toList());
+
+        int start = (int) pageable.getOffset();
+        List<java.util.Map<String, Object>> pageContent = start >= mapped.size()
+            ? java.util.Collections.emptyList()
+            : mapped.subList(start, Math.min(start + pageable.getPageSize(), mapped.size()));
+        return new org.springframework.data.domain.PageImpl<>(pageContent, pageable, mapped.size());
     }
 
     public Descarte updateDiscard(Long id, com.example.SpringBootApp.DTOs.DescarteUpdateDTO dto) {

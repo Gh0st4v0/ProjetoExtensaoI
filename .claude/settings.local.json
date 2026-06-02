@@ -14,7 +14,10 @@
       "Bash(Select-Object -First 30)",
       "Bash(Format-Table FullName)",
       "PowerShell(Get-Content \"$env:TEMP\\\\backend-r2-err.txt\" -ErrorAction SilentlyContinue | Select-Object -Last 20)",
-      "PowerShell(Get-Content \"$env:TEMP\\\\back-final.txt\" | Select-Object -Last 15)"
+      "PowerShell(Get-Content \"$env:TEMP\\\\back-final.txt\" | Select-Object -Last 15)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 5173 -ErrorAction SilentlyContinue)",
+      "Bash(git -C \"c:\\\\Users\\\\Breno Dias\\\\ProjetoExtensaoI\" config user.email \"breno.diaso16@gmail.com\")",
+      "Bash(git -C \"c:\\\\Users\\\\Breno Dias\\\\ProjetoExtensaoI\" config user.name \"Breno Dias\")"
     ]
   }
 }

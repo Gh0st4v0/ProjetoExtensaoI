@@ -12,6 +12,8 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class CompraItemResponseDTO {
     private Long productId;
+    private String productName;
+    private String productCode;
     private BigDecimal quantity;
     private BigDecimal unitPurchasePrice;
     private LocalDate expiringDate;

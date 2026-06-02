@@ -264,7 +264,7 @@ const mapProduct = (p) => ({
   perecivel: p.perecivel,
 })
 
-export const PurchaseView = ({ navigate }) => {
+export const PurchaseView = ({ navigate, preselectProduct }) => {
   // ── Product search ──
   const [products, setProducts] = useState([])
   const [productPage, setProductPage] = useState(0)
@@ -272,6 +272,13 @@ export const PurchaseView = ({ navigate }) => {
   const [productLoading, setProductLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(null)
+
+  useEffect(() => {
+    if (preselectProduct) {
+      setSelected(preselectProduct)
+      setSearch(preselectProduct.name || '')
+    }
+  }, [preselectProduct])
 
   // ── Form ──
   const [qty, setQty] = useState('')

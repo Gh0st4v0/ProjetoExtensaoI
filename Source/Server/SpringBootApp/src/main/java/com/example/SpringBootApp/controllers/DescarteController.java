@@ -7,13 +7,16 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
-import java.util.List;
+import java.time.LocalDate;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/discards")
@@ -35,8 +38,15 @@ public class DescarteController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Map<String, Object>>> getDiscards() {
-        List<Map<String, Object>> result = inventarioService.getDiscards();
+    public ResponseEntity<Page<Map<String, Object>>> getDiscards(
+            @RequestParam(defaultValue = "0")   int page,
+            @RequestParam(defaultValue = "20")  int size,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        int cappedSize = Math.min(size, 500);
+        Page<Map<String, Object>> result = inventarioService.getDiscards(
+            startDate, endDate,
+            PageRequest.of(page, cappedSize, Sort.by(Sort.Direction.DESC, "id")));
         return ResponseEntity.ok(result);
     }
 

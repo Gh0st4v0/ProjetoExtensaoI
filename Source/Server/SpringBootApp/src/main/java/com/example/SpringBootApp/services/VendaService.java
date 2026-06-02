@@ -166,6 +166,25 @@ public class VendaService {
                 .toList();
     }
 
+    public org.springframework.data.domain.Page<com.example.SpringBootApp.DTOs.VendaResponseDTO> getSalesByClientId(
+            Long clienteId, int page, int size) {
+        int cappedSize = Math.min(size, 200);
+        java.util.List<com.example.SpringBootApp.DTOs.VendaResponseDTO> all =
+            vendaRepository.findByClienteIdOrderByDataVendaDesc(clienteId)
+                .stream()
+                .map(com.example.SpringBootApp.mappers.VendaMapper::toResponse)
+                .toList();
+        int start = page * cappedSize;
+        java.util.List<com.example.SpringBootApp.DTOs.VendaResponseDTO> content = start >= all.size()
+            ? java.util.Collections.emptyList()
+            : all.subList(start, Math.min(start + cappedSize, all.size()));
+        return new org.springframework.data.domain.PageImpl<>(
+            content,
+            org.springframework.data.domain.PageRequest.of(page, cappedSize,
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "dataVenda")),
+            all.size());
+    }
+
     private void persistPayments(com.example.SpringBootApp.DTOs.VendCreateDTO saleDTO, Venda savedSale, java.math.BigDecimal computedTotal) {
         com.example.SpringBootApp.models.Configuracao config = null;
         try {

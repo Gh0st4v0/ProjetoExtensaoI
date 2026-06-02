@@ -96,8 +96,21 @@ public class ClienteService {
     }
 
     public List<ClienteResponseDTO> listAll() {
-        return clienteRepository.findByNicknameNot("APAGADO", PageRequest.of(0, 500, Sort.by("nickname")))
-                .getContent().stream().map(this::toDTO).toList();
+        List<Cliente> clientes = clienteRepository.findByNicknameNot("APAGADO", PageRequest.of(0, 500, Sort.by("nickname"))).getContent();
+        Map<Long, java.time.LocalDateTime> lastPurchaseMap = fetchLastPurchaseDates();
+        return clientes.stream().map(c -> toDTO(c, lastPurchaseMap)).toList();
+    }
+
+    private Map<Long, java.time.LocalDateTime> fetchLastPurchaseDates() {
+        if (jdbcTemplate == null) return java.util.Collections.emptyMap();
+        String sql = "SELECT fk_cliente_id, MAX(data_venda) FROM venda WHERE fk_cliente_id IS NOT NULL GROUP BY fk_cliente_id";
+        Map<Long, java.time.LocalDateTime> result = new java.util.HashMap<>();
+        jdbcTemplate.query(sql, rs -> {
+            Long clienteId = rs.getLong(1);
+            java.sql.Timestamp ts = rs.getTimestamp(2);
+            if (ts != null) result.put(clienteId, ts.toLocalDateTime());
+        });
+        return result;
     }
 
     public ClienteResponseDTO getById(Long id) {
@@ -115,12 +128,17 @@ public class ClienteService {
     }
 
     private ClienteResponseDTO toDTO(Cliente c) {
+        return toDTO(c, java.util.Collections.emptyMap());
+    }
+
+    private ClienteResponseDTO toDTO(Cliente c, Map<Long, java.time.LocalDateTime> lastPurchaseMap) {
         ClienteResponseDTO r = new ClienteResponseDTO();
         r.setId(c.getId());
         r.setNickname(c.getNickname());
         r.setTelefone(c.getTelefone());
         r.setAniversario(c.getAniversario());
         r.setDataCadastro(c.getDataCadastro());
+        r.setLastPurchaseDate(lastPurchaseMap.get(c.getId()));
         r.setPermissoes(getPermissoesForCliente(c.getId()));
         return r;
     }

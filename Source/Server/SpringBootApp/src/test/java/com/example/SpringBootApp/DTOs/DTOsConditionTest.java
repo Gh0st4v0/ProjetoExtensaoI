@@ -159,8 +159,8 @@ class DTOsConditionTest {
 
     @Test
     void compraItemResponse_cliente_login_message_equals() {
-        CompraItemResponseDTO cr1 = new CompraItemResponseDTO(100L, new BigDecimal("1.5"), new BigDecimal("3.5"), LocalDate.of(2024,5,1));
-        CompraItemResponseDTO cr2 = new CompraItemResponseDTO(100L, new BigDecimal("1.5"), new BigDecimal("3.5"), LocalDate.of(2024,5,1));
+        CompraItemResponseDTO cr1 = new CompraItemResponseDTO(100L, null, null, new BigDecimal("1.5"), new BigDecimal("3.5"), LocalDate.of(2024,5,1));
+        CompraItemResponseDTO cr2 = new CompraItemResponseDTO(100L, null, null, new BigDecimal("1.5"), new BigDecimal("3.5"), LocalDate.of(2024,5,1));
         assertTrue(cr1.equals(cr2));
         assertEquals(cr1.hashCode(), cr2.hashCode());
 

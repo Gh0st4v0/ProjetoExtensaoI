@@ -25,7 +25,7 @@ export const createClient = async (data) => {
 }
 export const updateClient = (id, data) => api.put(`/clients/${id}`, data)
 export const getAllClients = () => api.get('/clients').then(r => r.data)
-export const getClientSales = (id) => api.get(`/clients/${id}/sales`).then(r => r.data)
+export const getClientSales = (id, page = 0, size = 200) => api.get(`/clients/${id}/sales`, { params: { page, size } }).then(r => r.data)
 export const getClientSpending = (start, end) => api.get('/sales/clients-spend', { params: { startDate: start, endDate: end } }).then(r => r.data)
 export const deleteClient = (id) => api.delete(`/clients/${id}`)
 

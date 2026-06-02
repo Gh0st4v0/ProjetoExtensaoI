@@ -100,7 +100,7 @@ class DTOsSimpleTest {
         assertEquals(UnitMeasurement.KG, p.getUnitMeasurement());
         assertEquals(1, p.getPurchases().size());
 
-        CompraItemResponseDTO cr = new CompraItemResponseDTO(100L, new BigDecimal("1.5"), new BigDecimal("3.5"), LocalDate.of(2024,5,1));
+        CompraItemResponseDTO cr = new CompraItemResponseDTO(100L, null, null, new BigDecimal("1.5"), new BigDecimal("3.5"), LocalDate.of(2024,5,1));
         assertEquals(100L, cr.getProductId().longValue());
         assertEquals(0, new BigDecimal("1.5").compareTo(cr.getQuantity()));
     }

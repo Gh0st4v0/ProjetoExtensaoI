@@ -80,6 +80,7 @@ public class VendaMapper {
                     VendaItemResponseDTO item = new VendaItemResponseDTO();
                     item.setProductId(m.getProduto() != null ? m.getProduto().getId() : null);
                     item.setProductName(m.getProduto() != null ? m.getProduto().getNome() : null);
+                    item.setBrandName(m.getProduto() != null && m.getProduto().getMarca() != null ? m.getProduto().getMarca().getNome() : null);
                     item.setQuantity(m.getQuantidade().abs());
                     item.setPrecoUnitarioVenda(m.getPrecoUnitarioVenda());
                     item.setPrecoUnitarioCompra(m.getPrecoUnitarioCompra());

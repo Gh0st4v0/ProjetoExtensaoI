@@ -1,6 +1,6 @@
 import api from './apiClient'
 
-export const getDiscards = () => api.get('/discards').then(r => r.data)
+export const getDiscards = (params = {}) => api.get('/discards', { params }).then(r => r.data)
 export const createDiscard = (payload) => api.post('/discards', payload)
 export const updateDiscard = (id, payload) => api.put(`/discards/${id}`, payload)
 export const deleteDiscard = (id) => api.delete(`/discards/${id}`)

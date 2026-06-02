@@ -249,6 +249,7 @@ const mapDto = (p) => ({
 	brand: p.brandName || '',
 	category: p.categoryName || '',
 	unit: p.unitMeasurement || '',
+	perecivel: p.perecivel ?? false,
 	price: p.precoVenda != null ? Number(p.precoVenda) : null,
 	stock: p.stockQuantity != null ? Number(p.stockQuantity) : 0,
 	minStock: p.minStock != null ? Number(p.minStock) : 5,
@@ -535,7 +536,7 @@ export const StockView = ({ navigate }) => {
 
 	const actions = [
 		{ icon: 'edit', onClick: (row) => openEdit(row) },
-		{ icon: 'add_shopping_cart', onClick: () => navigate('purchases') },
+		{ icon: 'add_shopping_cart', onClick: (row) => navigate('purchases', { preselectProduct: row }) },
 	]
 
 	return (

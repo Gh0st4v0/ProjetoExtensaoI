@@ -52,7 +52,7 @@ const Body = styled.div`
 
 // ── Product Panel ──────────────────────────────────────────────────────────────
 const ProductPanel = styled.section`
-  flex:1; display:flex; flex-direction:column; min-width:0; background:#fafaf9;
+  flex:1; display:flex; flex-direction:column; min-width:0; overflow:hidden; background:#fafaf9;
 `
 const PSearch = styled.div`
   padding:14px 16px; background:#fff; border-bottom:1px solid #e7e5e4; flex-shrink:0;
@@ -66,9 +66,12 @@ const SearchBox = styled.div`
   span{color:#a8a29e;font-size:20px;}
 `
 const CatTabs = styled.div`
-  display:flex; gap:6px; overflow-x:auto; padding:10px 16px; background:#fff;
+  display:flex; gap:6px; overflow-x:auto; padding:10px 16px 8px; background:#fff;
   border-bottom:1px solid #e7e5e4; flex-shrink:0;
-  &::-webkit-scrollbar{display:none;}
+  &::-webkit-scrollbar{height:6px;}
+  &::-webkit-scrollbar-track{background:#f5f5f4;border-radius:4px;}
+  &::-webkit-scrollbar-thumb{background:#c7c3bf;border-radius:4px;}
+  &::-webkit-scrollbar-thumb:hover{background:#a8a29e;}
 `
 const CatBtn = styled.button`
   padding:5px 14px; border-radius:999px; white-space:nowrap; cursor:pointer;

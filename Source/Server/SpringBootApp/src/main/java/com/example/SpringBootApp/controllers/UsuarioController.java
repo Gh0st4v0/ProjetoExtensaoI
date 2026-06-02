@@ -17,8 +17,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import java.net.URI;
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -32,8 +34,11 @@ public class UsuarioController {
     private final PasswordEncoder passwordEncoder;
 
     @GetMapping
-    public ResponseEntity<List<Map<String, Object>>> listUsers() {
-        List<Map<String, Object>> users = usuarioRepository.findAll().stream()
+    public ResponseEntity<Page<Map<String, Object>>> listUsers(
+            @RequestParam(defaultValue = "0")  int page,
+            @RequestParam(defaultValue = "50") int size) {
+        Page<Map<String, Object>> result = usuarioRepository
+            .findAll(PageRequest.of(page, Math.min(size, 200), Sort.by("nome")))
             .map(u -> {
                 Map<String, Object> m = new java.util.LinkedHashMap<>();
                 m.put("id", u.getId());
@@ -41,8 +46,8 @@ public class UsuarioController {
                 m.put("email", u.getEmail());
                 m.put("nivelAcesso", u.getAccessLevel() != null ? u.getAccessLevel().name() : null);
                 return m;
-            }).collect(Collectors.toList());
-        return ResponseEntity.ok(users);
+            });
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping

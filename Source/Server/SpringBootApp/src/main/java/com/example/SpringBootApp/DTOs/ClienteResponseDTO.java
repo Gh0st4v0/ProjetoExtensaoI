@@ -13,5 +13,6 @@ public class ClienteResponseDTO {
     private String telefone;
     private java.time.LocalDate aniversario;
     private LocalDateTime dataCadastro;
+    private LocalDateTime lastPurchaseDate;
     private java.util.List<Permissao> permissoes = new ArrayList<>();
 }

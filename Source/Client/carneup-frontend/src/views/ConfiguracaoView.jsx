@@ -215,14 +215,15 @@ const Preview = styled.div`
 const STORAGE_KEY = 'carneup_store_config'
 
 const DEFAULT_CONFIG = {
-  storeName:  'Açougue Bom Pedaço',
-  cnpj:       '12.345.678/0001-90',
-  address:    'Rua das Carnes, 42 - Centro',
-  city:       'São Paulo - SP',
-  phone:      '(11) 3456-7890',
-  instagram:  '',
-  footerMsg:  'Obrigado pela preferência!',
-  expiryDays: 7,
+  storeName:         'Açougue Bom Pedaço',
+  cnpj:              '12.345.678/0001-90',
+  address:           'Rua das Carnes, 42 - Centro',
+  city:              'São Paulo - SP',
+  phone:             '(11) 3456-7890',
+  instagram:         '',
+  footerMsg:         'Obrigado pela preferência!',
+  expiryDays:        7,
+  clienteInativoDias: 30,
 }
 
 const TABS = [
@@ -576,14 +577,23 @@ export const ConfiguracaoView = ({ navigate }) => {
                     </Field>
                   </Grid>
 
-                  <Grid $cols='1fr 2fr'>
+                  <Grid $cols='1fr 1fr 1fr'>
                     <Field>
-                      <Label>Dias para alerta de validade</Label>
+                      <Label>Alerta de validade (dias)</Label>
                       <Input
                         type='number'
                         min='1'
                         value={form.expiryDays || 7}
                         onChange={e => setForm(f => ({ ...f, expiryDays: Number(e.target.value) }))}
+                      />
+                    </Field>
+                    <Field>
+                      <Label>Alerta de inatividade de cliente (dias)</Label>
+                      <Input
+                        type='number'
+                        min='1'
+                        value={form.clienteInativoDias || 30}
+                        onChange={e => setForm(f => ({ ...f, clienteInativoDias: Number(e.target.value) }))}
                       />
                     </Field>
                   </Grid>

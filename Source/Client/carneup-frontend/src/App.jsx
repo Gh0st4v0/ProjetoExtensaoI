@@ -29,6 +29,7 @@ export default function App() {
 	const [recoveryCode, setRecoveryCode] = useState('')
 	const [selectedClientId, setSelectedClientId] = useState(null)
 	const [selectedReportsTab, setSelectedReportsTab] = useState(null)
+	const [preselectProduct, setPreselectProduct] = useState(null)
 
 	useEffect(() => {
 		const token = getToken()
@@ -43,6 +44,7 @@ export default function App() {
 		if (ADMIN_ONLY_VIEWS.has(view) && !isAdmin()) return
 		if (params.clientId) setSelectedClientId(params.clientId)
 		if (params.tab) setSelectedReportsTab(params.tab)
+		setPreselectProduct(params.preselectProduct || null)
 		setCurrentView(view)
 	}
 
@@ -72,7 +74,7 @@ export default function App() {
 			case 'discard':
 				return <DiscardView navigate={navigate} />
 			case 'purchases':
-				return <PurchaseView navigate={navigate} />
+				return <PurchaseView navigate={navigate} preselectProduct={preselectProduct} />
 			case 'despesas':
 				return <DespesasView navigate={navigate} />
 			case 'attributes':
