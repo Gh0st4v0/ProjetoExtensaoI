@@ -12,11 +12,13 @@ export function usePagination(items, resetKey) {
   const total = itemsArray.length || 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const safePage = Math.min(page, totalPages)
-n  const currentItems = useMemo(() => {
+
+  const currentItems = useMemo(() => {
     const start = (safePage - 1) * PAGE_SIZE
     return itemsArray.slice(start, start + PAGE_SIZE)
   }, [itemsArray, safePage])
-n  return {
+
+  return {
     page: safePage,
     setPage,
     totalPages,
