@@ -18,7 +18,7 @@ services:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   backend:
     image: ${BACKEND_IMAGE}
@@ -35,6 +35,12 @@ services:
     image: postgres:18
     env_file:
       - .env
+    # Injetamos as variáveis nativas que o comando 'psql' exige para rodar sem pedir senha
+    environment:
+      - PGPASSWORD=${DB_PASSWORD}
+      - PGUSER=${DB_USERNAME}
+      - PGDATABASE=${DB_NAME}
+      - PGHOST=db
     volumes:
       - ./migrations:/migrations:ro
     depends_on:
