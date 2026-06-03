@@ -1,0 +1,105 @@
+name: Deploy to EC2
+
+on:
+  workflow_dispatch:
+    inputs:
+      services:
+        description: 'Comma-separated services to start (default: backend)'
+        required: false
+        default: 'backend'
+      backend_image:
+        description: 'Optional full backend image to deploy (ghcr.io/owner/projeto-backend:tag)'
+        required: false
+        default: ''
+      deploy_path:
+        description: 'Remote path on EC2 to deploy files'
+        required: false
+        default: '/home/ubuntu/app'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build deploy .env
+        id: build_env
+        run: |
+          set -euo pipefail
+          mkdir -p deploy
+
+          # Determine backend image (use input override if provided)
+          if [ -n "${{ inputs.backend_image }}" ]; then
+            BACKEND_IMAGE="${{ inputs.backend_image }}"
+          else
+            REF="${GITHUB_REF#refs/heads/}"
+            if [ "${REF}" = "${GITHUB_REF}" ]; then
+              REF="${GITHUB_SHA}"
+            fi
+            BACKEND_IMAGE="ghcr.io/${{ github.repository_owner }}/projeto-backend:${REF}"
+          fi
+
+          cat > deploy/.env <<EOF
+          BACKEND_IMAGE=${BACKEND_IMAGE}
+          DB_NAME=${{ secrets.DB_NAME }}
+          DB_USERNAME=${{ secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_PATH=jdbc:postgresql://db:${{ secrets.DB_PORT }}/${{ secrets.DB_NAME }}
+          JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
+          RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
+          BACKEND_PORT=${{ secrets.BACKEND_PORT }}
+          EOF
+        shell: bash
+
+      - name: Copy deploy artifacts to EC2
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          source: |
+            docker-compose.deploy.yml
+            deploy/.env
+            Source/Server/SpringBootApp/src/main/resources/migrations
+          target: ${{ inputs.deploy_path }}
+
+      - name: Execute remote deploy commands
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            set -euo pipefail
+            cd ${{ inputs.deploy_path }}
+
+            # Prefer non-sudo docker compose, fallback to sudo if needed
+            if docker compose version >/dev/null 2>&1; then
+              DOCKER=docker
+            else
+              DOCKER='sudo docker'
+            fi
+
+            $DOCKER compose -f docker-compose.deploy.yml pull || true
+
+            # Ensure DB is up before running migrations
+            $DOCKER compose -f docker-compose.deploy.yml up -d db
+
+            # Run migrations using the migrate service (mounted migrations)
+            $DOCKER compose -f docker-compose.deploy.yml run --rm migrate || true
+
+            sleep 2
+
+            # Start requested services (comma-separated input)
+            SERVICES="$(echo '${{ inputs.services }}' | tr -d ' ' | tr ',' ' ' )"
+            if [ -z "$SERVICES" ]; then
+              SERVICES="backend"
+            fi
+            $DOCKER compose -f docker-compose.deploy.yml up -d $SERVICES

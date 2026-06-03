@@ -11,9 +11,9 @@ import com.example.SpringBootApp.repositories.CompraRepository;
 import com.example.SpringBootApp.repositories.MovimentacaoRepository;
 import com.example.SpringBootApp.repositories.ProdutoRepository;
 import com.example.SpringBootApp.repositories.DecarteRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -22,13 +22,31 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
-@RequiredArgsConstructor
 public class InventarioService {
 
     private final CompraRepository CompraRepository;
     private final MovimentacaoRepository movimentacaoRepository;
     private final ProdutoRepository ProdutoRepository;
     private final DecarteRepository decarteRepository;
+    private DecarteQueryService decarteQueryService;
+    private final com.example.SpringBootApp.repositories.VendaRepository vendaRepository;
+    private final com.example.SpringBootApp.services.ConfiguracaoService configuracaoService;
+
+    @Autowired
+    public InventarioService(CompraRepository CompraRepository, MovimentacaoRepository movimentacaoRepository, ProdutoRepository ProdutoRepository, DecarteRepository decarteRepository, DecarteQueryService decarteQueryService, com.example.SpringBootApp.repositories.VendaRepository vendaRepository, com.example.SpringBootApp.services.ConfiguracaoService configuracaoService) {
+        this.CompraRepository = CompraRepository;
+        this.movimentacaoRepository = movimentacaoRepository;
+        this.ProdutoRepository = ProdutoRepository;
+        this.decarteRepository = decarteRepository;
+        this.decarteQueryService = decarteQueryService;
+        this.vendaRepository = vendaRepository;
+        this.configuracaoService = configuracaoService;
+    }
+
+    // Compatibility constructor used by unit tests and manual instantiation
+    public InventarioService(CompraRepository CompraRepository, MovimentacaoRepository movimentacaoRepository, ProdutoRepository ProdutoRepository, DecarteRepository decarteRepository, com.example.SpringBootApp.repositories.VendaRepository vendaRepository, com.example.SpringBootApp.services.ConfiguracaoService configuracaoService) {
+        this(CompraRepository, movimentacaoRepository, ProdutoRepository, decarteRepository, new DecarteQueryService(decarteRepository), vendaRepository, configuracaoService);
+    }
 
     public Compra createPurchase(CompraCreateDTO purchaseDTO) {
         for (CompraItemDTO itemDTO : purchaseDTO.getItems()) {
@@ -96,6 +114,7 @@ public class InventarioService {
                     dto.setProduct_name(Produto.getNome());
                     dto.setBrand_name(Produto.getMarca() != null ? Produto.getMarca().getNome() : null);
                     dto.setUnitMeasurement(Produto.getUnidadeMedida());
+                    dto.setMinStock(Produto.getEstoqueMinimo());
 
                     List<CompraEmEstoqueDTO> groupedPurchases = groupItemsByPurchase(Produto.getItens());
                     dto.setPurchases(groupedPurchases);
@@ -133,6 +152,11 @@ public class InventarioService {
                                     .map(Movimentacao::getQuantidade)
                                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+                    // Exclude fully-sold lots (net quantity <= 0)
+                    if (totalQuantity.compareTo(BigDecimal.ZERO) <= 0) {
+                        return null;
+                    }
+
                     CompraEmEstoqueDTO dto = new CompraEmEstoqueDTO();
                     dto.setPurchase_id(purchaseId);
                     dto.setPurchase_date(purchaseDate);
@@ -142,6 +166,7 @@ public class InventarioService {
 
                     return dto;
                 })
+                .filter(Objects::nonNull)
                 .toList();
     }
 
@@ -188,7 +213,7 @@ public class InventarioService {
             }
             for (Movimentacao m : group) {
                 if (m.getVenda() != null && m.getVenda().getDataVenda() != null) {
-                    LocalDate saleDate = m.getVenda().getDataVenda();
+                    java.time.LocalDate saleDate = m.getVenda().getDataVenda().toLocalDate();
                     if (newExpiringDate.isBefore(saleDate)) {
                         throw new BusinessException("Cannot set expiration date before existing sale date: " + saleDate);
                     }
@@ -209,30 +234,196 @@ public class InventarioService {
         return movimentacaoRepository.save(purchaseMov);
     }
 
-    public List<java.util.Map<String, Object>> getDiscards() {
-        return decarteRepository.findAll(org.springframework.data.domain.Sort.by(
-                org.springframework.data.domain.Sort.Direction.DESC, "disposalDate")).stream()
-            .map(d -> {
-                java.util.Map<String, Object> map = new java.util.LinkedHashMap<>();
-                map.put("id", d.getId());
-                map.put("date", d.getDisposalDate());
-                map.put("type", d.getMotivo() != null ? d.getMotivo().name() : null);
-                List<java.util.Map<String, Object>> items = new ArrayList<>();
-                if (d.getMovements() != null) {
-                    d.getMovements().stream()
-                        .filter(m -> m.getTipoMovimentacao() == MovementType.DESCARTE)
-                        .forEach(m -> {
-                            java.util.Map<String, Object> item = new java.util.LinkedHashMap<>();
-                            item.put("productName", m.getProduto() != null ? m.getProduto().getNome() : "");
-                            item.put("quantity", m.getQuantidade() != null ? m.getQuantidade().abs() : BigDecimal.ZERO);
-                            item.put("unitMeasurement", m.getProduto() != null && m.getProduto().getUnidadeMedida() != null
-                                ? m.getProduto().getUnidadeMedida().name() : "");
-                            items.add(item);
-                        });
+    public java.util.Map<String, Object> getAlerts(Integer expiryDays) {
+        int days = expiryDays != null ? expiryDays : 7;
+        java.time.LocalDate now = java.time.LocalDate.now();
+        java.time.LocalDate limit = now.plusDays(days);
+
+        java.util.List<java.util.Map<String, Object>> expiryAlerts = new java.util.ArrayList<>();
+        java.util.List<java.util.Map<String, Object>> lowStockAlerts = new java.util.ArrayList<>();
+
+        // Expiry alerts: iterate products with items in stock and use grouped purchases
+        java.util.List<Produto> productsWithItems = ProdutoRepository.findAllWithItems();
+        for (Produto p : productsWithItems) {
+            if (p.getItens() == null || p.getItens().isEmpty()) continue;
+            java.util.List<CompraEmEstoqueDTO> grouped = groupItemsByPurchase(p.getItens());
+            for (CompraEmEstoqueDTO c : grouped) {
+                if (c.getExpiring_date() != null && !c.getExpiring_date().isAfter(limit)) {
+                    long daysToExpiry = java.time.temporal.ChronoUnit.DAYS.between(now, c.getExpiring_date());
+                    java.util.Map<String, Object> map = new java.util.LinkedHashMap<>();
+                    map.put("type", "expiry");
+                    map.put("productId", p.getId());
+                    map.put("productName", p.getNome());
+                    map.put("brandName", p.getMarca() != null ? p.getMarca().getNome() : null);
+                    map.put("unitMeasurement", p.getUnidadeMedida() != null ? p.getUnidadeMedida().name() : "KG");
+                    map.put("purchaseId", c.getPurchase_id());
+                    map.put("expiringDate", c.getExpiring_date());
+                    map.put("quantity", c.getQuantity());
+                    map.put("daysToExpiry", daysToExpiry);
+                    // Human-friendly title and message
+                    String title = p.getNome() + (p.getMarca() != null && p.getMarca().getNome() != null ? " (" + p.getMarca().getNome() + ")" : "");
+                    map.put("title", title);
+                    String expDateStr = c.getExpiring_date() != null ? c.getExpiring_date().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) : null;
+                    map.put("message", "Lote " + c.getPurchase_id() + " vence em " + daysToExpiry + " dia(s) — " + expDateStr);
+                    expiryAlerts.add(map);
                 }
-                map.put("items", items);
-                return map;
-            }).collect(Collectors.toList());
+            }
+        }
+
+        expiryAlerts.sort(java.util.Comparator.comparingLong(m -> (long) m.get("daysToExpiry")));
+
+        // Low-stock alerts: iterate all products and compare current stock to estoqueMinimo (default 5)
+        java.util.List<Produto> allProducts = ProdutoRepository.findAll();
+        for (Produto p : allProducts) {
+            Integer minStock = p.getEstoqueMinimo() != null ? p.getEstoqueMinimo() : 5;
+            java.math.BigDecimal total = movimentacaoRepository.sumQuantityByProdutoId(p.getId());
+            if (total == null) total = java.math.BigDecimal.ZERO;
+            if (total.compareTo(java.math.BigDecimal.valueOf(minStock)) < 0) {
+                java.util.Map<String, Object> map = new java.util.LinkedHashMap<>();
+                map.put("type", "low_stock");
+                map.put("productId", p.getId());
+                map.put("productName", p.getNome());
+                map.put("brandName", p.getMarca() != null ? p.getMarca().getNome() : null);
+                map.put("unitMeasurement", p.getUnidadeMedida() != null ? p.getUnidadeMedida().name() : "KG");
+                map.put("currentStock", total);
+                map.put("minStock", minStock);
+                // Human-friendly title and message
+                String title = p.getNome() + (p.getMarca() != null && p.getMarca().getNome() != null ? " (" + p.getMarca().getNome() + ")" : "");
+                map.put("title", title);
+                map.put("message", "Estoque atual: " + total + " — Mínimo definido: " + minStock);
+                lowStockAlerts.add(map);
+            }
+        }
+
+        // Daily margin summary: aggregate all of today's sales into a single metric
+        java.time.LocalDateTime startOfDay = java.time.LocalDate.now().atStartOfDay();
+        java.time.LocalDateTime endOfDay = startOfDay.plusDays(1);
+        java.util.List<Venda> vendas = vendaRepository.findByDatavendaBetweenWithMovements(startOfDay, endOfDay);
+
+        java.math.BigDecimal totalRevenue = java.math.BigDecimal.ZERO;
+        java.math.BigDecimal totalCost    = java.math.BigDecimal.ZERO;
+        java.math.BigDecimal totalFees    = java.math.BigDecimal.ZERO;
+        com.example.SpringBootApp.models.Configuracao latestCfg = null;
+
+        for (Venda v : vendas) {
+            if (v.getValorTotal() == null || v.getValorTotal().compareTo(java.math.BigDecimal.ZERO) <= 0) continue;
+            com.example.SpringBootApp.models.Configuracao cfg = configuracaoService.getConfiguracaoForDate(v.getDataVenda());
+            if (latestCfg == null) latestCfg = cfg;
+            totalRevenue = totalRevenue.add(v.getValorTotal());
+            if (v.getItens() != null) {
+                for (Movimentacao m : v.getItens()) {
+                    java.math.BigDecimal qty      = m.getQuantidade() != null ? m.getQuantidade().abs() : java.math.BigDecimal.ZERO;
+                    java.math.BigDecimal unitCost = m.getPrecoUnitarioCompra() != null ? m.getPrecoUnitarioCompra() : java.math.BigDecimal.ZERO;
+                    totalCost = totalCost.add(qty.multiply(unitCost));
+                }
+            }
+            if (v.getPagamentos() != null) {
+                for (VendaPagamento vp : v.getPagamentos()) {
+                    java.math.BigDecimal valor   = vp.getValor() != null ? vp.getValor() : java.math.BigDecimal.ZERO;
+                    java.math.BigDecimal percent = java.math.BigDecimal.ZERO;
+                    if (vp.getMetodoPagamento() == com.example.SpringBootApp.models.PaymentMethod.CREDITO) {
+                        percent = cfg != null && cfg.getTaxaCredito() != null ? cfg.getTaxaCredito() : new java.math.BigDecimal("3.50");
+                    } else if (vp.getMetodoPagamento() == com.example.SpringBootApp.models.PaymentMethod.DEBITO) {
+                        percent = cfg != null && cfg.getTaxaDebito() != null ? cfg.getTaxaDebito() : new java.math.BigDecimal("2.50");
+                    }
+                    totalFees = totalFees.add(valor.multiply(percent).divide(new java.math.BigDecimal("100"), 4, java.math.RoundingMode.HALF_UP));
+                }
+            }
+        }
+
+        java.math.BigDecimal expectedMargin = latestCfg != null && latestCfg.getLucroEsperado() != null
+                ? latestCfg.getLucroEsperado() : new java.math.BigDecimal("20.00");
+        java.math.BigDecimal grossProfit = totalRevenue.subtract(totalCost).subtract(totalFees);
+        java.math.BigDecimal grossMarginPct = totalRevenue.compareTo(java.math.BigDecimal.ZERO) == 0
+                ? java.math.BigDecimal.ZERO
+                : grossProfit.divide(totalRevenue, 4, java.math.RoundingMode.HALF_UP).multiply(new java.math.BigDecimal("100"));
+
+        java.util.Map<String, Object> dailyMarginSummary = new java.util.LinkedHashMap<>();
+        dailyMarginSummary.put("hasData",       !vendas.isEmpty());
+        dailyMarginSummary.put("salesCount",    vendas.size());
+        dailyMarginSummary.put("revenue",       totalRevenue.setScale(2, java.math.RoundingMode.HALF_UP));
+        dailyMarginSummary.put("cost",          totalCost.setScale(2, java.math.RoundingMode.HALF_UP));
+        dailyMarginSummary.put("grossMargin",   grossMarginPct.setScale(2, java.math.RoundingMode.HALF_UP));
+        dailyMarginSummary.put("expectedMargin",expectedMargin.setScale(2, java.math.RoundingMode.HALF_UP));
+        dailyMarginSummary.put("belowTarget",   !vendas.isEmpty() && grossMarginPct.compareTo(expectedMargin) < 0);
+
+        java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("expiryAlerts",       expiryAlerts);
+        result.put("lowStockAlerts",     lowStockAlerts);
+        result.put("dailyMarginSummary", dailyMarginSummary);
+        return result;
+    }
+
+    public org.springframework.data.domain.Page<java.util.Map<String, Object>> getDiscards(
+            java.time.LocalDate startDate, java.time.LocalDate endDate,
+            org.springframework.data.domain.Pageable pageable) {
+        List<Descarte> all = null;
+        try {
+            if (decarteQueryService != null) {
+                all = decarteQueryService.findByDateRangeInNewTx(startDate, endDate);
+            } else {
+                // No DecarteQueryService available (unit tests / mocks) — call legacy repository directly
+                all = decarteRepository.findByDateRange(startDate, endDate);
+            }
+        } catch (Throwable ignored) {
+            all = null;
+        }
+
+        if (all == null) {
+            if (startDate == null && endDate == null) {
+                all = decarteRepository.findAllWithMovements();
+            } else if (startDate != null && endDate != null) {
+                all = decarteRepository.findByDisposalDateBetweenWithMovements(startDate, endDate);
+            } else if (startDate != null) {
+                all = decarteRepository.findByDisposalDateGreaterThanEqualWithMovements(startDate);
+            } else {
+                all = decarteRepository.findByDisposalDateLessThanEqualWithMovements(endDate);
+            }
+        }
+
+        List<java.util.Map<String, Object>> mapped = all.stream().map(d -> {
+            java.util.Map<String, Object> map = new java.util.LinkedHashMap<>();
+            map.put("id", d.getId());
+            map.put("date", d.getDisposalDate());
+            map.put("type", d.getMotivo() != null ? d.getMotivo().name() : null);
+            List<java.util.Map<String, Object>> items = new ArrayList<>();
+            if (d.getMovements() != null) {
+                d.getMovements().stream()
+                    .filter(m -> m.getTipoMovimentacao() == MovementType.DESCARTE)
+                    .forEach(m -> {
+                        java.util.Map<String, Object> item = new java.util.LinkedHashMap<>();
+                        item.put("productName", m.getProduto() != null ? m.getProduto().getNome() : "");
+                        item.put("quantity", m.getQuantidade() != null ? m.getQuantidade().abs() : BigDecimal.ZERO);
+                        item.put("unitMeasurement", m.getProduto() != null && m.getProduto().getUnidadeMedida() != null
+                            ? m.getProduto().getUnidadeMedida().name() : "");
+                        items.add(item);
+                    });
+            }
+            map.put("items", items);
+            return map;
+        }).collect(Collectors.toList());
+
+        int start = (int) pageable.getOffset();
+        List<java.util.Map<String, Object>> pageContent = start >= mapped.size()
+            ? java.util.Collections.emptyList()
+            : mapped.subList(start, Math.min(start + pageable.getPageSize(), mapped.size()));
+        return new org.springframework.data.domain.PageImpl<>(pageContent, pageable, mapped.size());
+    }
+
+    public Descarte updateDiscard(Long id, com.example.SpringBootApp.DTOs.DescarteUpdateDTO dto) {
+        Descarte descarte = decarteRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Descarte not found: " + id));
+        if (dto.getDate() != null) descarte.setDisposalDate(dto.getDate());
+        if (dto.getType() != null) descarte.setMotivo(dto.getType());
+        return decarteRepository.save(descarte);
+    }
+
+    public void deleteDiscard(Long id) {
+        Descarte descarte = decarteRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Descarte not found: " + id));
+        java.util.List<Movimentacao> movements = movimentacaoRepository.findByDescarte_Id(id);
+        movimentacaoRepository.deleteAll(movements);
+        decarteRepository.delete(descarte);
     }
 
     public Descarte createDiscard(com.example.SpringBootApp.DTOs.DescarteCreateDTO discardDTO) {

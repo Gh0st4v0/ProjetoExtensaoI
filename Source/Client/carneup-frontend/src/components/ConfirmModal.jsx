@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { Button } from './Button'
 
 const Backdrop = styled.div`
-  position: fixed; inset:0; background: rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:70;
+  position: fixed; inset:0; background: rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:500;
 `
 const Card = styled.div`
   background:#fff; padding:20px; border-radius:10px; width:420px; box-shadow:0 12px 30px rgba(0,0,0,0.12);

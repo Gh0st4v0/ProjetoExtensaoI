@@ -78,7 +78,7 @@ export const ProductForm = ({ onSubmit, brands: propBrands = [], categories: pro
 		categoryId: '',
 		unit: 'KG',
 		price: '',
-		perecivel: false,
+		perecivel: true,
 	})
 
 	const [localBrands, setLocalBrands] = useState([])
@@ -115,7 +115,7 @@ export const ProductForm = ({ onSubmit, brands: propBrands = [], categories: pro
 		e.preventDefault()
 		if (!validate()) return
 		onSubmit(formData)
-		setFormData({ name: '', code: '', brandId: '', categoryId: '', unit: 'KG', price: '', perecivel: false })
+		setFormData({ name: '', code: '', brandId: '', categoryId: '', unit: 'KG', price: '', perecivel: true })
 	}
 
 	const handleQuickCreate = async (type, value) => {

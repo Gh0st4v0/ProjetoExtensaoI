@@ -42,7 +42,7 @@ class VendaServiceListSalesPagedTest {
     void listSalesPaged_returnsPageOfDto() {
         Venda venda = new Venda();
         venda.setId(1L);
-        venda.setDataVenda(LocalDate.now());
+        venda.setDataVenda(java.time.LocalDate.now().atStartOfDay());
         venda.setValorTotal(new BigDecimal("100.00"));
         Usuario u = new Usuario(); u.setId(1L); u.setNome("User"); venda.setUsuario(u);
         venda.setItens(List.of());

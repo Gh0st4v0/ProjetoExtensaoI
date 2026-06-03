@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+
 import java.time.LocalDate;
 import java.util.List;
 
@@ -24,7 +25,7 @@ public class Descarte {
     private LocalDate disposalDate;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "motivo")
+    @Column(name = "motivo", columnDefinition = "VARCHAR(20)")
     private DescarteType motivo;
 
     @OneToMany(mappedBy = "descarte", fetch = FetchType.LAZY)

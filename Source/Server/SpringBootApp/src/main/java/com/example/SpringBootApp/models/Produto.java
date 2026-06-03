@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -22,17 +23,20 @@ public class Produto {
     private String nome;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "unidade_medida")
+    @Column(name = "unidade_medida", columnDefinition = "VARCHAR(10)")
     private UnitMeasurement unidadeMedida;
 
-    @Column(name = "codigo")
+    @Column(name = "codigo", columnDefinition = "CHAR(6)")
     private String codigo;
 
     @Column(name = "perecivel")
     private Boolean perecivel;
 
-    @Column(name = "preco_venda")
+    @Column(name = "preco_venda", columnDefinition = "NUMERIC(10,2)")
     private BigDecimal precoVenda;
+
+    @Column(name = "estoque_minimo")
+    private Integer estoqueMinimo;
 
     @ManyToOne
     @JoinColumn(name = "fk_categoria_id")
@@ -44,4 +48,17 @@ public class Produto {
 
     @OneToMany(mappedBy = "produto", fetch = FetchType.LAZY)
     private List<Movimentacao> itens;
+
+    public Produto(Long id, String nome, UnitMeasurement unidadeMedida, String codigo, Boolean perecivel, java.math.BigDecimal precoVenda, Categoria categoria, Marca marca, java.util.List<Movimentacao> itens) {
+        this.id = id;
+        this.nome = nome;
+        this.unidadeMedida = unidadeMedida;
+        this.codigo = codigo;
+        this.perecivel = perecivel;
+        this.precoVenda = precoVenda;
+        this.categoria = categoria;
+        this.marca = marca;
+        this.itens = itens;
+        this.estoqueMinimo = 5;
+    }
 }

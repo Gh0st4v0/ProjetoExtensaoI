@@ -12,6 +12,7 @@ public record ProdutoQuantidadeEstoqueDTO(
         UnitMeasurement unitMeasurement,
         BigDecimal precoVenda,
         BigDecimal stockQuantity,
-        Boolean perecivel
+        Boolean perecivel,
+        Integer minStock
 ) {
 }

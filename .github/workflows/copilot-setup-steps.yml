@@ -1,0 +1,42 @@
+name: "Copilot Setup Steps"
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Maven
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y maven
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Optionally install frontend deps
+        run: |
+          if [ -f Source/Client/carneup-frontend/package.json ]; then
+            cd Source/Client/carneup-frontend
+            npm ci
+          fi
+
+      - name: Mark setup done
+        run: echo "copilot setup steps completed" > copilot-setup-done.txt

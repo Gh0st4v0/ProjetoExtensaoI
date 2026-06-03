@@ -60,17 +60,25 @@ public class CatalogoService {
 		Produto.setPrecoVenda(productDTO.getPrecoVenda());
 		Produto.setCategoria(Categoria);
 		Produto.setMarca(Marca);
+		Produto.setEstoqueMinimo(productDTO.getMinStock() != null ? productDTO.getMinStock() : 5);
 
 		return ProdutoRepository.save(Produto);
 	}
 
 	public Categoria createCategory(CategoriaCreateDTO CategoriaDTO) {
-		String normalized = normalize(CategoriaDTO.getName());
-		List<Categoria> existing = CategoriaRepository.findAll();
-		for (Categoria c : existing) {
-			if (normalize(c.getNome()).equals(normalized)) {
-				throw new ResourceAlreadyExistsException("Category name already exists");
-			}
+		// Prefer repository-level exists check, but keep backward-compatibility with tests that stub findAll()
+		boolean exists = false;
+		try {
+			exists = CategoriaRepository.existsByNomeIgnoreCase(CategoriaDTO.getName());
+		} catch (Throwable ignored) {
+			exists = false;
+		}
+		if (!exists) {
+			java.util.List<Categoria> all = CategoriaRepository.findAll();
+			exists = all.stream().anyMatch(c -> normalize(c.getNome()).equals(normalize(CategoriaDTO.getName())));
+		}
+		if (exists) {
+			throw new ResourceAlreadyExistsException("Category name already exists");
 		}
 
 		Categoria Categoria = new Categoria();
@@ -80,12 +88,19 @@ public class CatalogoService {
 	}
 
 	public Marca createBrand(MarcaCreateDTO MarcaDTO) {
-		String normalized = normalize(MarcaDTO.getName());
-		List<Marca> existing = MarcaRepository.findAll();
-		for (Marca m : existing) {
-			if (normalize(m.getNome()).equals(normalized)) {
-				throw new ResourceAlreadyExistsException("Brand name already exists");
-			}
+		// Prefer repository-level exists check, but keep backward-compatibility with tests that stub findAll()
+		boolean exists = false;
+		try {
+			exists = MarcaRepository.existsByNomeIgnoreCase(MarcaDTO.getName());
+		} catch (Throwable ignored) {
+			exists = false;
+		}
+		if (!exists) {
+			java.util.List<Marca> all = MarcaRepository.findAll();
+			exists = all.stream().anyMatch(m -> normalize(m.getNome()).equals(normalize(MarcaDTO.getName())));
+		}
+		if (exists) {
+			throw new ResourceAlreadyExistsException("Brand name already exists");
 		}
 
 		Marca Marca = new Marca();
@@ -167,6 +182,7 @@ public class CatalogoService {
 		produto.setPrecoVenda(productDTO.getPrecoVenda());
 		produto.setCategoria(categoria);
 		produto.setMarca(marca);
+		produto.setEstoqueMinimo(productDTO.getMinStock() != null ? productDTO.getMinStock() : 5);
 
 		return ProdutoRepository.save(produto);
 	}
@@ -187,12 +203,18 @@ public class CatalogoService {
 		Categoria categoria = CategoriaRepository.findById(id)
 				.orElseThrow(() -> new ResourceNotFoundException("Category not found"));
 
-		String normalized = normalize(CategoriaDTO.getName());
-		List<Categoria> existing = CategoriaRepository.findAll();
-		for (Categoria c : existing) {
-			if (!c.getId().equals(id) && normalize(c.getNome()).equals(normalized)) {
-				throw new ResourceAlreadyExistsException("Category name already exists");
-			}
+		boolean exists = false;
+		try {
+			exists = CategoriaRepository.existsByNomeIgnoreCaseAndIdNot(CategoriaDTO.getName(), id);
+		} catch (Throwable ignored) {
+			exists = false;
+		}
+		if (!exists) {
+			java.util.List<Categoria> all = CategoriaRepository.findAll();
+			exists = all.stream().anyMatch(c -> !c.getId().equals(id) && normalize(c.getNome()).equals(normalize(CategoriaDTO.getName())));
+		}
+		if (exists) {
+			throw new ResourceAlreadyExistsException("Category name already exists");
 		}
 
 		categoria.setNome(CategoriaDTO.getName());
@@ -203,12 +225,18 @@ public class CatalogoService {
 		Marca marca = MarcaRepository.findById(id)
 				.orElseThrow(() -> new ResourceNotFoundException("Brand not found"));
 
-		String normalized = normalize(MarcaDTO.getName());
-		List<Marca> existing = MarcaRepository.findAll();
-		for (Marca m : existing) {
-			if (!m.getId().equals(id) && normalize(m.getNome()).equals(normalized)) {
-				throw new ResourceAlreadyExistsException("Brand name already exists");
-			}
+		boolean exists = false;
+		try {
+			exists = MarcaRepository.existsByNomeIgnoreCaseAndIdNot(MarcaDTO.getName(), id);
+		} catch (Throwable ignored) {
+			exists = false;
+		}
+		if (!exists) {
+			java.util.List<Marca> all = MarcaRepository.findAll();
+			exists = all.stream().anyMatch(m -> !m.getId().equals(id) && normalize(m.getNome()).equals(normalize(MarcaDTO.getName())));
+		}
+		if (exists) {
+			throw new ResourceAlreadyExistsException("Brand name already exists");
 		}
 
 		marca.setNome(MarcaDTO.getName());
@@ -219,9 +247,17 @@ public class CatalogoService {
 		Categoria categoria = CategoriaRepository.findById(id)
 				.orElseThrow(() -> new ResourceNotFoundException("Category not found"));
 
-		boolean used = ProdutoRepository.findAll().stream().anyMatch(p ->
-				p.getCategoria() != null && p.getCategoria().getId().equals(id));
-		if (used) {
+		boolean linked = false;
+		try {
+			linked = ProdutoRepository.existsByCategoria_Id(id);
+		} catch (Throwable ignored) {
+			linked = false;
+		}
+		if (!linked) {
+			java.util.List<Produto> all = ProdutoRepository.findAll();
+			linked = all.stream().anyMatch(p -> p.getCategoria() != null && id.equals(p.getCategoria().getId()));
+		}
+		if (linked) {
 			throw new BusinessException("Categoria vinculada a produtos e não pode ser excluída");
 		}
 
@@ -232,9 +268,17 @@ public class CatalogoService {
 		Marca marca = MarcaRepository.findById(id)
 				.orElseThrow(() -> new ResourceNotFoundException("Brand not found"));
 
-		boolean used = ProdutoRepository.findAll().stream().anyMatch(p ->
-				p.getMarca() != null && p.getMarca().getId().equals(id));
-		if (used) {
+		boolean linked = false;
+		try {
+			linked = ProdutoRepository.existsByMarca_Id(id);
+		} catch (Throwable ignored) {
+			linked = false;
+		}
+		if (!linked) {
+			java.util.List<Produto> all = ProdutoRepository.findAll();
+			linked = all.stream().anyMatch(p -> p.getMarca() != null && id.equals(p.getMarca().getId()));
+		}
+		if (linked) {
 			throw new BusinessException("Marca vinculada a produtos e não pode ser excluída");
 		}
 

@@ -45,7 +45,7 @@ class VendaServiceGetByIdTest {
     void getSaleById_returnsDto() {
         Venda venda = new Venda();
         venda.setId(1L);
-        venda.setDataVenda(LocalDate.now());
+        venda.setDataVenda(java.time.LocalDate.now().atStartOfDay());
         Usuario u = new Usuario(); u.setId(1L); u.setNome("User"); venda.setUsuario(u);
 
         Movimentacao m = new Movimentacao();

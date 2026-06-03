@@ -1,0 +1,143 @@
+%% Mermaid ER diagram of the current logical DB model (generated from SQL migrations)
+%% Source: migrations in Source/Server/SpringBootApp/src/main/resources/migrations
+
+erDiagram
+    CLIENTE {
+        SERIAL id PK
+        VARCHAR(255) apelido
+        VARCHAR(20) telefone
+        DATE aniversario
+        TIMESTAMP data_cadastro
+    }
+
+    USUARIO {
+        SERIAL id PK
+        VARCHAR(255) nome
+        VARCHAR(60) senha
+        access_level nivel_acesso
+        VARCHAR(255) email
+        TIMESTAMP ultimo_email_alteracao
+    }
+
+    VENDA {
+        SERIAL id PK
+        TIMESTAMP data_venda
+        NUMERIC(10,2) valor_total
+        BOOLEAN tem_desconto
+        INTEGER fk_usuario_id FK
+        INTEGER fk_cliente_id FK
+    }
+
+    VENDA_PAGAMENTO {
+        SERIAL id PK
+        INTEGER fk_venda_id FK
+        payment_method metodo_pagamento
+        NUMERIC(15,4) valor
+        NUMERIC(5,2) acrescimo_percent
+        NUMERIC(15,4) acrescimo_valor
+        NUMERIC(15,4) valor_pago
+        SMALLINT parcelas
+        VARCHAR(255) referencia
+        INTEGER fk_usuario_id FK
+        TIMESTAMP criado_em
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    PRODUTO {
+        SERIAL id PK
+        VARCHAR(255) nome
+        VARCHAR(6) codigo
+        BOOLEAN perecivel
+        NUMERIC(10,4) preco_venda
+        INTEGER estoque_minimo
+        unit_measurement unidade_medida
+        INTEGER fk_categoria_id FK
+        INTEGER fk_marca_id FK
+    }
+
+    CATEGORIA {
+        SERIAL id PK
+        VARCHAR(255) nome
+    }
+
+    MARCA {
+        SERIAL id PK
+        VARCHAR(255) nome
+    }
+
+    MOVIMENTACAO {
+        SERIAL id PK
+        NUMERIC(10,4) quantidade
+        NUMERIC(10,4) preco_unitario_compra
+        NUMERIC(10,4) preco_unitario_venda
+        DATE data_validade
+        movement_type tipo_movimentacao
+        INTEGER fk_produto_id FK
+        INTEGER fk_compra_id FK
+        INTEGER fk_descarte_id FK
+        INTEGER fk_venda_id FK
+    }
+
+    COMPRA {
+        SERIAL id PK
+        DATE data_compra
+    }
+
+    DESCARTE {
+        SERIAL id PK
+        DATE data_descarte
+        descarte_type motivo
+    }
+
+    DESPESA {
+        SERIAL id PK
+        VARCHAR(255) descricao
+        VARCHAR(100) categoria
+        NUMERIC(12,2) valor
+        TIMESTAMP data_despesa
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+        BIGINT created_by
+    }
+
+    CONFIGURACOES {
+        SERIAL id PK
+        NUMERIC(5,2) lucro_esperado
+        NUMERIC(5,2) taxa_debito
+        NUMERIC(5,2) taxa_credito
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    RECUPERACAO_SENHA_TOKEN {
+        BIGSERIAL id PK
+        VARCHAR(255) token
+        BIGINT fk_usuario_id FK
+        TIMESTAMP expiracao
+        BOOLEAN utilizado
+        TIMESTAMP criado_em
+    }
+
+    TERMOS {
+        SERIAL id PK
+        TEXT conteudo
+        TIMESTAMP criado_em
+    }
+
+    %% Relationships
+    CATEGORIA ||--o{ PRODUTO : "categoriza"
+    MARCA ||--o{ PRODUTO : "marca_de"
+    PRODUTO ||--o{ MOVIMENTACAO : "tem_movimentacoes"
+    COMPRA ||--o{ MOVIMENTACAO : "gera_movimentacoes"
+    DESCARTE ||--o{ MOVIMENTACAO : "gera_movimentacoes"
+    VENDA ||--o{ MOVIMENTACAO : "itens"
+    CLIENTE ||--o{ VENDA : "realiza"
+    USUARIO ||--o{ VENDA : "registra"
+    VENDA ||--o{ VENDA_PAGAMENTO : "possui_pagamentos"
+    USUARIO ||--o{ VENDA_PAGAMENTO : "registra_pagamento"
+    USUARIO ||--o{ RECUPERACAO_SENHA_TOKEN : "possui_tokens"
+
+    %% Notes
+    %% - "created_by" in DESPESA is stored as a BIGINT (createdBy) and is not mapped as a JPA @ManyToOne (no enforced FK in the model).
+    %% - Enum types created in migrations: access_level, unit_measurement, movement_type, payment_method, descarte_type

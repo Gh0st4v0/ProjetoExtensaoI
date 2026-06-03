@@ -29,7 +29,9 @@ public class InventarioServiceUpdateTests {
 
         when(mr.findFirstByCompraIdAndProdutoIdAndVendaIsNull(1L, 2L)).thenReturn(null);
 
-        InventarioService svc = new InventarioService(cr, mr, pr, dr);
+        com.example.SpringBootApp.repositories.VendaRepository vr = mock(com.example.SpringBootApp.repositories.VendaRepository.class);
+        com.example.SpringBootApp.services.ConfiguracaoService cs = mock(com.example.SpringBootApp.services.ConfiguracaoService.class);
+        InventarioService svc = new InventarioService(cr, mr, pr, dr, vr, cs);
 
         assertThrows(ResourceNotFoundException.class, () -> svc.updatePurchaseItem(1L, 2L, new BigDecimal("1"), null, null));
     }
@@ -53,7 +55,9 @@ public class InventarioServiceUpdateTests {
         when(mr.sumQuantityByProdutoId(2L)).thenReturn(new BigDecimal("10"));
         when(mr.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        InventarioService svc = new InventarioService(cr, mr, pr, dr);
+        com.example.SpringBootApp.repositories.VendaRepository vr = mock(com.example.SpringBootApp.repositories.VendaRepository.class);
+        com.example.SpringBootApp.services.ConfiguracaoService cs = mock(com.example.SpringBootApp.services.ConfiguracaoService.class);
+        InventarioService svc = new InventarioService(cr, mr, pr, dr, vr, cs);
 
         assertThrows(BusinessException.class, () -> svc.updatePurchaseItem(1L, 2L, new BigDecimal("3"), new BigDecimal("-1"), null));
     }
@@ -77,7 +81,9 @@ public class InventarioServiceUpdateTests {
         // totalSum smaller than old quantity so totalAfter becomes negative
         when(mr.sumQuantityByProdutoId(2L)).thenReturn(new BigDecimal("1"));
 
-        InventarioService svc = new InventarioService(cr, mr, pr, dr);
+        com.example.SpringBootApp.repositories.VendaRepository vr = mock(com.example.SpringBootApp.repositories.VendaRepository.class);
+        com.example.SpringBootApp.services.ConfiguracaoService cs = mock(com.example.SpringBootApp.services.ConfiguracaoService.class);
+        InventarioService svc = new InventarioService(cr, mr, pr, dr, vr, cs);
 
         assertThrows(BusinessException.class, () -> svc.updatePurchaseItem(1L, 2L, new BigDecimal("1"), null, null));
     }

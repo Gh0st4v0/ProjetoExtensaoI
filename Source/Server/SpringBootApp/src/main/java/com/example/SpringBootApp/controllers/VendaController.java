@@ -68,6 +68,13 @@ public class VendaController {
         return ResponseEntity.ok(sales);
     }
 
+    @GetMapping("/clients-spend")
+    public ResponseEntity<List<com.example.SpringBootApp.DTOs.ClientSpendDTO>> getClientSpending(@RequestParam LocalDate startDate,
+                                                                                                @RequestParam LocalDate endDate) {
+        List<com.example.SpringBootApp.DTOs.ClientSpendDTO> list = RelatorioService.getClientSpending(startDate, endDate);
+        return ResponseEntity.ok(list);
+    }
+
     @GetMapping(params = {"page"})
     public org.springframework.http.ResponseEntity<?> getSalesPaged(@RequestParam int page, @RequestParam(defaultValue = "10") int size) {
         org.springframework.data.domain.Page<com.example.SpringBootApp.DTOs.VendaResponseDTO> sales = VendaService.listSales(page, size);
@@ -84,6 +91,12 @@ public class VendaController {
     public ResponseEntity<?> getSaleById(@PathVariable Long id) {
         com.example.SpringBootApp.DTOs.VendaResponseDTO dto = VendaService.getSaleById(id);
         return ResponseEntity.ok(dto);
+    }
+
+    @PutMapping("/{id}/payments")
+    public ResponseEntity<?> updateSalePayments(@PathVariable Long id, @RequestBody List<com.example.SpringBootApp.DTOs.VendPaymentDTO> payments) {
+        VendaService.updateSalePayments(id, payments);
+        return ResponseEntity.ok().build();
     }
 
 }

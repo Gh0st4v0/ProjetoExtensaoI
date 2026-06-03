@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -34,7 +35,7 @@ public class Movimentacao {
     private LocalDate dataValidade;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "tipo_movimentacao")
+    @Column(name = "tipo_movimentacao", columnDefinition = "VARCHAR(20)")
     private MovementType tipoMovimentacao;
 
     @ManyToOne

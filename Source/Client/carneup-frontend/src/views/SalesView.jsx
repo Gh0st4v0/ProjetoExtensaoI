@@ -2,9 +2,11 @@ import styled, { keyframes } from 'styled-components'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Sidebar } from '../components/Sidebar'
 import productsApi, { getAllProductsUnpaged } from '../services/productsApi'
-import { createSale, getSale, searchClients, createClient } from '../services/salesApi'
+import { createSale, getSale, searchClients, createClient, getAllClients } from '../services/salesApi'
+import api from '../services/apiClient'
 import { toast } from 'react-toastify'
 import { loadStoreConfig } from './ConfiguracaoView'
+import { toTitleCase, titleCaseHandler } from '../services/textUtils'
 
 // ── Animations ─────────────────────────────────────────────────────────────────
 const slideIn = keyframes`from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}`
@@ -50,7 +52,7 @@ const Body = styled.div`
 
 // ── Product Panel ──────────────────────────────────────────────────────────────
 const ProductPanel = styled.section`
-  flex:1; display:flex; flex-direction:column; min-width:0; background:#fafaf9;
+  flex:1; display:flex; flex-direction:column; min-width:0; overflow:hidden; background:#fafaf9;
 `
 const PSearch = styled.div`
   padding:14px 16px; background:#fff; border-bottom:1px solid #e7e5e4; flex-shrink:0;
@@ -64,9 +66,12 @@ const SearchBox = styled.div`
   span{color:#a8a29e;font-size:20px;}
 `
 const CatTabs = styled.div`
-  display:flex; gap:6px; overflow-x:auto; padding:10px 16px; background:#fff;
+  display:flex; gap:6px; overflow-x:auto; padding:10px 16px 8px; background:#fff;
   border-bottom:1px solid #e7e5e4; flex-shrink:0;
-  &::-webkit-scrollbar{display:none;}
+  &::-webkit-scrollbar{height:6px;}
+  &::-webkit-scrollbar-track{background:#f5f5f4;border-radius:4px;}
+  &::-webkit-scrollbar-thumb{background:#c7c3bf;border-radius:4px;}
+  &::-webkit-scrollbar-thumb:hover{background:#a8a29e;}
 `
 const CatBtn = styled.button`
   padding:5px 14px; border-radius:999px; white-space:nowrap; cursor:pointer;
@@ -153,45 +158,46 @@ const ClearB = styled.button`
   &:hover{color:#dc2626;}
 `
 const CartItems = styled.div`
-  flex:1; overflow-y:auto; padding:4px 0;
+  flex:1; overflow-y:auto; padding:4px 0; min-height:80px;
   &::-webkit-scrollbar{width:4px;}
   &::-webkit-scrollbar-thumb{background:#e7e5e4;border-radius:4px;}
 `
 const CItem = styled.div`
-  display:flex; align-items:flex-start; gap:10px;
-  padding:10px 16px; border-bottom:1px solid #f5f5f4;
+  padding:12px 16px; border-bottom:1px solid #f0eeed;
   &:hover{background:#fafaf9;}
 `
-const CIcon = styled.div`
-  width:32px; height:32px; border-radius:6px; background:#ffdad6;
-  display:flex; align-items:center; justify-content:center; flex-shrink:0;
-  span{color:#610005;font-size:16px;}
+const CItemRow1 = styled.div`
+  display:flex; align-items:flex-start; gap:8px; margin-bottom:8px;
 `
-const CInfo = styled.div`
-  flex:1; min-width:0;
-  .name{font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .detail{font-size:10px;color:#78716c;margin-top:2px;}
+const CItemName = styled.div`
+  flex:1; font-weight:700; font-size:14px; color:#1c1917;
+  line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 `
-const CRight = styled.div`
-  display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0;
+const CTotal = styled.div`
+  font-family:'Epilogue',sans-serif; font-weight:900; font-size:17px;
+  color:#610005; white-space:nowrap; flex-shrink:0;
 `
-const CTotal = styled.span`
-  font-family:'Epilogue',sans-serif; font-weight:900; font-size:13px; color:#1c1917;
+const CItemRow2 = styled.div`
+  display:flex; align-items:center; justify-content:space-between;
+`
+const CUnitPrice = styled.div`
+  font-size:11px; color:#a8a29e;
 `
 const QCtrl = styled.div`
-  display:flex; align-items:center; gap:3px;
-  button{width:22px;height:22px;border-radius:4px;border:1px solid #e7e5e4;
+  display:flex; align-items:center; gap:4px;
+  button{width:28px;height:28px;border-radius:6px;border:1px solid #e7e5e4;
     background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;
-    color:#57534e; span{font-size:13px;} &:hover{background:#f5f5f4;}}
+    color:#57534e; span{font-size:16px;} &:hover{background:#f5f5f4;border-color:#d6d3d1;}}
 `
 const QIn = styled.input`
-  width:44px;text-align:center;border:1px solid #e7e5e4;border-radius:4px;
-  padding:1px 3px;font-size:11px;font-family:'Work Sans',sans-serif;
+  width:68px; text-align:center; border:1px solid #e7e5e4; border-radius:6px;
+  padding:5px 6px; font-size:13px; font-family:'Work Sans',sans-serif;
   &:focus{outline:none;border-color:#610005;}
 `
 const RmBtn = styled.button`
-  background:none;border:none;cursor:pointer;color:#d6d3d1;padding:0;display:flex;align-items:center;
-  &:hover{color:#dc2626;} span{font-size:14px;}
+  background:none;border:none;cursor:pointer;color:#d6d3d1;padding:2px;
+  display:flex;align-items:center;flex-shrink:0;
+  &:hover{color:#dc2626;} span{font-size:18px;}
 `
 const EmptyCart = styled.div`
   padding:32px 16px; text-align:center; color:#a8a29e; font-size:13px;
@@ -200,7 +206,14 @@ const EmptyCart = styled.div`
 
 // ── Cart Footer ────────────────────────────────────────────────────────────────
 const CartFooter = styled.div`
-  border-top:2px solid #f5f5f4; display:flex; flex-direction:column; gap:0; flex-shrink:0;
+  display:flex; flex-direction:column; gap:0;
+  overflow-y:auto; flex-shrink:1; min-height:0;
+  border-top:2px solid #f5f5f4;
+  &::-webkit-scrollbar{width:4px;}
+  &::-webkit-scrollbar-thumb{background:#e7e5e4;border-radius:4px;}
+`
+const CartBottom = styled.div`
+  flex-shrink:0; border-top:1px solid #f5f5f4;
 `
 const Section = styled.div`
   padding:10px 16px; border-bottom:1px solid #f5f5f4;
@@ -342,6 +355,56 @@ const CModalConfirm = styled.button`
   &:disabled{opacity:0.5;cursor:not-allowed;}
 `
 
+// ── Payment Modal ──────────────────────────────────────────────────────────────
+const PayModal = styled.div`
+  background:#fff; border-radius:16px; width:480px; max-width:calc(100% - 32px);
+  max-height:90vh; overflow-y:auto; box-shadow:0 24px 48px rgba(0,0,0,0.2);
+  animation:${slideIn} 0.2s ease;
+`
+const PayModalHead = styled.div`
+  padding:20px 24px 16px; border-bottom:1px solid #f5f5f4;
+  display:flex; justify-content:space-between; align-items:flex-start;
+  h2{font-family:'Epilogue',sans-serif;font-size:16px;font-weight:900;color:#1c1917;margin:0;text-transform:uppercase;letter-spacing:0.04em;}
+  .total{font-family:'Epilogue',sans-serif;font-size:32px;font-weight:900;color:#610005;margin:4px 0 0;line-height:1;}
+  button{background:none;border:none;cursor:pointer;color:#a8a29e;display:flex;align-items:center;padding:0;
+    &:hover{color:#dc2626;} span{font-size:22px;}}
+`
+const PayModalBody = styled.div`
+  padding:20px 24px; display:flex; flex-direction:column; gap:16px;
+`
+const PayModalLabel = styled.p`
+  font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em;
+  color:#a8a29e; margin:0 0 8px;
+`
+const PayModalInfo = styled.div`
+  background:#f5f5f4; border-radius:8px; padding:10px 14px;
+  font-size:12px; color:#57534e; display:flex; align-items:center; gap:8px;
+  span{font-size:16px;color:#610005;}
+`
+const PayModalActions = styled.div`
+  display:flex; gap:8px; padding:0 24px 22px;
+`
+const PayModalCancel = styled.button`
+  flex:1; padding:12px; border:1px solid #e5e7eb; border-radius:10px;
+  background:#fff; cursor:pointer; font-size:13px; font-family:'Work Sans',sans-serif; color:#78716c;
+  &:hover{background:#f5f5f4;}
+`
+const PayModalConfirm = styled.button`
+  flex:2; padding:12px; border:none; border-radius:10px;
+  background:#610005; color:#fff; cursor:pointer;
+  font-family:'Epilogue',sans-serif; font-weight:900; font-size:13px;
+  text-transform:uppercase; letter-spacing:0.08em;
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  &:hover:not(:disabled){background:#7f1d1d;}
+  &:disabled{opacity:0.5;cursor:not-allowed;}
+`
+const SplitRow = styled.div`
+  display:flex; gap:8px; align-items:center;
+  select{padding:8px 10px;border:1px solid #e7e5e4;border-radius:8px;font-size:13px;font-family:'Work Sans',sans-serif;background:#fff;}
+  input{padding:8px 10px;border:1px solid #e7e5e4;border-radius:8px;font-size:13px;width:110px;font-family:'Work Sans',sans-serif;
+    &:focus{outline:none;border-color:#610005;}}
+`
+
 // ── Receipt Modal (formato térmico 80mm) ───────────────────────────────────────
 const Overlay = styled.div`
   position:fixed;inset:0;background:rgba(0,0,0,0.55);
@@ -420,6 +483,25 @@ export const SalesView = ({ navigate }) => {
   const [inlineQty, setInlineQty] = useState('')
   const [inlinePrice, setInlinePrice] = useState('')
 
+  // Price helpers (mask like PurchaseView): format display and accept digits-only input
+  const formatPriceDisplay = (value) => {
+    if (value == null || value === '') return ''
+    const num = typeof value === 'number' ? value : parseFloat(String(value).replace(',', '.'))
+    if (isNaN(num)) return ''
+    return num.toFixed(2).replace('.', ',')
+  }
+  const parseBRL = (v) => {
+    if (v == null || v === '') return 0
+    const digits = String(v).replace(/\D/g, '')
+    const cents = parseInt(digits || '0', 10)
+    return cents / 100
+  }
+  const handleInlinePriceChange = (e) => {
+    const digits = String(e.target.value || '').replace(/\D/g, '')
+    const cents = parseInt(digits || '0', 10)
+    setInlinePrice(cents === 0 ? '' : (cents / 100).toFixed(2).replace('.', ','))
+  }
+
   // Cart
   const [cart, setCart] = useState([])
 
@@ -430,24 +512,80 @@ export const SalesView = ({ navigate }) => {
   const [selectedClient, setSelectedClient] = useState(null)
   const [showClientDrop, setShowClientDrop] = useState(false)
   const [clientModal, setClientModal] = useState(false)
-  const [clientForm, setClientForm] = useState({ nickname: '' })
+  const [clientForm, setClientForm] = useState({ nickname: '', telefone: '', aniversario: '' })
   const [clientSaving, setClientSaving] = useState(false)
+
+  // Phone formatting helper (view-only formatting; backend receives raw digits)
+  const formatPhoneDisplay = (raw) => {
+    if (!raw) return ''
+    const digits = String(raw).replace(/\D/g,'')
+    if (digits.length <= 2) return `(${digits}`
+    if (digits.length <= 6) return `(${digits.slice(0,2)}) ${digits.slice(2)}`
+    if (digits.length <= 10) return `(${digits.slice(0,2)}) ${digits.slice(2,6)}-${digits.slice(6)}`
+    return `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7,11)}`
+  }
+
+  const phoneIsValid = (raw) => {
+    if (!raw) return true
+    const d = String(raw).replace(/\D/g,'')
+    return d.length === 10 || d.length === 11
+  }
+
+  // Title case handler (preserves cursor)
+  const handleNicknameChange = titleCaseHandler((val) => setClientForm(f => ({ ...f, nickname: val })))
+
+  const handlePhoneChange = (e) => {
+    const digits = String(e.target.value || '').replace(/\D/g,'')
+    setClientForm(f => ({ ...f, telefone: digits }))
+  }
+
+  const isClientBirthdayUnder18 = (rawDate) => {
+    if (!rawDate) return false
+    try {
+      const parts = rawDate.split('-')
+      if (parts.length < 3) return false
+      const y = Number(parts[0]), m = Number(parts[1]) - 1, d = Number(parts[2])
+      const b = new Date(y, m, d)
+      const today = new Date()
+      let age = today.getFullYear() - b.getFullYear()
+      const mDiff = today.getMonth() - b.getMonth()
+      if (mDiff < 0 || (mDiff === 0 && today.getDate() < b.getDate())) age--
+      return age < 18
+    } catch { return false }
+  }
+  // Terms modal for client creation
+  const [showTermosModal, setShowTermosModal] = useState(false)
+  const [latestTermo, setLatestTermo] = useState(null)
+  const [termosLoading, setTermosLoading] = useState(false)
+  const [aceitaTermos, setAceitaTermos] = useState(false)
+  const [receberPromocoes, setReceberPromocoes] = useState(false)
 
   // Payment & options
   const [payment, setPayment] = useState('DINHEIRO')
   const [advOpen, setAdvOpen] = useState(false)
   const [hasDiscount, setHasDiscount] = useState(false)
+  // Split payments support
+  const [splitPayments, setSplitPayments] = useState(false)
+  const [paymentsList, setPaymentsList] = useState([])
 
   // Sale state
   const [submitting, setSubmitting] = useState(false)
   const [receipt, setReceipt] = useState(null)
+  const [paymentModal, setPaymentModal] = useState(false)
+
+  const openPaymentModal = () => {
+    if (!cart.length) return
+    setSplitPayments(false)
+    setPaymentsList([])
+    setPaymentModal(true)
+  }
 
   const searchRef = useRef(null)
   const qtyRef = useRef(null)
   const clientTimer = useRef(null)
 
   // Load products — busca TODAS as páginas para exibir catálogo completo no PDV
-  useEffect(() => {
+  const loadProducts = useCallback(() => {
     setLoadingP(true)
     getAllProductsUnpaged()
       .then(all => setProducts(all.map(p => ({
@@ -459,6 +597,8 @@ export const SalesView = ({ navigate }) => {
       .catch(() => toast.error('Erro ao carregar produtos.'))
       .finally(() => setLoadingP(false))
   }, [])
+
+  useEffect(() => { loadProducts() }, [loadProducts])
 
   // Focus search on mount
   useEffect(() => { searchRef.current?.focus() }, [])
@@ -482,6 +622,12 @@ export const SalesView = ({ navigate }) => {
     return ['TODOS', ...cats]
   }, [products])
 
+  // Qty already reserved in cart per product (for display only; validation uses original stock)
+  const cartQtyById = useMemo(
+    () => cart.reduce((acc, it) => { acc[it.productId] = (acc[it.productId] || 0) + it.qty; return acc }, {}),
+    [cart]
+  )
+
   // Filtered products
   const displayed = useMemo(() => {
     let list = products
@@ -497,9 +643,11 @@ export const SalesView = ({ navigate }) => {
   const selectProduct = (p) => {
     if (selectedId === p.id) { setSelectedId(null); return }
     setSelectedId(p.id)
-    setInlineQty(p.unit === 'UN' ? '1' : '0.500')
-    setInlinePrice(p.price > 0 ? String(p.price) : '')
-  }
+      // Do not prefill quantity; user must type desired amount
+      setInlineQty('')
+      // Prefill price formatted with two decimals (comma as decimal separator)
+      setInlinePrice(formatPriceDisplay(p.price > 0 ? p.price : ''))
+    }
 
   // Add to cart
   const addToCart = (p) => {
@@ -536,6 +684,11 @@ export const SalesView = ({ navigate }) => {
   const subtotal = cart.reduce((s, it) => s + it.qty * it.price, 0)
   const total = hasDiscount ? subtotal * 0.95 : subtotal
   const discount = subtotal - total
+  // surcharge calculations: sum of 5% over credit parts (frontend-visible only)
+  const surchargeTotal = (splitPayments && paymentsList && paymentsList.length > 0)
+    ? paymentsList.reduce((s, p) => s + ((p.paymentMethod === 'CREDITO') ? (parseBRL(p.valor) * 0.05) : 0), 0)
+    : (payment === 'CREDITO' ? total * 0.05 : 0)
+  const totalWithSurcharge = total + surchargeTotal
 
   // Client ops
   const handleSelectClient = (c) => {
@@ -543,7 +696,7 @@ export const SalesView = ({ navigate }) => {
   }
 
   const openClientModal = () => {
-    setClientForm({ nickname: clientSearch.trim() })
+    setClientForm({ nickname: clientSearch.trim(), aniversario: '' })
     setShowClientDrop(false)
     setClientModal(true)
   }
@@ -552,19 +705,61 @@ export const SalesView = ({ navigate }) => {
     e.preventDefault()
     const nickname = clientForm.nickname.trim()
     if (!nickname) return
+    // fetch latest termo and show terms modal
+    setTermosLoading(true)
+    try {
+      const data = await api.get('/termos/latest').then(r => r.data).catch(() => null)
+      setLatestTermo(data)
+      setAceitaTermos(false)
+      setReceberPromocoes(false)
+      setShowTermosModal(true)
+    } catch (err) {
+      console.error(err)
+      toast.error('Erro ao carregar termos. Tente novamente.')
+    } finally {
+      setTermosLoading(false)
+    }
+  }
+
+  const handleConfirmTermos = async (e) => {
+    e?.preventDefault()
+    if (!aceitaTermos) { toast.warning('É necessário aceitar os Termos de Serviço para cadastrar o cliente.'); return }
+    if (clientForm.telefone && !phoneIsValid(clientForm.telefone)) { toast.error('Telefone inválido.'); return }
+    if (isClientBirthdayUnder18(clientForm.aniversario)) { toast.error('Cliente deve ser maior de 18 anos.'); return }
     setClientSaving(true)
     try {
+      const nickname = clientForm.nickname.trim()
       const id = await createClient({
         nickname,
         telefone: clientForm.telefone?.trim() || null,
-        documento: clientForm.documento?.trim() || null,
-        email:    clientForm.email?.trim()    || null,
+        aniversario: clientForm.aniversario || null,
+        aceitaTermosServico: true,
+        receberPromocoes: receberPromocoes ? true : false,
       })
-      setSelectedClient({ id: Number(id), nickname })
-      setClientSearch(''); setClientModal(false); setAnonymous(false)
-      toast.success(`Cliente "${nickname}" identificado!`)
-    } catch { toast.error('Erro ao cadastrar cliente.') }
-    finally { setClientSaving(false) }
+
+      if (id) {
+        setSelectedClient({ id: Number(id), nickname })
+        setClientSearch(''); setClientModal(false); setShowTermosModal(false); setAnonymous(false)
+        toast.success(`Cliente "${nickname}" identificado!`)
+      } else {
+        // fallback: try to find the created client by nickname
+        const all = await getAllClients().catch(() => [])
+        const found = (all || []).find(c => (c.nickname || '').trim() === nickname)
+        if (found) {
+          setSelectedClient(found)
+          setClientSearch(''); setClientModal(false); setShowTermosModal(false); setAnonymous(false)
+          toast.success(`Cliente "${nickname}" identificado!`)
+        } else {
+          setClientModal(false); setShowTermosModal(false); setAnonymous(false)
+          toast.warn('Cliente cadastrado, mas não foi possível obter o id automaticamente. Atualize a lista para selecioná-lo.')
+        }
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error('Erro ao cadastrar cliente.')
+    } finally {
+      setClientSaving(false)
+    }
   }
 
   // Finalize
@@ -574,11 +769,29 @@ export const SalesView = ({ navigate }) => {
     if (!userId) { toast.error('Sessão expirada. Faça login novamente.'); return }
     setSubmitting(true)
     try {
+      // build payments payload
+      let paymentsPayload = null
+      if (splitPayments && paymentsList && paymentsList.length > 0) {
+        paymentsPayload = paymentsList.map(p => ({
+          paymentMethod: p.paymentMethod,
+          valor: parseBRL(p.valor)
+        }))
+      } else {
+        paymentsPayload = [{ paymentMethod: payment, valor: Number((total).toFixed(2)) }]
+      }
+
+      // Client-side validation: ensure sum of payments does not exceed total
+      const assigned = paymentsPayload.reduce((s, p) => s + Number(p.valor || 0), 0)
+      if (Math.round(assigned * 100) > Math.round(total * 100)) {
+        toast.error('A soma dos pagamentos excede o total. Ajuste os valores.')
+        return
+      }
+
       const payload = {
         userId,
-        paymentMethod: payment,
+        paymentMethod: payment, // legacy field kept for compatibility
+        payments: paymentsPayload,
         hasDiscount,
-        saleDate: new Date().toISOString().slice(0, 10),
         clienteId: (!anonymous && selectedClient) ? selectedClient.id : null,
         items: cart.map(it => ({ productId: it.productId, quantity: it.qty, precoUnitarioVenda: it.price })),
       }
@@ -586,7 +799,8 @@ export const SalesView = ({ navigate }) => {
       // Fetch full receipt
       let saleData = null
       if (saleId) saleData = await getSale(saleId).catch(() => null)
-      setReceipt({ saleId, saleData, cart: [...cart], total, payment, discount: hasDiscount ? discount : 0, client: !anonymous && selectedClient ? selectedClient : null })
+      setPaymentModal(false)
+      setReceipt({ saleId, saleData, cart: [...cart], total, payment, discount: hasDiscount ? discount : 0, client: !anonymous && selectedClient ? selectedClient : null, paymentsSent: paymentsPayload })
       setCart([]); setHasDiscount(false); setSelectedClient(null); setAnonymous(true)
     } catch (e) {
       const msg = e?.response?.data?.message || ''
@@ -595,7 +809,36 @@ export const SalesView = ({ navigate }) => {
     } finally { setSubmitting(false) }
   }
 
-  const handleNewSale = () => { setReceipt(null); searchRef.current?.focus() }
+  const handleNewSale = () => {
+    setReceipt(null)
+    setCart([])
+    setHasDiscount(false)
+    setSelectedClient(null)
+    setAnonymous(true)
+    setPayment('DINHEIRO')
+    setSplitPayments(false)
+    setPaymentsList([])
+    setInlineQty('')
+    setInlinePrice('')
+    setSearch('')
+    searchRef.current?.focus()
+    loadProducts()
+  }
+
+  const equalSplit = (n) => {
+    if (!n || n < 1) return
+    const per = Number((total / n).toFixed(2))
+    const arr = Array.from({ length: n }).map((_, i) => {
+      let v = per
+      if (i === n - 1) {
+        const sum = per * (n - 1)
+        v = Number((total - sum).toFixed(2))
+      }
+      return { id: Date.now() + i, paymentMethod: PAYMENTS[i % PAYMENTS.length].id, valor: formatPriceDisplay(v) }
+    })
+    setPaymentsList(arr)
+    setSplitPayments(true)
+  }
 
   const handlePrint = () => window.print()
 
@@ -651,9 +894,11 @@ export const SalesView = ({ navigate }) => {
                       <div className='name'>{p.name}</div>
                       <div className='sub'>
                         {p.code}{p.brand ? ` · ${p.brand}` : ''}
-                        <span style={{ marginLeft:6, color: p.stock <= 0 ? '#dc2626' : p.stock < (p.unit==='UN' ? 2 : 0.1) ? '#f59e0b' : '#a8a29e' }}>
-                          · {fmtStock(p.stock, p.unit)}
-                        </span>
+                        {(() => { const avail = Math.max(0, p.stock - (cartQtyById[p.id] || 0)); return (
+                          <span style={{ marginLeft:6, color: avail <= 0 ? '#dc2626' : avail < (p.unit==='UN' ? 2 : 0.1) ? '#f59e0b' : '#a8a29e' }}>
+                            · {fmtStock(avail, p.unit)}
+                          </span>
+                        )})()}
                       </div>
                     </PName>
                     <CBadge>{p.category || '—'}</CBadge>
@@ -670,9 +915,11 @@ export const SalesView = ({ navigate }) => {
                         onFocus={e => e.target.select()}
                         onKeyDown={e => e.key === 'Enter' && addToCart(p)} />
                       <ILabel>Preço R$</ILabel>
-                      <IInput type='number' min='0' step='0.01'
-                        value={inlinePrice} onChange={e => setInlinePrice(e.target.value)}
-                        onFocus={e => e.target.select()}
+                      <IInput type='text' inputMode='numeric' placeholder='0,00'
+                        value={inlinePrice}
+                        onChange={handleInlinePriceChange}
+                        onFocus={e => { e.target.select(); }}
+                        onBlur={() => setInlinePrice(formatPriceDisplay(inlinePrice))}
                         onKeyDown={e => e.key === 'Enter' && addToCart(p)} />
                       <IAdd onClick={() => addToCart(p)}>
                         <span className='material-symbols-outlined' style={{ fontSize:15 }}>add_shopping_cart</span>
@@ -700,13 +947,14 @@ export const SalesView = ({ navigate }) => {
               {cart.length === 0 && <EmptyCart><span className='material-symbols-outlined'>shopping_cart</span>Clique em um produto para adicionar.</EmptyCart>}
               {cart.map(it => (
                 <CItem key={it.key}>
-                  <CIcon><span className='material-symbols-outlined'>restaurant</span></CIcon>
-                  <CInfo>
-                    <div className='name'>{it.name}</div>
-                    <div className='detail'>{fmt(it.price)}/{it.unit}</div>
-                  </CInfo>
-                  <CRight>
+                  <CItemRow1>
+                    <CItemName title={it.name}>{it.name}</CItemName>
                     <CTotal>{fmt(it.qty * it.price)}</CTotal>
+                    <RmBtn onClick={() => removeItem(it.key)} title='Remover'>
+                      <span className='material-symbols-outlined'>close</span>
+                    </RmBtn>
+                  </CItemRow1>
+                  <CItemRow2>
                     <QCtrl>
                       <button onClick={() => updateQty(it.key, Math.max(0, it.qty - (it.unit==='UN'?1:0.05)).toFixed(it.unit==='UN'?0:3))}>
                         <span className='material-symbols-outlined'>remove</span>
@@ -716,9 +964,9 @@ export const SalesView = ({ navigate }) => {
                       <button onClick={() => updateQty(it.key, it.qty + (it.unit==='UN'?1:0.05))}>
                         <span className='material-symbols-outlined'>add</span>
                       </button>
-                      <RmBtn onClick={() => removeItem(it.key)}><span className='material-symbols-outlined'>close</span></RmBtn>
                     </QCtrl>
-                  </CRight>
+                    <CUnitPrice>{fmt(it.price)}/{it.unit}</CUnitPrice>
+                  </CItemRow2>
                 </CItem>
               ))}
             </CartItems>
@@ -781,20 +1029,6 @@ export const SalesView = ({ navigate }) => {
                 )}
               </Section>
 
-              {/* Pagamento */}
-              <Section>
-                <SLabel>Forma de Pagamento</SLabel>
-                <PayGrid>
-                  {PAYMENTS.map(opt => (
-                    <PayBtn key={opt.id} $a={payment === opt.id} onClick={() => setPayment(opt.id)}>
-                      <span className={`material-symbols-outlined icon${payment===opt.id?" fill":""}`}
-                        style={payment===opt.id?{fontVariationSettings:"'FILL' 1"}:{}}>{opt.icon}</span>
-                      <span className='txt'>{opt.label}</span>
-                    </PayBtn>
-                  ))}
-                </PayGrid>
-              </Section>
-
               {/* Opções avançadas (desconto escondido) */}
               <Section>
                 <AdvTrigger $open={advOpen} onClick={() => setAdvOpen(o => !o)}>
@@ -812,24 +1046,169 @@ export const SalesView = ({ navigate }) => {
                 </AdvPanel>
               </Section>
 
+            </CartFooter>
+
+            <CartBottom>
               {/* Total */}
               <TotalBox>
                 <div>
                   <p className='lbl'>Total</p>
                   {hasDiscount && <p className='disc'>Com desconto de {fmt(discount)}</p>}
+                  {surchargeTotal > 0 && <p style={{fontSize:11,color:'#1d4ed8',margin:0}}>Acréscimos no cartão: {fmt(surchargeTotal)}</p>}
                 </div>
                 <p className='val'>{fmt(total)}</p>
+                {surchargeTotal > 0 && <p style={{fontSize:11,color:'#fff',opacity:0.95,marginTop:6}}>A pagar (com acréscimos): {fmt(totalWithSurcharge)}</p>}
               </TotalBox>
 
-              <FinalBtn $empty={cart.length === 0} onClick={handleFinalize}
-                disabled={cart.length === 0 || submitting}>
-                {submitting ? <Spinner /> : <span className='material-symbols-outlined'>check_circle</span>}
-                {submitting ? 'Processando...' : 'Finalizar Venda'}
+              <FinalBtn $empty={cart.length === 0} onClick={openPaymentModal}
+                disabled={cart.length === 0}>
+                <span className='material-symbols-outlined'>point_of_sale</span>
+                Finalizar Venda
               </FinalBtn>
-            </CartFooter>
+            </CartBottom>
           </CartPanel>
         </Body>
       </PdvArea>
+
+      {/* ── MODAL PAGAMENTO ── */}
+      {paymentModal && (
+        <Overlay onClick={() => !submitting && setPaymentModal(false)}>
+          <PayModal onClick={e => e.stopPropagation()}>
+            <PayModalHead>
+              <div>
+                <h2>Forma de Pagamento</h2>
+                <p className='total'>{fmt(total)}</p>
+                {hasDiscount && <p style={{fontSize:12,color:'#b45309',margin:'2px 0 0'}}>Desconto de {fmt(discount)} aplicado</p>}
+              </div>
+              <button onClick={() => setPaymentModal(false)} disabled={submitting}>
+                <span className='material-symbols-outlined'>close</span>
+              </button>
+            </PayModalHead>
+
+            <PayModalBody>
+              {/* Método único */}
+              {!splitPayments && (
+                <div>
+                  <PayModalLabel>Selecione o método</PayModalLabel>
+                  <PayGrid>
+                    {PAYMENTS.map(opt => (
+                      <PayBtn key={opt.id} $a={payment === opt.id} onClick={() => setPayment(opt.id)}>
+                        <span className='material-symbols-outlined icon'
+                          style={payment===opt.id?{fontVariationSettings:"'FILL' 1"}:{}}>{opt.icon}</span>
+                        <span className='txt'>{opt.label}</span>
+                      </PayBtn>
+                    ))}
+                  </PayGrid>
+                  {payment === 'CREDITO' && (
+                    <PayModalInfo style={{marginTop:10}}>
+                      <span className='material-symbols-outlined'>info</span>
+                      Acréscimo de 5% no crédito: +{fmt(total * 0.05)} → Total: {fmt(total * 1.05)}
+                    </PayModalInfo>
+                  )}
+                </div>
+              )}
+
+              {/* Dividir pagamento */}
+              <div>
+                <PayModalLabel>Divisão</PayModalLabel>
+                <div style={{display:'flex', gap:8, alignItems:'center', flexWrap:'wrap'}}>
+                  <button type='button'
+                    style={{padding:'7px 14px',borderRadius:8,border:'1px solid #e7e5e4',
+                      background:splitPayments?'#fef2f2':'#fff',
+                      color:splitPayments?'#610005':'#57534e',
+                      fontWeight:splitPayments?700:400,fontSize:13,cursor:'pointer'}}
+                    onClick={() => {
+                      if (!splitPayments) {
+                        setSplitPayments(true)
+                        setPaymentsList([{ id: Date.now(), paymentMethod: payment, valor: formatPriceDisplay(total) }])
+                      } else {
+                        setSplitPayments(false)
+                        setPaymentsList([])
+                      }
+                    }}>
+                    {splitPayments ? '✕ Cancelar divisão' : 'Dividir pagamento'}
+                  </button>
+
+                  {splitPayments && (
+                    <>
+                      <span style={{fontSize:12,color:'#a8a29e'}}>Dividir igualmente em</span>
+                      {[2, 3, 4].map(n => (
+                        <button key={n} type='button'
+                          style={{padding:'7px 12px',borderRadius:8,border:'1px solid #e7e5e4',fontSize:13,cursor:'pointer',fontWeight:600}}
+                          onClick={() => equalSplit(n)}>{n}x</button>
+                      ))}
+                    </>
+                  )}
+                </div>
+
+                {splitPayments && (
+                  <PayModalInfo style={{marginTop:10}}>
+                    <span className='material-symbols-outlined'>calculate</span>
+                    Atribuído: <strong>{fmt(paymentsList.reduce((s,p)=>s+parseBRL(p.valor),0))}</strong>
+                    &nbsp;— Restante: <strong>{fmt(Math.max(0, total - paymentsList.reduce((s,p)=>s+parseBRL(p.valor),0)))}</strong>
+                  </PayModalInfo>
+                )}
+              </div>
+
+              {/* Linhas de split */}
+              {splitPayments && (
+                <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                  {paymentsList.map((p) => (
+                    <SplitRow key={p.id}>
+                      <select value={p.paymentMethod} onChange={e => {
+                        const v = e.target.value
+                        setPaymentsList(prev => prev.map(it => it.id === p.id ? {...it, paymentMethod: v} : it))
+                      }}>
+                        {PAYMENTS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+                      </select>
+                      <input type='text' inputMode='numeric' placeholder='0,00' value={p.valor}
+                        onChange={e => {
+                          const digits = String(e.target.value || '').replace(/\D/g, '')
+                          let cents = parseInt(digits || '0', 10)
+                          const otherCents = paymentsList.reduce((s, it) => it.id === p.id ? s : s + Math.round(parseBRL(it.valor) * 100), 0)
+                          const totalCents = Math.round(total * 100)
+                          if (otherCents + cents > totalCents) {
+                            cents = Math.max(0, totalCents - otherCents)
+                            toast.error('Valor ajustado para o restante disponível.')
+                          }
+                          const str = cents === 0 ? '' : (cents / 100).toFixed(2).replace('.', ',')
+                          setPaymentsList(prev => prev.map(it => it.id === p.id ? {...it, valor: str} : it))
+                        }}
+                      />
+                      {p.paymentMethod === 'CREDITO' && (
+                        <span style={{fontSize:11,color:'#1d4ed8',whiteSpace:'nowrap'}}>+{fmt(parseBRL(p.valor)*0.05)}</span>
+                      )}
+                      <button type='button'
+                        onClick={() => setPaymentsList(prev => prev.filter(it => it.id !== p.id))}
+                        style={{border:'none',background:'none',color:'#dc2626',cursor:'pointer',fontSize:12,whiteSpace:'nowrap'}}>
+                        Remover
+                      </button>
+                    </SplitRow>
+                  ))}
+                  <button type='button' onClick={() => {
+                    const assigned = paymentsList.reduce((s,p)=>s+parseBRL(p.valor),0)
+                    const remaining = Math.max(0, total - assigned)
+                    if (remaining <= 0) { toast.error('Total já coberto.'); return }
+                    setPaymentsList(prev => [...prev, { id: Date.now()+Math.random(), paymentMethod: 'DINHEIRO', valor: formatPriceDisplay(remaining) }])
+                  }} style={{padding:'7px 14px',borderRadius:8,border:'1px dashed #e7e5e4',fontSize:13,cursor:'pointer',color:'#610005',fontWeight:600,background:'#fff8f8'}}>
+                    + Adicionar forma
+                  </button>
+                </div>
+              )}
+            </PayModalBody>
+
+            <PayModalActions>
+              <PayModalCancel onClick={() => setPaymentModal(false)} disabled={submitting}>
+                Cancelar
+              </PayModalCancel>
+              <PayModalConfirm onClick={handleFinalize} disabled={submitting}>
+                {submitting ? <Spinner /> : <span className='material-symbols-outlined'>check_circle</span>}
+                {submitting ? 'Processando...' : 'Confirmar Venda'}
+              </PayModalConfirm>
+            </PayModalActions>
+          </PayModal>
+        </Overlay>
+      )}
 
       {/* ── MODAL CADASTRO CLIENTE ── */}
       {clientModal && (
@@ -853,7 +1232,7 @@ export const SalesView = ({ navigate }) => {
                     autoFocus
                     placeholder='Ex: João da Silva, Mesa 3...'
                     value={clientForm.nickname}
-                    onChange={e => setClientForm(f => ({ ...f, nickname: e.target.value }))}
+                    onChange={handleNicknameChange}
                     required
                   />
                   <small>Obrigatório — usado para identificar o cliente nos relatórios.</small>
@@ -862,33 +1241,69 @@ export const SalesView = ({ navigate }) => {
                   <label>Telefone</label>
                   <input
                     placeholder='Ex: (11) 99999-9999'
-                    value={clientForm.telefone || ''}
-                    onChange={e => setClientForm(f => ({ ...f, telefone: e.target.value }))}
+                    value={formatPhoneDisplay(clientForm.telefone)}
+                    onChange={handlePhoneChange}
                   />
+                  {clientForm.telefone && !phoneIsValid(clientForm.telefone) && <small style={{color:'#dc2626'}}>Telefone inválido — use (XX) 99999-9999</small>}
                 </CModalField>
                 <CModalField>
-                  <label>CPF / CNPJ</label>
+                  <label>Aniversário</label>
                   <input
-                    placeholder='Ex: 000.000.000-00 ou 00.000.000/0001-00'
-                    value={clientForm.documento || ''}
-                    onChange={e => setClientForm(f => ({ ...f, documento: e.target.value }))}
+                    type='date'
+                    value={clientForm.aniversario || ''}
+                    onChange={e => setClientForm(f => ({ ...f, aniversario: e.target.value }))}
                   />
-                </CModalField>
-                <CModalField>
-                  <label>E-mail</label>
-                  <input
-                    type='email'
-                    placeholder='Ex: cliente@email.com'
-                    value={clientForm.email || ''}
-                    onChange={e => setClientForm(f => ({ ...f, email: e.target.value }))}
-                  />
+                  {clientForm.aniversario && isClientBirthdayUnder18(clientForm.aniversario) && <small style={{color:'#dc2626'}}>Cliente deve ser maior de 18 anos</small>}
                   <small>Todos os campos acima são opcionais, exceto o apelido.</small>
                 </CModalField>
               </CModalBody>
               <CModalActions>
                 <CModalCancel type='button' onClick={() => setClientModal(false)}>Cancelar</CModalCancel>
-                <CModalConfirm type='submit' disabled={clientSaving || !clientForm.nickname.trim()}>
+                <CModalConfirm type='submit' disabled={clientSaving || !clientForm.nickname.trim() || (clientForm.telefone && !phoneIsValid(clientForm.telefone)) || isClientBirthdayUnder18(clientForm.aniversario)}>
                   {clientSaving ? 'Salvando...' : 'Confirmar Identificação'}
+                </CModalConfirm>
+              </CModalActions>
+            </form>
+          </CModal>
+        </Overlay>
+      )}
+
+      {showTermosModal && (
+        <Overlay onClick={() => setShowTermosModal(false)}>
+          <CModal onClick={e => e.stopPropagation()}>
+            <CModalHead>
+              <div>
+                <h2>Termos e Condições</h2>
+                <p style={{margin:0,fontSize:12,color:'#78716c'}}>Revise e aceite os Termos de Serviço para prosseguir com o cadastro do cliente.</p>
+              </div>
+              <button onClick={() => setShowTermosModal(false)}>
+                <span className='material-symbols-outlined'>close</span>
+              </button>
+            </CModalHead>
+
+            <form onSubmit={handleConfirmTermos}>
+              <CModalBody>
+                <div style={{maxHeight:220, overflowY:'auto', padding:12, border:'1px solid #f0f0f0', borderRadius:8, whiteSpace:'pre-wrap', fontSize:13, color:'#333'}}>
+                  {termosLoading ? 'Carregando termo...' : (latestTermo?.conteudo || 'Nenhum termo cadastrado.')}
+                </div>
+
+                <div style={{marginTop:12}}>
+                  <label style={{display:'flex', alignItems:'center', gap:8}}>
+                    <input type='checkbox' checked={aceitaTermos} onChange={e => setAceitaTermos(e.target.checked)} />
+                    Estou de acordo com os Termos de Serviço (obrigatório)
+                  </label>
+                  <label style={{display:'flex', alignItems:'center', gap:8, marginTop:8}}>
+                    <input type='checkbox' checked={receberPromocoes} onChange={e => setReceberPromocoes(e.target.checked)} />
+                    Desejo receber promoções e marketing (opcional)
+                  </label>
+                </div>
+
+              </CModalBody>
+
+              <CModalActions>
+                <CModalCancel type='button' onClick={() => setShowTermosModal(false)}>Cancelar</CModalCancel>
+                <CModalConfirm type='submit' disabled={!aceitaTermos || clientSaving || (clientForm.telefone && !phoneIsValid(clientForm.telefone)) || isClientBirthdayUnder18(clientForm.aniversario)}>
+                  {clientSaving ? 'Salvando...' : 'Aceitar e Salvar'}
                 </CModalConfirm>
               </CModalActions>
             </form>
@@ -899,9 +1314,13 @@ export const SalesView = ({ navigate }) => {
       {/* ── RECIBO TÉRMICO 80mm ── */}
       {receipt && (() => {
         const cfg = loadStoreConfig()
-        const items = receipt.saleData?.items || receipt.cart
+        const saleData = receipt.saleData || null
+        const items = saleData?.items || receipt.cart
         const subtotal = items.reduce((a,it) => a + (it.quantity||it.qty)*(it.precoUnitarioVenda||it.price), 0)
+        const surchargeFromPayments = saleData?.payments ? saleData.payments.reduce((s,p) => s + Number(p.acrescimoValor || 0), 0) : 0
         const now = new Date().toLocaleString('pt-BR')
+        const baseTotal = saleData?.totalValue != null ? Number(saleData.totalValue) : Number(receipt.total || 0)
+        const totalWithSurcharge = baseTotal + surchargeFromPayments
         return (
         <Overlay>
           <ReceiptWrap>
@@ -911,6 +1330,7 @@ export const SalesView = ({ navigate }) => {
               {cfg.city    && <TCenter>{cfg.city}</TCenter>}
               {cfg.phone   && <TCenter>Tel: {cfg.phone}</TCenter>}
               <TDash />
+              {cfg.instagram && <TCenter>Instagram: {cfg.instagram}</TCenter>}
               <TCenter>{now}</TCenter>
               {receipt.saleId && <TCenter>Venda #{receipt.saleId}</TCenter>}
               <TDash />
@@ -939,9 +1359,28 @@ export const SalesView = ({ navigate }) => {
               )}
               <TTotalRow>
                 <span>TOTAL</span>
-                <span>{fmt(receipt.total)}</span>
+                <span>{fmt(totalWithSurcharge)}</span>
               </TTotalRow>
-              <TRow><span>PAGAMENTO</span><span>{PAY_LABELS[receipt.payment] || receipt.payment}</span></TRow>
+
+              {/* Payments breakdown (prefer server-provided payments) */}
+              {saleData?.payments && saleData.payments.length > 0 ? (
+                saleData.payments.map((p, i) => (
+                  <div key={i}>
+                    <TRow><span>{PAY_LABELS[p.paymentMethod] || p.paymentMethod}</span><span>{fmt(Number(p.valorPago != null ? p.valorPago : p.valor))}</span></TRow>
+                    {Number(p.acrescimoValor || 0) > 0 && <TSubRow>Taxa financeira: +{fmt(Number(p.acrescimoValor || 0))}</TSubRow>}
+                  </div>
+                ))
+              ) : receipt.paymentsSent && receipt.paymentsSent.length > 0 ? (
+                receipt.paymentsSent.map((p, i) => (
+                  <div key={i}>
+                    <TRow><span>{PAY_LABELS[p.paymentMethod] || p.paymentMethod}</span><span>{fmt(Number(p.valor != null ? p.valor : p.valorPago || 0))}</span></TRow>
+                    {(p.paymentMethod === 'CREDITO') && <TSubRow>Taxa financeira: +{fmt(Number(p.valor != null ? p.valor : p.valorPago || 0) * 0.05)}</TSubRow>}
+                  </div>
+                ))
+              ) : (
+                <TRow><span>PAGAMENTO</span><span>{PAY_LABELS[receipt.payment] || receipt.payment}</span></TRow>
+              )}
+
               {receipt.client && <TRow><span>CLIENTE</span><span>{receipt.client.nickname}</span></TRow>}
               <TDash />
               <TFooter>{cfg.footerMsg}</TFooter>

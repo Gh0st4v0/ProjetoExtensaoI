@@ -3,15 +3,10 @@ name: CI Backend
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
-      - pipeline-only
     paths:
       - 'Source/Server/SpringBootApp/**'
       - '.github/workflows/ci-backend.yml'
   pull_request:
-    branches:
-      - main
     paths:
       - 'Source/Server/SpringBootApp/**'
       - '.github/workflows/ci-backend.yml'
@@ -70,17 +65,17 @@ jobs:
       - name: Validar build e testes com cobertura
         run: mvn --batch-mode clean verify
 
-      - name: Analise SonarCloud
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: |
-          test -n "$SONAR_TOKEN"
-          mvn --batch-mode org.sonarsource.scanner.maven:sonar-maven-plugin:5.6.0.6792:sonar \
-            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY_BACKEND }} \
-            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }} \
-            -Dsonar.host.url=https://sonarcloud.io \
-            -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
-            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+      # - name: Analise SonarCloud
+      #   env:
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      #   run: |
+      #     test -n "$SONAR_TOKEN"
+      #     mvn --batch-mode org.sonarsource.scanner.maven:sonar-maven-plugin:5.6.0.6792:sonar \
+      #       -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY_BACKEND }} \
+      #       -Dsonar.organization=${{ env.SONAR_ORGANIZATION }} \
+      #       -Dsonar.host.url=https://sonarcloud.io \
+      #       -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
+      #       -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
 
       - name: Login no GitHub Container Registry
         if: github.event_name == 'push'

@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 
+import org.springframework.data.domain.Page;
 import java.net.URI;
 import java.util.List;
 
@@ -54,8 +55,16 @@ public class ClienteController {
     }
 
     @GetMapping("/{id}/sales")
-    public ResponseEntity<List<VendaResponseDTO>> getClientSales(@PathVariable Long id) {
-        List<VendaResponseDTO> sales = vendaService.getSalesByClientId(id);
-        return ResponseEntity.ok(sales);
+    public ResponseEntity<Page<VendaResponseDTO>> getClientSales(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0")  int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(vendaService.getSalesByClientId(id, page, size));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> anonymizeClient(@PathVariable Long id) {
+        clienteService.anonymizeClient(id);
+        return ResponseEntity.noContent().build();
     }
 }

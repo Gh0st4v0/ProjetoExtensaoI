@@ -22,5 +22,10 @@ public interface MovimentacaoRepository extends JpaRepository<Movimentacao, Long
     BigDecimal sumQuantityByProdutoId(@Param("produtoId") Long produtoId);
 
     boolean existsByProdutoId(Long produtoId);
+
+    @Query("SELECT COALESCE(SUM(m.quantidade), 0) FROM Movimentacao m WHERE m.compra.id = :purchaseId AND m.produto.id = :productId")
+    BigDecimal sumQuantityByPurchaseAndProduct(@Param("purchaseId") Long purchaseId, @Param("productId") Long productId);
+
+    List<Movimentacao> findByDescarte_Id(Long descarteId);
 }
 

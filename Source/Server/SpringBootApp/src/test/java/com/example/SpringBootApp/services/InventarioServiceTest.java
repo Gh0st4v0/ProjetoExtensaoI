@@ -293,7 +293,7 @@ class InventarioServiceTest {
         purchaseMov.setProduto(produto);
         Venda venda = new Venda();
         venda.setId(1L);
-        venda.setDataVenda(LocalDate.of(2024, 2, 10));
+        venda.setDataVenda(java.time.LocalDate.of(2024, 2, 10).atStartOfDay());
         Movimentacao saleMov = new Movimentacao();
         saleMov.setId(13L);
         saleMov.setQuantidade(new BigDecimal("-2"));

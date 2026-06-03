@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
@@ -22,14 +22,13 @@ public class Venda {
     private Long id;
 
     @Column(name = "data_venda")
-    private LocalDate dataVenda;
+    private LocalDateTime dataVenda;
 
     @Column(name = "valor_total")
     private BigDecimal valorTotal;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "metodo_pagamento")
-    private PaymentMethod metodoPagamento;
+    @OneToMany(mappedBy = "venda", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private List<VendaPagamento> pagamentos;
 
     @Column(name = "desconto")
     private Boolean temDesconto;

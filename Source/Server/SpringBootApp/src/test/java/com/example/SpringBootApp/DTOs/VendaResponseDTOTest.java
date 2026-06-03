@@ -21,7 +21,7 @@ class VendaResponseDTOTest {
 
         VendaResponseDTO dto = new VendaResponseDTO();
         dto.setId(5L);
-        dto.setDataVenda(LocalDate.of(2024,1,1));
+        dto.setDataVenda(java.time.LocalDate.of(2024,1,1).atStartOfDay());
         dto.setUsuarioId(2L);
         dto.setUsuarioNome("User");
         dto.setClienteId(3L);
@@ -32,7 +32,7 @@ class VendaResponseDTOTest {
         dto.setItems(List.of(item));
 
         assertEquals(Long.valueOf(5L), dto.getId());
-        assertEquals(LocalDate.of(2024,1,1), dto.getDataVenda());
+        assertEquals(java.time.LocalDate.of(2024,1,1).atStartOfDay(), dto.getDataVenda());
         assertEquals(Long.valueOf(2L), dto.getUsuarioId());
         assertEquals("User", dto.getUsuarioNome());
         assertTrue(dto.getHasDiscount());

@@ -42,6 +42,7 @@ const Card = styled.div`
 `
 const CardHead = styled.div`
   padding: 16px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
   h2 { font-family: 'Epilogue', sans-serif; font-size: 14px; font-weight: 900;
        text-transform: uppercase; letter-spacing: 0.05em; color: var(--text); margin: 0; }
 `
@@ -112,11 +113,86 @@ const Empty = styled.div`
 `
 const Loading = styled.div`padding: 32px; text-align: center; color: var(--muted); font-size: 13px;`
 
+// ── Sort & Pagination styles ───────────────────────────────────────────────────
+
+const SortBar = styled.div`
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+`
+const SortLabel = styled.span`
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 2px;
+`
+const SortBtn = styled.button`
+  display: flex; align-items: center; gap: 3px;
+  padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;
+  border: 1px solid ${p => p.$active ? 'var(--brand)' : 'var(--border)'};
+  background: ${p => p.$active ? '#fff1f0' : '#fff'};
+  color: ${p => p.$active ? 'var(--brand)' : 'var(--muted)'};
+  transition: all 0.15s;
+  &:hover { border-color: var(--brand); color: var(--brand); background: #fff1f0; }
+  span { font-size: 13px; }
+`
+const PagBar = styled.div`
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border);
+  flex-wrap: wrap; gap: 8px;
+`
+const PagInfo = styled.span`
+  font-size: 11px; color: var(--muted);
+`
+const PagBtns = styled.div`display: flex; gap: 4px; align-items: center;`
+const PagBtn = styled.button`
+  width: 30px; height: 30px; border-radius: 6px; font-size: 12px; font-weight: 700;
+  border: 1px solid ${p => p.$active ? 'var(--brand)' : 'var(--border)'};
+  background: ${p => p.$active ? 'var(--brand)' : '#fff'};
+  color: ${p => p.$active ? '#fff' : 'var(--text)'};
+  cursor: ${p => p.disabled ? 'not-allowed' : 'pointer'};
+  opacity: ${p => p.disabled ? 0.4 : 1};
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+  &:hover:not(:disabled) { border-color: var(--brand); }
+  span { font-size: 14px; }
+`
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
+
+const PAGE_SIZE = 10
 
 const fmt  = v  => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 const fmtDT = dt => dt ? new Date(dt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—'
-const fmtD  = d  => d  ? new Date(d ).toLocaleDateString('pt-BR') : '—'
+const fmtD  = d  => {
+  if (!d) return '—'
+  if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    const [y, m, day] = d.split('-')
+    return `${day}/${m}/${y}`
+  }
+  const date = new Date(d)
+  return isNaN(date) ? '—' : date.toLocaleDateString('pt-BR')
+}
+
+const saleTotal = s => Number(s.totalValue || 0) + Number(s.surchargeTotal || 0)
+
+const SORT_OPTIONS = [
+  { key: 'date',  label: 'Data',  icon: 'calendar_today' },
+  { key: 'value', label: 'Valor', icon: 'attach_money'   },
+  { key: 'items', label: 'Itens', icon: 'list'           },
+]
+
+function sortSales(sales, key, dir) {
+  return [...sales].sort((a, b) => {
+    let va, vb
+    if (key === 'date') {
+      va = a.dataVenda ? new Date(a.dataVenda).getTime() : 0
+      vb = b.dataVenda ? new Date(b.dataVenda).getTime() : 0
+    } else if (key === 'value') {
+      va = saleTotal(a)
+      vb = saleTotal(b)
+    } else {
+      va = (a.items || []).length
+      vb = (b.items || []).length
+    }
+    return dir === 'desc' ? vb - va : va - vb
+  })
+}
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
@@ -124,6 +200,9 @@ export const ClienteHistoricoView = ({ navigate, clientId }) => {
   const [client, setClient]   = useState(null)
   const [sales, setSales]     = useState([])
   const [loading, setLoading] = useState(true)
+  const [sortKey, setSortKey] = useState('date')
+  const [sortDir, setSortDir] = useState('desc')
+  const [page, setPage]       = useState(0)
 
   useEffect(() => {
     if (!clientId) { navigate('reports'); return }
@@ -134,7 +213,7 @@ export const ClienteHistoricoView = ({ navigate, clientId }) => {
     ]).then(([clients, clientSales]) => {
       const found = clients.find(c => c.id === clientId)
       setClient(found || null)
-      setSales(clientSales)
+      setSales(clientSales?.content ?? (Array.isArray(clientSales) ? clientSales : []))
     }).catch(() => toast.error('Erro ao carregar dados do cliente.'))
     .finally(() => setLoading(false))
   }, [clientId])
@@ -153,10 +232,29 @@ export const ClienteHistoricoView = ({ navigate, clientId }) => {
     </Wrapper>
   )
 
-  const totalGasto  = sales.reduce((a, s) => a + Number(s.totalValue || 0), 0)
+  const totalGasto  = sales.reduce((a, s) => a + saleTotal(s), 0)
   const qtdCompras  = sales.length
   const ticketMedio = qtdCompras > 0 ? totalGasto / qtdCompras : 0
   const initials    = client.nickname?.trim().split(' ').slice(0, 2).map(w => w[0]?.toUpperCase()).join('') || '?'
+
+  const sorted     = sortSales(sales, sortKey, sortDir)
+  const totalPages = Math.ceil(sorted.length / PAGE_SIZE)
+  const paginated  = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+
+  const handleSort = (key) => {
+    if (key === sortKey) {
+      setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    } else {
+      setSortKey(key)
+      setSortDir('desc')
+    }
+    setPage(0)
+  }
+
+  const dirIcon = (key) => {
+    if (key !== sortKey) return 'unfold_more'
+    return sortDir === 'desc' ? 'arrow_downward' : 'arrow_upward'
+  }
 
   return (
     <Wrapper>
@@ -194,17 +292,10 @@ export const ClienteHistoricoView = ({ navigate, clientId }) => {
                   </div>
                 </InfoRow>
                 <InfoRow>
-                  <span className='ic material-symbols-outlined'>badge</span>
+                  <span className='ic material-symbols-outlined'>cake</span>
                   <div>
-                    <div className='lbl'>CPF / CNPJ</div>
-                    <div className='val'>{client.documento || <EmptyInfo>Não informado</EmptyInfo>}</div>
-                  </div>
-                </InfoRow>
-                <InfoRow>
-                  <span className='ic material-symbols-outlined'>mail</span>
-                  <div>
-                    <div className='lbl'>E-mail</div>
-                    <div className='val'>{client.email || <EmptyInfo>Não informado</EmptyInfo>}</div>
+                    <div className='lbl'>Aniversário</div>
+                    <div className='val'>{fmtD(client.aniversario) || <EmptyInfo>Não informado</EmptyInfo>}</div>
                   </div>
                 </InfoRow>
               </CardBody>
@@ -212,7 +303,24 @@ export const ClienteHistoricoView = ({ navigate, clientId }) => {
 
             {/* ── Histórico de compras ── */}
             <Card>
-              <CardHead><h2>Histórico de Compras</h2></CardHead>
+              <CardHead>
+                <h2>Histórico de Compras</h2>
+                {sales.length > 0 && (
+                  <SortBar>
+                    <SortLabel>Ordenar:</SortLabel>
+                    {SORT_OPTIONS.map(opt => (
+                      <SortBtn
+                        key={opt.key}
+                        $active={sortKey === opt.key}
+                        onClick={() => handleSort(opt.key)}
+                      >
+                        <span className='material-symbols-outlined'>{dirIcon(opt.key)}</span>
+                        {opt.label}
+                      </SortBtn>
+                    ))}
+                  </SortBar>
+                )}
+              </CardHead>
               <CardBody>
                 <SumRow>
                   <SumBox $c='var(--brand)'>
@@ -235,34 +343,93 @@ export const ClienteHistoricoView = ({ navigate, clientId }) => {
                     Nenhuma compra registrada para este cliente.
                   </Empty>
                 ) : (
-                  sales.map(s => (
-                    <SaleCard key={s.id}>
-                      <SaleHead>
-                        <div className='left'>
-                          <span className='id'>Venda #{s.id}</span>
-                          <Badge $m={s.paymentMethod}>{s.paymentMethod}</Badge>
-                          {s.hasDiscount && <Badge $m='DESCONTO' style={{ background:'#fffbeb', color:'#b45309' }}>5% OFF</Badge>}
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div className='total'>{fmt(s.totalValue)}</div>
-                          <div className='date'>{fmtD(s.dataVenda)}</div>
-                        </div>
-                      </SaleHead>
-                      <SaleItems>
-                        {(s.items || []).map((it, i) => (
-                          <SaleItem key={i}>
-                            <div>
-                              <div className='name'>{it.productName}</div>
-                              <div className='detail'>
-                                {Number(it.quantity).toFixed(3).replace(/\.?0+$/, '')} × {fmt(it.precoUnitarioVenda)}
+                  <>
+                    {paginated.map(s => (
+                      <SaleCard key={s.id}>
+                        <SaleHead>
+                          <div className='left'>
+                            <span className='id'>Venda #{s.id}</span>
+                            {s.payments && s.payments.length > 0 ? (
+                              s.payments.map((p, idx) => (
+                                <Badge key={idx} $m={p.paymentMethod} style={{ marginRight:6 }}>{p.paymentMethod}</Badge>
+                              ))
+                            ) : (
+                              <Badge $m={s.paymentMethod}>{s.paymentMethod}</Badge>
+                            )}
+                            {s.hasDiscount && <Badge $m='DESCONTO' style={{ background:'#fffbeb', color:'#b45309' }}>5% OFF</Badge>}
+                            {s.surchargeTotal > 0 && <span style={{marginLeft:8,fontSize:12,color:'#1d4ed8'}}>+{fmt(s.surchargeTotal)} (taxa)</span>}
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div className='total'>{fmt(saleTotal(s))}</div>
+                            <div className='date'>{fmtD(s.dataVenda)}</div>
+                          </div>
+                        </SaleHead>
+                        <SaleItems>
+                          {(s.items || []).map((it, i) => (
+                            <SaleItem key={i}>
+                              <div>
+                                <div className='name'>{it.productName}</div>
+                                <div className='detail'>
+                                  {Number(it.quantity).toFixed(3).replace(/\.?0+$/, '')} × {fmt(it.precoUnitarioVenda)}
+                                </div>
                               </div>
+                              <span className='price'>{fmt(Number(it.quantity) * Number(it.precoUnitarioVenda))}</span>
+                            </SaleItem>
+                          ))}
+
+                          {s.payments && s.payments.length > 0 && (
+                            <div style={{marginTop:8}}>
+                              {s.payments.map((p, i) => (
+                                <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',fontSize:13}}>
+                                  <div>{p.paymentMethod}{p.parcelas ? ` • ${p.parcelas}x` : ''}</div>
+                                  <div>{fmt(Number(p.valorPago != null ? p.valorPago : p.valor))}{p.acrescimoValor ? ` (+${fmt(p.acrescimoValor)})` : ''}</div>
+                                </div>
+                              ))}
                             </div>
-                            <span className='price'>{fmt(Number(it.quantity) * Number(it.precoUnitarioVenda))}</span>
-                          </SaleItem>
-                        ))}
-                      </SaleItems>
-                    </SaleCard>
-                  ))
+                          )}
+                        </SaleItems>
+                      </SaleCard>
+                    ))}
+
+                    {totalPages > 1 && (
+                      <PagBar>
+                        <PagInfo>
+                          {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, sorted.length)} de {sorted.length} compras
+                        </PagInfo>
+                        <PagBtns>
+                          <PagBtn
+                            disabled={page === 0}
+                            onClick={() => setPage(p => p - 1)}
+                            title='Página anterior'
+                          >
+                            <span className='material-symbols-outlined'>chevron_left</span>
+                          </PagBtn>
+
+                          {Array.from({ length: totalPages }, (_, i) => {
+                            if (totalPages <= 7 || Math.abs(i - page) <= 2 || i === 0 || i === totalPages - 1) {
+                              return (
+                                <PagBtn key={i} $active={i === page} onClick={() => setPage(i)}>
+                                  {i + 1}
+                                </PagBtn>
+                              )
+                            }
+                            if (Math.abs(i - page) === 3) {
+                              return <span key={i} style={{ color: 'var(--muted)', fontSize: 12, padding: '0 2px' }}>…</span>
+                            }
+                            return null
+                          })}
+
+                          <PagBtn
+                            disabled={page === totalPages - 1}
+                            onClick={() => setPage(p => p + 1)}
+                            title='Próxima página'
+                          >
+                            <span className='material-symbols-outlined'>chevron_right</span>
+                          </PagBtn>
+                        </PagBtns>
+                      </PagBar>
+                    )}
+                  </>
                 )}
               </CardBody>
             </Card>

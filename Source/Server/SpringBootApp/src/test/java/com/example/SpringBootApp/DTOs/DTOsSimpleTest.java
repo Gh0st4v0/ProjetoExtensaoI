@@ -71,7 +71,7 @@ class DTOsSimpleTest {
 
         VendaResponseDTO vr = new VendaResponseDTO();
         vr.setId(77L);
-        vr.setDataVenda(LocalDate.of(2023,1,1));
+        vr.setDataVenda(java.time.LocalDate.of(2023,1,1).atStartOfDay());
         vr.setUsuarioId(1L);
         vr.setUsuarioNome("u");
         vr.setClienteId(2L);
@@ -100,7 +100,7 @@ class DTOsSimpleTest {
         assertEquals(UnitMeasurement.KG, p.getUnitMeasurement());
         assertEquals(1, p.getPurchases().size());
 
-        CompraItemResponseDTO cr = new CompraItemResponseDTO(100L, new BigDecimal("1.5"), new BigDecimal("3.5"), LocalDate.of(2024,5,1));
+        CompraItemResponseDTO cr = new CompraItemResponseDTO(100L, null, null, new BigDecimal("1.5"), new BigDecimal("3.5"), LocalDate.of(2024,5,1));
         assertEquals(100L, cr.getProductId().longValue());
         assertEquals(0, new BigDecimal("1.5").compareTo(cr.getQuantity()));
     }
@@ -111,8 +111,7 @@ class DTOsSimpleTest {
         cl.setId(55L);
         cl.setNickname("nick");
         cl.setTelefone("t");
-        cl.setDocumento("d");
-        cl.setEmail("e");
+        cl.setAniversario(java.time.LocalDate.of(1990,1,1));
         cl.setDataCadastro(LocalDateTime.of(2023,2,3,4,5));
         assertEquals(55L, cl.getId().longValue());
         assertEquals("nick", cl.getNickname());

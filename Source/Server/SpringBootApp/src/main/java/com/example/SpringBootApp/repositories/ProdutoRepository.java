@@ -14,6 +14,8 @@ import java.util.List;
 @Repository
 public interface ProdutoRepository extends JpaRepository<Produto, Long> {
     boolean existsByCodigo(String codigo);
+    boolean existsByCategoria_Id(Long categoriaId);
+    boolean existsByMarca_Id(Long marcaId);
 
     @Query("""
         SELECT DISTINCT p FROM Produto p
@@ -31,7 +33,8 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
                 p.unidadeMedida,
                 p.precoVenda,
                 (SELECT COALESCE(SUM(m.quantidade), 0) FROM Movimentacao m WHERE m.produto = p),
-                p.perecivel
+                p.perecivel,
+                p.estoqueMinimo
             )
             FROM Produto p
             WHERE (
@@ -53,7 +56,8 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
                 p.unidadeMedida,
                 p.precoVenda,
                 (SELECT COALESCE(SUM(m.quantidade), 0) FROM Movimentacao m WHERE m.produto = p),
-                p.perecivel
+                p.perecivel,
+                p.estoqueMinimo
             )
             FROM Produto p
             ORDER BY p.nome ASC
@@ -70,7 +74,8 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
                 p.unidadeMedida,
                 p.precoVenda,
                 (SELECT COALESCE(SUM(m.quantidade), 0) FROM Movimentacao m WHERE m.produto = p),
-                p.perecivel
+                p.perecivel,
+                p.estoqueMinimo
             )
             FROM Produto p
             ORDER BY p.nome ASC

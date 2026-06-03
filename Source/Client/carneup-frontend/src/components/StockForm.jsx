@@ -94,11 +94,28 @@ export const StockForm = ({ products, onSubmit }) => {
 		salePrice: ''
 	})
 
+	// compute tomorrow min date
+	const tomorrow = new Date()
+	tomorrow.setDate(tomorrow.getDate() + 1)
+	const minDate = tomorrow.toISOString().slice(0,10)
+
+	const selectedProduct = products.find(p => String(p.id) === String(formData.productId))
+
 	const handleChange = (e) => {
 		const { name, value } = e.target
+		let newVal = value
+		const selected = products.find(p => String(p.id) === String(formData.productId))
+		const unit = selected?.unitMeasurement || selected?.unit || ''
+		if (name === 'quantity') {
+			if (unit === 'UN') {
+				newVal = String(value).replace(/\D/g, '')
+			} else {
+				newVal = String(value).replace(',', '.')
+			}
+		}
 		setFormData(prev => ({
 			...prev,
-			[name]: value
+			[name]: newVal
 		}))
 	}
 
@@ -172,8 +189,8 @@ export const StockForm = ({ products, onSubmit }) => {
 						type='number'
 						value={formData.quantity}
 						onChange={handleChange}
-						placeholder='0.00'
-						step='0.01'
+						placeholder={selectedProduct && (selectedProduct.unitMeasurement === 'UN' || selectedProduct.unit === 'UN') ? '0' : '0.00'}
+						step={selectedProduct && (selectedProduct.unitMeasurement === 'UN' || selectedProduct.unit === 'UN') ? '1' : '0.01'}
 						required
 					/>
 
@@ -183,6 +200,7 @@ export const StockForm = ({ products, onSubmit }) => {
 						type='date'
 						value={formData.expiryDate}
 						onChange={handleChange}
+						min={minDate}
 						required
 					/>
 

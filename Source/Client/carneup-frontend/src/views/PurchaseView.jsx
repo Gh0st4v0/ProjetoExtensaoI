@@ -264,7 +264,7 @@ const mapProduct = (p) => ({
   perecivel: p.perecivel,
 })
 
-export const PurchaseView = ({ navigate }) => {
+export const PurchaseView = ({ navigate, preselectProduct }) => {
   // ── Product search ──
   const [products, setProducts] = useState([])
   const [productPage, setProductPage] = useState(0)
@@ -273,12 +273,35 @@ export const PurchaseView = ({ navigate }) => {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(null)
 
+  useEffect(() => {
+    if (preselectProduct) {
+      setSelected(preselectProduct)
+      setSearch(preselectProduct.name || '')
+    }
+  }, [preselectProduct])
+
   // ── Form ──
   const [qty, setQty] = useState('')
   const [costDisplay, setCostDisplay] = useState('')
   const [cost, setCost] = useState('')
   const [expiry, setExpiry] = useState('')
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().slice(0, 10))
+
+  // min expiry date — only allow selecting from tomorrow
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const minExpiry = tomorrow.toISOString().slice(0, 10)
+
+  // handle quantity input: for UN units, strip non-digits; for KG allow decimals (comma converted to dot)
+  const handleQtyChange = (e) => {
+    let val = e.target.value || ''
+    if (selected?.unit === 'UN') {
+      val = String(val).replace(/\D/g, '')
+    } else {
+      val = String(val).replace(',', '.')
+    }
+    setQty(val)
+  }
 
   // ── Cart ──
   const [cart, setCart] = useState([])
@@ -358,8 +381,7 @@ export const PurchaseView = ({ navigate }) => {
       if (!expiry) {
         e.expiry = 'Data de validade obrigatória para produtos perecíveis.'
       } else {
-        const today = new Date().toISOString().slice(0, 10)
-        if (expiry < today) e.expiry = 'A validade não pode ser uma data passada.'
+        if (expiry < minExpiry) e.expiry = 'A validade deve ser a partir de amanhã.'
       }
     }
     return e
@@ -540,7 +562,7 @@ export const PurchaseView = ({ navigate }) => {
                       min='0'
                       step={selected?.unit === 'UN' ? '1' : '0.001'}
                       value={qty}
-                      onChange={e => setQty(e.target.value)}
+                      onChange={handleQtyChange}
                       placeholder={selected?.unit === 'UN' ? '0' : '0.000'}
                       $error={!!errors.qty}
                       style={{ borderRadius: selected ? '8px 0 0 8px' : '8px' }}
@@ -578,6 +600,7 @@ export const PurchaseView = ({ navigate }) => {
                     type='date'
                     value={expiry}
                     onChange={e => setExpiry(e.target.value)}
+                    min={minExpiry}
                     $error={!!errors.expiry}
                   />
                   {errors.expiry && <ErrorHint>{errors.expiry}</ErrorHint>}
