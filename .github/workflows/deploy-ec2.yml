@@ -45,15 +45,7 @@ jobs:
           fi
 
           cat > deploy/.env <<EOF
-BACKEND_IMAGE=${BACKEND_IMAGE}
-DB_NAME=${{ secrets.DB_NAME }}
-DB_USERNAME=${{ secrets.DB_USERNAME }}
-DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-DB_PORT=${{ secrets.DB_PORT }}
-DB_PATH=jdbc:postgresql://db:${{ secrets.DB_PORT }}/${{ secrets.DB_NAME }}
-JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
-RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
-BACKEND_PORT=${{ secrets.BACKEND_PORT }}
+            printf "%s\n" "BACKEND_IMAGE=${BACKEND_IMAGE}" "DB_NAME=${{ secrets.DB_NAME }}" "DB_USERNAME=${{ secrets.DB_USERNAME }}" "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" "DB_PORT=${{ secrets.DB_PORT }}" "DB_PATH=jdbc:postgresql://db:${{ secrets.DB_PORT }}/${{ secrets.DB_NAME }}" "JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}" "RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}" "BACKEND_PORT=${{ secrets.BACKEND_PORT }}" > deploy/.env
 EOF
         shell: bash
 
@@ -104,3 +96,4 @@ EOF
               SERVICES="backend"
             fi
             $DOCKER compose -f docker-compose.deploy.yml up -d $SERVICES
+
