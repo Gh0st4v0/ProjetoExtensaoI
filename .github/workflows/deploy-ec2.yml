@@ -28,6 +28,7 @@ jobs:
 
       - name: Build deploy .env
         id: build_env
+        shell: bash
         run: |
           set -eo pipefail
           mkdir -p deploy
@@ -44,8 +45,15 @@ jobs:
             BACKEND_IMAGE="ghcr.io/${{ github.repository_owner }}/projeto-backend:${REF}"
           fi
 
-          printf "%s\n" "BACKEND_IMAGE=${BACKEND_IMAGE}" "DB_NAME=${{ secrets.DB_NAME }}" "DB_USERNAME=${{ secrets.DB_USERNAME }}" "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" "DB_PORT=${{ secrets.DB_PORT }}" "DB_PATH=jdbc:postgresql://db:${{ secrets.DB_PORT }}/${{ secrets.DB_NAME }}" "JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}" "RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}" "BACKEND_PORT=${{ secrets.BACKEND_PORT }}" > deploy/.env
-        shell: bash
+          echo "BACKEND_IMAGE=${BACKEND_IMAGE}" > deploy/.env
+          echo "DB_NAME=${{ secrets.DB_NAME }}" >> deploy/.env
+          echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> deploy/.env
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> deploy/.env
+          echo "DB_PORT=${{ secrets.DB_PORT }}" >> deploy/.env
+          echo "DB_PATH=jdbc:postgresql://db:${{ secrets.DB_PORT }}/${{ secrets.DB_NAME }}" >> deploy/.env
+          echo "JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}" >> deploy/.env
+          echo "RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}" >> deploy/.env
+          echo "BACKEND_PORT=${{ secrets.BACKEND_PORT }}" >> deploy/.env
 
       - name: Copy deploy artifacts to EC2
         uses: appleboy/scp-action@master
@@ -94,6 +102,3 @@ jobs:
               SERVICES="backend"
             fi
             $DOCKER compose -f docker-compose.deploy.yml up -d $SERVICES
-
-
-
