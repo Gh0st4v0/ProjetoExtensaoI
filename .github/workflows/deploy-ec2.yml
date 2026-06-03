@@ -6,7 +6,7 @@ on:
       services:
         description: 'Services to start'
         required: false
-        default: 'backend' # Alterado aqui para evitar o erro de 'no such service'
+        default: 'backend,frontend' # Frontend restaurado aqui
 
 jobs:
   deploy:
@@ -19,6 +19,7 @@ jobs:
         run: |
           mkdir -p artifact
           echo "BACKEND_IMAGE=ghcr.io/${{ github.repository_owner }}/projeto-backend:${{ github.sha }}" > artifact/.env
+          echo "FRONTEND_IMAGE=ghcr.io/${{ github.repository_owner }}/projeto-frontend:${{ github.sha }}" >> artifact/.env
           echo "DB_NAME=${{ secrets.DB_NAME }}" >> artifact/.env
           echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> artifact/.env
           echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> artifact/.env
@@ -26,6 +27,7 @@ jobs:
           echo "DB_PATH=jdbc:postgresql://db:5432/${{ secrets.DB_NAME }}" >> artifact/.env
           echo "RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}" >> artifact/.env
           echo "BACKEND_PORT=${{ secrets.BACKEND_PORT }}" >> artifact/.env
+          echo "FRONTEND_PORT=${{ secrets.FRONTEND_PORT }}" >> artifact/.env
 
       - name: Prepare artifacts
         run: |
@@ -57,11 +59,11 @@ jobs:
             # Remove contêineres órfãos de execuções anteriores
             docker compose -f docker-compose.deploy.yml down --remove-orphans || true
             
-            # Sobe o banco de dados
+            # Sobe o banco de dados primeiro para iniciar o healthcheck
             docker compose -f docker-compose.deploy.yml up -d db
             
-            # Executa as migrações (agora com PGPASSWORD configurado no ambiente)
+            # Executa as migrações (agora com a senha injetada corretamente no ambiente)
             docker compose -f docker-compose.deploy.yml run --rm migrate
             
-            # Sobe o backend definitivo
-            docker compose -f docker-compose.deploy.yml up -d backend
+            # Sobe tudo o que sobrou (Backend e Frontend) de forma limpa
+            docker compose -f docker-compose.deploy.yml up -d

@@ -35,7 +35,6 @@ services:
     image: postgres:18
     env_file:
       - .env
-    # Injetamos as variáveis nativas que o comando 'psql' exige para rodar sem pedir senha
     environment:
       - PGPASSWORD=${DB_PASSWORD}
       - PGUSER=${DB_USERNAME}
@@ -47,6 +46,14 @@ services:
       db:
         condition: service_healthy
     entrypoint: ["/bin/sh", "/migrations/run-migrations.sh"]
+
+  frontend:
+    image: ${FRONTEND_IMAGE}
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-80}:80" # Mapeia a porta do deploy (ex: 80 ou 3000)
+    depends_on:
+      - backend
 
 volumes:
   db-data: {}
