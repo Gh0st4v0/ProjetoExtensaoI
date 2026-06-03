@@ -11,7 +11,7 @@ services:
       - POSTGRES_USER=${DB_USERNAME}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
-      - db-data:/var/lib/postgresql/data
+      - db-data:/var/lib/postgresql
     ports:
       - "${DB_PORT:-5432}:5432"
     # Adicionamos um teste nativo do Postgres para saber se ele já aceita conexões
