@@ -4,11 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       services:
-        description: 'Comma-separated services to start (default: backend)'
+        description: 'Comma-separated services to start (default: backend,frontend)'
         required: false
-        default: 'backend'
+        default: 'backend,frontend'
       backend_image:
         description: 'Optional full backend image to deploy (ghcr.io/owner/projeto-backend:tag)'
+        required: false
+        default: ''
+      frontend_image:
+        description: 'Optional full frontend image to deploy (ghcr.io/owner/projeto-frontend:tag)'
         required: false
         default: ''
       deploy_path:
@@ -33,22 +37,29 @@ jobs:
           set -eo pipefail
           mkdir -p deploy
 
-          # Determine backend image (use input override if provided)
+          REF="${GITHUB_REF:-}"
+          REF="${REF#refs/heads/}"
+          if [ -z "${REF}" ]; then
+            REF="${GITHUB_SHA:-}"
+          fi
+
+          OWNER="$(echo "${GITHUB_REPOSITORY}" | cut -d'/' -f1)"
+          OWNER_LC="$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')"
+
           if [ -n "${{ inputs.backend_image }}" ]; then
             BACKEND_IMAGE="${{ inputs.backend_image }}"
           else
-            REF="${GITHUB_REF:-}"
-            REF="${REF#refs/heads/}"
-            if [ -z "${REF}" ]; then
-              REF="${GITHUB_SHA:-}"
-            fi
-            # Lowercase the owner portion because GHCR requires lowercase owner names
-            OWNER="$(echo "${GITHUB_REPOSITORY}" | cut -d'/' -f1)"
-            OWNER_LC="$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')"
             BACKEND_IMAGE="ghcr.io/${OWNER_LC}/projeto-backend:${REF}"
           fi
 
+          if [ -n "${{ inputs.frontend_image }}" ]; then
+            FRONTEND_IMAGE="${{ inputs.frontend_image }}"
+          else
+            FRONTEND_IMAGE="ghcr.io/${OWNER_LC}/projeto-frontend:${REF}"
+          fi
+
           echo "BACKEND_IMAGE=${BACKEND_IMAGE}" > deploy/.env
+          echo "FRONTEND_IMAGE=${FRONTEND_IMAGE}" >> deploy/.env
           echo "DB_NAME=${{ secrets.DB_NAME }}" >> deploy/.env
           echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> deploy/.env
           echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> deploy/.env
@@ -57,6 +68,7 @@ jobs:
           echo "JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}" >> deploy/.env
           echo "RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}" >> deploy/.env
           echo "BACKEND_PORT=${{ secrets.BACKEND_PORT }}" >> deploy/.env
+          echo "FRONTEND_PORT=${{ secrets.FRONTEND_PORT }}" >> deploy/.env
 
       - name: Prepare deploy artifacts
         run: |
@@ -72,6 +84,11 @@ jobs:
           fi
           if [ -d Source/Server/SpringBootApp/src/main/resources/migrations ]; then
             cp -r Source/Server/SpringBootApp/src/main/resources/migrations artifact/migrations
+          fi
+          # include nginx config if present
+          if [ -f Source/Client/carneup-frontend/nginx-default.conf ]; then
+            mkdir -p artifact/nginx
+            cp Source/Client/carneup-frontend/nginx-default.conf artifact/nginx/default.conf
           fi
           tar -czf deploy_artifacts.tar.gz -C artifact .
           ls -lh deploy_artifacts.tar.gz
@@ -104,7 +121,7 @@ jobs:
               rm deploy_artifacts.tar.gz
             fi
 
-            # Prefer docker without sudo if current user can access the daemon; otherwise try sudo
+            # Ensure docker access
             if docker info >/dev/null 2>&1; then
               DOCKER=docker
             elif sudo docker info >/dev/null 2>&1; then
@@ -114,19 +131,22 @@ jobs:
               exit 1
             fi
 
+            # If nginx config exists from artifacts, move to ./nginx/default.conf expected by compose
+            if [ -d nginx ]; then
+              mkdir -p ./nginx
+              cp -r nginx/* ./nginx/ || true
+            fi
+
             $DOCKER compose -f docker-compose.deploy.yml pull || true
 
-            # Ensure DB is up before running migrations
             $DOCKER compose -f docker-compose.deploy.yml up -d db
 
-            # Run migrations using the migrate service (mounted migrations)
             $DOCKER compose -f docker-compose.deploy.yml run --rm migrate || true
 
             sleep 2
 
-            # Start requested services (comma-separated input)
             SERVICES="$(echo '${{ inputs.services }}' | tr -d ' ' | tr ',' ' ' )"
             if [ -z "$SERVICES" ]; then
-              SERVICES="backend"
+              SERVICES="backend frontend"
             fi
             $DOCKER compose -f docker-compose.deploy.yml up -d $SERVICES
