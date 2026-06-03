@@ -67,7 +67,7 @@ services:
     ports:
       - '80:80'     # Porta oficial para tráfego HTTP comum
       - '443:443'   # Porta oficial para tráfego HTTPS (Cadeado Seguro)
-      - '8181:8181' # Painel de controle visual onde você vai gerar o SSL
+      - '8181:81' # Painel de controle visual onde você vai gerar o SSL
     volumes:
       - proxy-data:/data
       - proxy-letsencrypt:/etc/letsencrypt
