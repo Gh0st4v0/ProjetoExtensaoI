@@ -55,6 +55,25 @@ jobs:
           echo "RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}" >> deploy/.env
           echo "BACKEND_PORT=${{ secrets.BACKEND_PORT }}" >> deploy/.env
 
+      - name: Prepare deploy artifacts
+        run: |
+          set -eo pipefail
+          rm -rf artifact
+          mkdir -p artifact
+          cp docker-compose.deploy.yml artifact/
+          if [ -f deploy/.env ]; then
+            cp deploy/.env artifact/.env
+          else
+            echo "deploy/.env not found" >&2
+            exit 1
+          fi
+          if [ -d Source/Server/SpringBootApp/src/main/resources/migrations ]; then
+            cp -r Source/Server/SpringBootApp/src/main/resources/migrations artifact/migrations
+          fi
+          tar -czf deploy_artifacts.tar.gz -C artifact .
+          ls -lh deploy_artifacts.tar.gz
+        shell: bash
+
       - name: Copy deploy artifacts to EC2
         uses: appleboy/scp-action@master
         with:
@@ -62,10 +81,7 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
-          source: |
-            docker-compose.deploy.yml
-            deploy/.env
-            Source/Server/SpringBootApp/src/main/resources/migrations
+          source: deploy_artifacts.tar.gz
           target: ${{ inputs.deploy_path }}
 
       - name: Execute remote deploy commands
@@ -78,6 +94,12 @@ jobs:
           script: |
             set -euo pipefail
             cd ${{ inputs.deploy_path }}
+
+            # Extract artifacts if present
+            if [ -f deploy_artifacts.tar.gz ]; then
+              tar -xzf deploy_artifacts.tar.gz -C .
+              rm deploy_artifacts.tar.gz
+            fi
 
             # Prefer non-sudo docker compose, fallback to sudo if needed
             if docker compose version >/dev/null 2>&1; then
