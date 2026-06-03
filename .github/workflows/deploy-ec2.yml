@@ -64,6 +64,9 @@ jobs:
             # Remove volumes antigos para não misturar dados
             docker compose -f docker-compose.deploy.yml down -v --remove-orphans || true
             
+            # 🔴 ADICIONADO AQUI: Baixa as imagens mais recentes do GHCR (evita o cache antigo na AWS)
+            docker compose -f docker-compose.deploy.yml pull
+            
             # Sobe o banco de dados
             docker compose -f docker-compose.deploy.yml up -d db
             
