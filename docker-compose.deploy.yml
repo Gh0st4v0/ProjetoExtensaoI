@@ -33,14 +33,8 @@ services:
       - ./migrations:/migrations:ro
     depends_on:
       - db
-    entrypoint: ["/bin/sh", "-c"]
-    command: |
-      until pg_isready -h db -p 5432 -U "$DB_USERNAME"; do sleep 1; done
-      for f in /migrations/*.sql; do
-        echo "Applying $f"
-        psql -h db -U "$DB_USERNAME" -d "$DB_NAME" -f "$f"
-      done
-      echo "Migrations completed"
+    # Run migration script from mounted migrations directory
+    entrypoint: ["/bin/sh", "/migrations/run-migrations.sh"]
 
 volumes:
   db-data: {}
