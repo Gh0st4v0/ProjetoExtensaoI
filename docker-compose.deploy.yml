@@ -11,9 +11,14 @@ services:
       - POSTGRES_USER=${DB_USERNAME}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
-      - db-data:/var/lib/postgresql/data
+      - db-data:/var/lib/postgresql
     ports:
       - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   backend:
     image: ${BACKEND_IMAGE}
@@ -21,7 +26,8 @@ services:
     env_file:
       - .env
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
       - "${BACKEND_PORT:-8080}:8080"
 
@@ -32,15 +38,9 @@ services:
     volumes:
       - ./migrations:/migrations:ro
     depends_on:
-      - db
-    entrypoint: ["/bin/sh", "-c"]
-    command: |
-      until pg_isready -h db -p 5432 -U "$DB_USERNAME"; do sleep 1; done
-      for f in /migrations/*.sql; do
-        echo "Applying $f"
-        psql -h db -U "$DB_USERNAME" -d "$DB_NAME" -f "$f"
-      done
-      echo "Migrations completed"
+      db:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "/migrations/run-migrations.sh"]
 
 volumes:
   db-data: {}
