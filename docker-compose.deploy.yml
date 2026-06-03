@@ -9,7 +9,8 @@ services:
       - POSTGRES_USER=${DB_USERNAME}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
-      - db-data:/var/lib/postgresql
+      # ALTERADO: Aponta direto para uma pasta física no HD da AWS. Blindado contra 'down -v'
+      - /home/ubuntu/app/db-data:/var/lib/postgresql/data
     ports:
       - "${DB_PORT:-5432}:5432"
     healthcheck:
@@ -26,8 +27,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    # O backend não fica mais exposto direto para a internet na porta 8080 do host.
-    # Ele agora opera de forma segura dentro da rede interna do Docker.
 
   migrate:
     image: postgres:18
@@ -57,23 +56,15 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
-    # Removemos a porta 5176/80 antiga daqui. O Proxy vai receber as requisições
-    # nas portas oficiais (80/443) e repassar para o frontend internamente na porta 80.
 
-  # O NOVO PORTEIRO DO SEU AMBIENTE (REVERSE PROXY + SSL)
   proxy:
     image: 'jc21/nginx-proxy-manager:latest'
     restart: always
     ports:
-      - '80:80'     # Porta oficial para tráfego HTTP comum
-      - '443:443'   # Porta oficial para tráfego HTTPS (Cadeado Seguro)
-      - '8181:81' # Painel de controle visual onde você vai gerar o SSL
+      - '80:80'
+      - '443:443'
+      - '8181:81'
     volumes:
-      - proxy-data:/data
-      - proxy-letsencrypt:/etc/letsencrypt
-
-# IMPORTANTE: Volumes persistentes do banco e do gerenciador de certificados
-volumes:
-  db-data: {}
-  proxy-data: {}
-  proxy-letsencrypt: {}
+      # ALTERADO: Pastas físicas na AWS. Seus certificados e login nunca mais somem no deploy
+      - /home/ubuntu/app/proxy-data:/data
+      - /home/ubuntu/app/proxy-letsencrypt:/etc/letsencrypt
