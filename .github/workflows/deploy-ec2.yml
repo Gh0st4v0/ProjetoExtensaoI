@@ -29,31 +29,32 @@ jobs:
       - name: Build deploy .env
         id: build_env
         run: |
-          set -euo pipefail
+          set -eo pipefail
           mkdir -p deploy
 
           # Determine backend image (use input override if provided)
           if [ -n "${{ inputs.backend_image }}" ]; then
             BACKEND_IMAGE="${{ inputs.backend_image }}"
           else
-            REF="${GITHUB_REF#refs/heads/}"
-            if [ "${REF}" = "${GITHUB_REF}" ]; then
-              REF="${GITHUB_SHA}"
+            REF="${GITHUB_REF:-}"
+            REF="${REF#refs/heads/}"
+            if [ -z "${REF}" ]; then
+              REF="${GITHUB_SHA:-}"
             fi
             BACKEND_IMAGE="ghcr.io/${{ github.repository_owner }}/projeto-backend:${REF}"
           fi
 
           cat > deploy/.env <<EOF
-          BACKEND_IMAGE=${BACKEND_IMAGE}
-          DB_NAME=${{ secrets.DB_NAME }}
-          DB_USERNAME=${{ secrets.DB_USERNAME }}
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-          DB_PORT=${{ secrets.DB_PORT }}
-          DB_PATH=jdbc:postgresql://db:${{ secrets.DB_PORT }}/${{ secrets.DB_NAME }}
-          JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
-          RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
-          BACKEND_PORT=${{ secrets.BACKEND_PORT }}
-          EOF
+BACKEND_IMAGE=${BACKEND_IMAGE}
+DB_NAME=${{ secrets.DB_NAME }}
+DB_USERNAME=${{ secrets.DB_USERNAME }}
+DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+DB_PORT=${{ secrets.DB_PORT }}
+DB_PATH=jdbc:postgresql://db:${{ secrets.DB_PORT }}/${{ secrets.DB_NAME }}
+JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
+RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
+BACKEND_PORT=${{ secrets.BACKEND_PORT }}
+EOF
         shell: bash
 
       - name: Copy deploy artifacts to EC2
