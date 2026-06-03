@@ -14,6 +14,12 @@ services:
       - db-data:/var/lib/postgresql/data
     ports:
       - "${DB_PORT:-5432}:5432"
+    # Adicionamos um teste nativo do Postgres para saber se ele já aceita conexões
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   backend:
     image: ${BACKEND_IMAGE}
@@ -21,7 +27,9 @@ services:
     env_file:
       - .env
     depends_on:
-      - db
+      db:
+        # O backend agora espera o db estar 'healthy' (saudável) em vez de apenas 'started'
+        condition: service_healthy
     ports:
       - "${BACKEND_PORT:-8080}:8080"
 
@@ -32,7 +40,9 @@ services:
     volumes:
       - ./migrations:/migrations:ro
     depends_on:
-      - db
+      db:
+        # O script de migração também vai esperar o banco estar 100% pronto
+        condition: service_healthy
     # Run migration script from mounted migrations directory
     entrypoint: ["/bin/sh", "/migrations/run-migrations.sh"]
 
