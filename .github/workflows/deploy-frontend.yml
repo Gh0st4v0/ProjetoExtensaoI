@@ -1,0 +1,147 @@
+name: Deploy to EC2 (Frontend)
+
+on:
+  workflow_dispatch:
+    inputs:
+      services:
+        description: 'Comma-separated services to start (default: backend,frontend)'
+        required: false
+        default: 'backend,frontend'
+      backend_image:
+        description: 'Optional full backend image to deploy (ghcr.io/owner/projeto-backend:tag)'
+        required: false
+        default: ''
+      frontend_image:
+        description: 'Optional full frontend image to deploy (ghcr.io/owner/projeto-frontend:tag)'
+        required: false
+        default: ''
+      deploy_path:
+        description: 'Remote path on EC2 to deploy files'
+        required: false
+        default: '/home/ubuntu/app'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build deploy .env
+        id: build_env
+        shell: bash
+        run: |
+          set -eo pipefail
+          mkdir -p deploy
+
+          REF="${GITHUB_REF:-}"
+          REF="${REF#refs/heads/}"
+          if [ -z "${REF}" ]; then
+            REF="${GITHUB_SHA:-}"
+          fi
+
+          OWNER="$(echo "${GITHUB_REPOSITORY}" | cut -d'/' -f1)"
+          OWNER_LC="$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')"
+
+          if [ -n "${{ inputs.backend_image }}" ]; then
+            BACKEND_IMAGE="${{ inputs.backend_image }}"
+          else
+            BACKEND_IMAGE="ghcr.io/${OWNER_LC}/projeto-backend:${REF}"
+          fi
+
+          if [ -n "${{ inputs.frontend_image }}" ]; then
+            FRONTEND_IMAGE="${{ inputs.frontend_image }}"
+          else
+            FRONTEND_IMAGE="ghcr.io/${OWNER_LC}/projeto-frontend:${REF}"
+          fi
+
+          echo "BACKEND_IMAGE=${BACKEND_IMAGE}" > deploy/.env
+          echo "FRONTEND_IMAGE=${FRONTEND_IMAGE}" >> deploy/.env
+          echo "DB_NAME=${{ secrets.DB_NAME }}" >> deploy/.env
+          echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> deploy/.env
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> deploy/.env
+          echo "DB_PORT=${{ secrets.DB_PORT }}" >> deploy/.env
+          echo "DB_PATH=jdbc:postgresql://db:${{ secrets.DB_PORT }}/${{ secrets.DB_NAME }}" >> deploy/.env
+          echo "JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}" >> deploy/.env
+          echo "RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}" >> deploy/.env
+          echo "BACKEND_PORT=${{ secrets.BACKEND_PORT }}" >> deploy/.env
+          echo "FRONTEND_PORT=${{ secrets.FRONTEND_PORT }}" >> deploy/.env
+
+      - name: Prepare deploy artifacts
+        run: |
+          set -eo pipefail
+          rm -rf artifact
+          mkdir -p artifact
+          cp docker-compose.deploy.yml artifact/
+          if [ -f deploy/.env ]; then
+            cp deploy/.env artifact/.env
+          else
+            echo "deploy/.env not found" >&2
+            exit 1
+          fi
+          if [ -d Source/Server/SpringBootApp/src/main/resources/migrations ]; then
+            cp -r Source/Server/SpringBootApp/src/main/resources/migrations artifact/migrations
+          fi
+          # include nginx config if present
+          if [ -f Source/Client/carneup-frontend/nginx-default.conf ]; then
+            mkdir -p artifact/nginx
+            cp Source/Client/carneup-frontend/nginx-default.conf artifact/nginx/default.conf
+          fi
+          tar -czf deploy_artifacts.tar.gz -C artifact .
+          ls -lh deploy_artifacts.tar.gz
+        shell: bash
+
+      - name: Copy deploy artifacts to EC2
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          source: deploy_artifacts.tar.gz
+          target: ${{ inputs.deploy_path }}
+
+      - name: Execute remote deploy commands
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            set -euo pipefail
+            cd ${{ inputs.deploy_path }}
+
+            # Extract artifacts if present
+            if [ -f deploy_artifacts.tar.gz ]; then
+              tar -xzf deploy_artifacts.tar.gz -C .
+              rm deploy_artifacts.tar.gz
+            fi
+
+            # Ensure docker access
+            if docker info >/dev/null 2>&1; then
+              DOCKER=docker
+            elif sudo docker info >/dev/null 2>&1; then
+              DOCKER='sudo docker'
+            else
+              echo "Docker not available or access denied" >&2
+              exit 1
+            fi
+
+            # Docker pull/build and start
+            $DOCKER compose -f docker-compose.deploy.yml pull || true
+
+            $DOCKER compose -f docker-compose.deploy.yml up -d db
+
+            $DOCKER compose -f docker-compose.deploy.yml run --rm migrate || true
+
+            sleep 2
+
+            SERVICES="$(echo '${{ inputs.services }}' | tr -d ' ' | tr ',' ' ' )"
+            if [ -z "$SERVICES" ]; then
+              SERVICES="backend frontend"
+            fi
+            $DOCKER compose -f docker-compose.deploy.yml up -d $SERVICES

@@ -25,6 +25,18 @@ services:
     ports:
       - "${BACKEND_PORT:-8080}:8080"
 
+  frontend:
+    image: ${FRONTEND_IMAGE}
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - backend
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+
   migrate:
     image: postgres:18
     env_file:
