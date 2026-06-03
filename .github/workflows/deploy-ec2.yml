@@ -32,6 +32,7 @@ jobs:
           echo "DB_PATH=jdbc:postgresql://db:5432/${{ secrets.DB_NAME }}" >> artifact/.env
           echo "RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}" >> artifact/.env
           echo "BACKEND_PORT=${{ secrets.BACKEND_PORT }}" >> artifact/.env
+          echo "JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}" >> artifact/.env
           echo "FRONTEND_PORT=${{ secrets.FRONTEND_PORT }}" >> artifact/.env
 
       - name: Prepare artifacts
