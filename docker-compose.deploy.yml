@@ -26,8 +26,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    ports:
-      - "${BACKEND_PORT:-8080}:8080"
+    # O backend não fica mais exposto direto para a internet na porta 8080 do host.
+    # Ele agora opera de forma segura dentro da rede interna do Docker.
 
   migrate:
     image: postgres:18
@@ -55,10 +55,25 @@ services:
   frontend:
     image: ${FRONTEND_IMAGE}
     restart: unless-stopped
-    ports:
-      - "${FRONTEND_PORT:-80}:80"
     depends_on:
       - backend
-# IMPORTANTE: Esta linha deve ter ZERO espaços antes dela
+    # Removemos a porta 5176/80 antiga daqui. O Proxy vai receber as requisições
+    # nas portas oficiais (80/443) e repassar para o frontend internamente na porta 80.
+
+  # O NOVO PORTEIRO DO SEU AMBIENTE (REVERSE PROXY + SSL)
+  proxy:
+    image: 'jc21/nginx-proxy-manager:latest'
+    restart: always
+    ports:
+      - '80:80'     # Porta oficial para tráfego HTTP comum
+      - '443:443'   # Porta oficial para tráfego HTTPS (Cadeado Seguro)
+      - '8181:8181' # Painel de controle visual onde você vai gerar o SSL
+    volumes:
+      - proxy-data:/data
+      - proxy-letsencrypt:/etc/letsencrypt
+
+# IMPORTANTE: Volumes persistentes do banco e do gerenciador de certificados
 volumes:
   db-data: {}
+  proxy-data: {}
+  proxy-letsencrypt: {}
