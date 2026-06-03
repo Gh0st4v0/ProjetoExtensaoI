@@ -6,7 +6,7 @@ on:
       services:
         description: 'Services to start'
         required: false
-        default: 'backend,frontend' # Frontend restaurado aqui
+        default: 'backend,frontend'
 
 jobs:
   deploy:
@@ -18,8 +18,11 @@ jobs:
       - name: Build deploy .env
         run: |
           mkdir -p artifact
-          echo "BACKEND_IMAGE=ghcr.io/${{ github.repository_owner }}/projeto-backend:${{ github.sha }}" > artifact/.env
-          echo "FRONTEND_IMAGE=ghcr.io/${{ github.repository_owner }}/projeto-frontend:${{ github.sha }}" >> artifact/.env
+          # Força o nome do dono do repositório a ficar totalmente em letras minúsculas
+          REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          
+          echo "BACKEND_IMAGE=ghcr.io/${REPO_OWNER_LOWER}/projeto-backend:${{ github.sha }}" > artifact/.env
+          echo "FRONTEND_IMAGE=ghcr.io/${REPO_OWNER_LOWER}/projeto-frontend:${{ github.sha }}" >> artifact/.env
           echo "DB_NAME=${{ secrets.DB_NAME }}" >> artifact/.env
           echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> artifact/.env
           echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> artifact/.env
@@ -56,14 +59,14 @@ jobs:
             cd ${{ github.event.inputs.deploy_path || '/home/ubuntu/app' }}
             tar -xzf deploy_artifacts.tar.gz && rm deploy_artifacts.tar.gz
             
-            # Remove contêineres órfãos de execuções anteriores
-            docker compose -f docker-compose.deploy.yml down --remove-orphans || true
+            # ATENÇÃO: Usando 'down -v' aqui para limpar o banco bagunçado da última execução
+            docker compose -f docker-compose.deploy.yml down -v --remove-orphans || true
             
-            # Sobe o banco de dados primeiro para iniciar o healthcheck
+            # Sobe o banco de dados do zero e limpo
             docker compose -f docker-compose.deploy.yml up -d db
             
-            # Executa as migrações (agora com a senha injetada corretamente no ambiente)
+            # Roda as migrações na ordem numérica correta
             docker compose -f docker-compose.deploy.yml run --rm migrate
             
-            # Sobe tudo o que sobrou (Backend e Frontend) de forma limpa
+            # Sobe os apps finais
             docker compose -f docker-compose.deploy.yml up -d

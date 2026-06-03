@@ -15,7 +15,7 @@ services:
     ports:
       - "${DB_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -45,15 +45,23 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    entrypoint: ["/bin/sh", "/migrations/run-migrations.sh"]
+    # Sobrescrevemos o loop para garantir a ordenação numérica natural (V2 antes de V10)
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        for f in $$(ls /migrations/V*.sql | sort -V); do
+          echo "Applying $$f"
+          psql -f "$$f" || exit 1
+        done
 
   frontend:
     image: ${FRONTEND_IMAGE}
     restart: unless-stopped
     ports:
-      - "${FRONTEND_PORT:-80}:80" # Mapeia a porta do deploy (ex: 80 ou 3000)
+      - "${FRONTEND_PORT:-80}:80"
     depends_on:
       - backend
 
-volumes:
-  db-data: {}
+  volumes:
+    db-data: { }
