@@ -101,11 +101,14 @@ jobs:
               rm deploy_artifacts.tar.gz
             fi
 
-            # Prefer non-sudo docker compose, fallback to sudo if needed
-            if docker compose version >/dev/null 2>&1; then
+            # Prefer docker without sudo if current user can access the daemon; otherwise try sudo
+            if docker info >/dev/null 2>&1; then
               DOCKER=docker
-            else
+            elif sudo docker info >/dev/null 2>&1; then
               DOCKER='sudo docker'
+            else
+              echo "Docker not available or access denied" >&2
+              exit 1
             fi
 
             $DOCKER compose -f docker-compose.deploy.yml pull || true
