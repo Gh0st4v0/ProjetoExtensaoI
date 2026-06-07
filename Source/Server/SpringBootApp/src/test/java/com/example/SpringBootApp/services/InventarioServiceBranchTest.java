@@ -49,6 +49,8 @@ public class InventarioServiceBranchTest {
         CompraItemDTO item = new CompraItemDTO();
         item.setProductId(2L);
         item.setQuantity(new BigDecimal("2"));
+        item.setUnitPurchasePrice(new BigDecimal("40.5"));
+        item.setUnitSalePrice(new BigDecimal("50.5"));
         // no expiring date
         dto.setItems(Collections.singletonList(item));
 
@@ -59,7 +61,7 @@ public class InventarioServiceBranchTest {
 
         Produto p = new Produto();
         p.setId(2L);
-        p.setPerecivel(Boolean.TRUE);
+        p.setIsPerecivel(Boolean.TRUE);
         p.setUnidadeMedida(UnitMeasurement.KG);
 
         when(pr.findById(2L)).thenReturn(Optional.of(p));
@@ -77,6 +79,8 @@ public class InventarioServiceBranchTest {
         CompraItemDTO item = new CompraItemDTO();
         item.setProductId(3L);
         item.setQuantity(new BigDecimal("2"));
+        item.setUnitPurchasePrice(new BigDecimal("40.5"));
+        item.setUnitSalePrice(new BigDecimal("50.5"));
         item.setExpiringDate(LocalDate.now());
         dto.setItems(Collections.singletonList(item));
 
@@ -87,7 +91,7 @@ public class InventarioServiceBranchTest {
 
         Produto p = new Produto();
         p.setId(3L);
-        p.setPerecivel(Boolean.FALSE);
+        p.setIsPerecivel(Boolean.FALSE);
         p.setUnidadeMedida(UnitMeasurement.KG);
 
         when(pr.findById(3L)).thenReturn(Optional.of(p));
@@ -105,24 +109,32 @@ public class InventarioServiceBranchTest {
         CompraItemDTO item = new CompraItemDTO();
         item.setProductId(4L);
         item.setQuantity(new BigDecimal("1.5"));
+        item.setUnitPurchasePrice(new BigDecimal("40.5"));
+        item.setUnitSalePrice(new BigDecimal("50.5"));
         dto.setItems(Collections.singletonList(item));
 
-        CompraRepository cr = mock(CompraRepository.class);
-        MovimentacaoRepository mr = mock(MovimentacaoRepository.class);
+        CompraRepository compraRepository = mock(CompraRepository.class);
+        MovimentacaoRepository marcaRepository = mock(MovimentacaoRepository.class);
         ProdutoRepository pr = mock(ProdutoRepository.class);
         DecarteRepository dr = mock(DecarteRepository.class);
 
         Produto p = new Produto();
         p.setId(4L);
-        p.setPerecivel(Boolean.FALSE);
+        p.setIsPerecivel(Boolean.FALSE);
         p.setUnidadeMedida(UnitMeasurement.UN);
 
         when(pr.findById(4L)).thenReturn(Optional.of(p));
 
         com.example.SpringBootApp.repositories.VendaRepository vr = mock(com.example.SpringBootApp.repositories.VendaRepository.class);
         com.example.SpringBootApp.services.ConfiguracaoService cs = mock(com.example.SpringBootApp.services.ConfiguracaoService.class);
-        InventarioService svc = new InventarioService(cr, mr, pr, dr, vr, cs);
+        InventarioService inventarioService = new InventarioService(
+                compraRepository,
+                marcaRepository,
+                pr,
+                dr,
+                vr,
+                cs);
 
-        assertThrows(BusinessException.class, () -> svc.createPurchase(dto));
+        assertThrows(BusinessException.class, () -> inventarioService.createPurchase(dto));
     }
 }

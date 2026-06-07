@@ -61,25 +61,33 @@ public class InventarioService {
 
         List<Movimentacao> items = new ArrayList<>();
         for (CompraItemDTO itemDTO : purchaseDTO.getItems()) {
-            Produto Produto = ProdutoRepository.findById(itemDTO.getProductId()).get();
+            Produto produto = ProdutoRepository.findById(itemDTO.getProductId()).get();
+
+            if (saleVendaPriceSmallerThanCompraprice(itemDTO)) {
+                throw new BusinessException("Venda price must be higher than Compra price for product with id: " + produto.getId());
+            }
+
+            produto.setPrecoVenda(itemDTO.getUnitSalePrice());
 
             // validate expiring date according to product perishability
-            if (Boolean.TRUE.equals(Produto.getPerecivel())) {
+            if (produto.getIsPerecivel()) {
                 if (itemDTO.getExpiringDate() == null) {
-                    throw new BusinessException("Expiring date is required for perishable product with id: " + Produto.getId());
+                    throw new BusinessException("Expiring date is required for perishable product with id: " + produto.getId());
                 }
             } else {
                 if (itemDTO.getExpiringDate() != null) {
-                    throw new BusinessException("Expiring date must not be provided for non-perishable product with id: " + Produto.getId());
+                    throw new BusinessException("Expiring date must not be provided for non-perishable product with id: " + produto.getId());
                 }
             }
 
             // validação: se o produto for UN, quantidade deve ser inteira
-            if (Produto.getUnidadeMedida() == UnitMeasurement.UN) {
+            if (produto.getUnidadeMedida() == UnitMeasurement.UN) {
                 if (itemDTO.getQuantity() == null || itemDTO.getQuantity().stripTrailingZeros().scale() > 0) {
-                    throw new BusinessException("Quantidade deve ser inteira para produto com unidade UN id: " + Produto.getId());
+                    throw new BusinessException("Quantidade deve ser inteira para produto com unidade UN id: " + produto.getId());
                 }
             }
+
+            ProdutoRepository.save(produto);
 
             Movimentacao Movimentacao = new Movimentacao();
             Movimentacao.setQuantidade(itemDTO.getQuantity());
@@ -87,7 +95,7 @@ public class InventarioService {
             // For purchase movements, sale price must be null
             Movimentacao.setPrecoUnitarioVenda(null);
             Movimentacao.setDataValidade(itemDTO.getExpiringDate());
-            Movimentacao.setProduto(Produto);
+            Movimentacao.setProduto(produto);
             Movimentacao.setCompra(savedPurchase);
             Movimentacao.setVenda(null);
             Movimentacao.setTipoMovimentacao(MovementType.COMPRA);
@@ -97,6 +105,12 @@ public class InventarioService {
 
         savedPurchase.setItens(items);
         return savedPurchase;
+    }
+
+    private boolean saleVendaPriceSmallerThanCompraprice(CompraItemDTO itemDTO) {
+        BigDecimal vendaPrice = itemDTO.getUnitSalePrice();
+        BigDecimal compraPrice = itemDTO.getUnitPurchasePrice();
+        return (compraPrice.compareTo(vendaPrice) > 0);
     }
 
     public List<ProdutoComCompraEmEstoqueDTO> getProductsWithPurchaseInStock(){
@@ -208,7 +222,7 @@ public class InventarioService {
         }
 
         if (newExpiringDate != null) {
-            if (!Boolean.TRUE.equals(produto.getPerecivel())) {
+            if (!Boolean.TRUE.equals(produto.getIsPerecivel())) {
                 throw new BusinessException("Expiring date must not be provided for non-perishable product with id: " + produto.getId());
             }
             for (Movimentacao m : group) {

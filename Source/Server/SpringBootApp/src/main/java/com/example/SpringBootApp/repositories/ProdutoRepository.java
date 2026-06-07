@@ -33,7 +33,7 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
                 p.unidadeMedida,
                 p.precoVenda,
                 (SELECT COALESCE(SUM(m.quantidade), 0) FROM Movimentacao m WHERE m.produto = p),
-                p.perecivel,
+                p.isPerecivel,
                 p.estoqueMinimo
             )
             FROM Produto p
@@ -56,7 +56,7 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
                 p.unidadeMedida,
                 p.precoVenda,
                 (SELECT COALESCE(SUM(m.quantidade), 0) FROM Movimentacao m WHERE m.produto = p),
-                p.perecivel,
+                p.isPerecivel,
                 p.estoqueMinimo
             )
             FROM Produto p
@@ -74,7 +74,7 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
                 p.unidadeMedida,
                 p.precoVenda,
                 (SELECT COALESCE(SUM(m.quantidade), 0) FROM Movimentacao m WHERE m.produto = p),
-                p.perecivel,
+                p.isPerecivel,
                 p.estoqueMinimo
             )
             FROM Produto p

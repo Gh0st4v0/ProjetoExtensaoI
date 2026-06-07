@@ -44,13 +44,18 @@ class InventarioServiceCreatePurchaseUnitValidationTest {
     @Test
     void createPurchase_ShouldThrow_WhenProductUnitIsUNAndQuantityNotInteger() {
         Long productId = 10L;
-        CompraItemDTO item = new CompraItemDTO(productId, new BigDecimal("1.5000"), new BigDecimal("5.00"), null);
+        CompraItemDTO item = new CompraItemDTO(
+                productId,
+                new BigDecimal("1.5000"),
+                new BigDecimal("5.00"),
+                new BigDecimal("59.90"),
+                null);
         CompraCreateDTO dto = new CompraCreateDTO(LocalDate.now(), List.of(item));
 
         Produto p = new Produto();
         p.setId(productId);
         p.setUnidadeMedida(UnitMeasurement.UN);
-        p.setPerecivel(false);
+        p.setIsPerecivel(false);
 
         when(produtoRepository.findById(productId)).thenReturn(Optional.of(p));
 

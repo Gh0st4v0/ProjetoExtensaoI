@@ -283,9 +283,24 @@ export const PurchaseView = ({ navigate, preselectProduct }) => {
   // ── Form ──
   const [qty, setQty] = useState('')
   const [costDisplay, setCostDisplay] = useState('')
+  const [salePriceDisplay, setSalePriceDisplay] = useState('')
+  const [price, setPrice] = useState('')
   const [cost, setCost] = useState('')
   const [expiry, setExpiry] = useState('')
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().slice(0, 10))
+
+  const parsedCost = parseFloat(cost)
+  const parsedPrice = parseFloat(price)
+
+  let margin = null
+
+  if (
+    !isNaN(parsedCost) &&
+    !isNaN(parsedPrice) &&
+    parsedCost > 0
+  ) {
+    margin = ((parsedPrice - parsedCost) / parsedCost) * 100
+  }
 
   // min expiry date — only allow selecting from tomorrow
   const tomorrow = new Date()
@@ -368,25 +383,57 @@ export const PurchaseView = ({ navigate, preselectProduct }) => {
     setCost(cents > 0 ? String(cents / 100) : '')
   }
 
-  // ── Validation ──
-  const validate = () => {
-    const e = {}
-    if (!selected) e.product = 'Selecione um produto.'
-    const parsedQty = parseFloat(qty)
-    if (!qty || isNaN(parsedQty) || parsedQty <= 0) e.qty = 'Informe uma quantidade maior que zero.'
-    if (selected?.unit === 'UN' && !Number.isInteger(parsedQty)) e.qty = 'Produtos UN exigem quantidade inteira.'
-    const parsedCost = parseFloat(cost)
-    if (!cost || isNaN(parsedCost) || parsedCost <= 0) e.cost = 'Informe um preço de custo maior que zero.'
-    if (selected?.perecivel === true) {
-      if (!expiry) {
-        e.expiry = 'Data de validade obrigatória para produtos perecíveis.'
-      } else {
-        if (expiry < minExpiry) e.expiry = 'A validade deve ser a partir de amanhã.'
-      }
-    }
-    return e
+   const handleSalePriceChange = (e) => {
+    const digits = e.target.value.replace(/\D/g, '')
+    const cents = parseInt(digits || '0', 10)
+    setSalePriceDisplay(cents === 0 ? '' : (cents / 100).toFixed(2).replace('.', ','))
+    setPrice(cents > 0 ? String(cents / 100) : '')
   }
 
+ const validate = () => {
+  const e = {}
+
+  if (!selected) e.product = 'Selecione um produto.'
+
+  const parsedQty = parseFloat(qty)
+  if (!qty || isNaN(parsedQty) || parsedQty <= 0) {
+    e.qty = 'Informe uma quantidade maior que zero.'
+  }
+
+  if (selected?.unit === 'UN' && !Number.isInteger(parsedQty)) {
+    e.qty = 'Produtos UN exigem quantidade inteira.'
+  }
+
+  const parsedCost = parseFloat(cost)
+  if (!cost || isNaN(parsedCost) || parsedCost <= 0) {
+    e.cost = 'Informe um preço de custo maior que zero.'
+  }
+
+  const parsedPrice = parseFloat(price)
+  if (!price || isNaN(parsedPrice) || parsedPrice <= 0) {
+    e.price = 'Informe um preço de venda maior que zero.'
+  }
+
+  if (
+    !isNaN(parsedCost) &&
+    !isNaN(parsedPrice) &&
+    parsedPrice <= parsedCost
+  ) {
+    e.price = 'O preço de venda deve ser maior que o custo.'
+  }
+
+  if (selected?.perecivel === true) {
+    if (!expiry) {
+      e.expiry = 'Data de validade obrigatória para produtos perecíveis.'
+    } else {
+      if (expiry < minExpiry) {
+        e.expiry = 'A validade deve ser a partir de amanhã.'
+      }
+    }
+  }
+
+  return e
+}
   const handleAddToCart = () => {
     const e = validate()
     if (Object.keys(e).length > 0) { setErrors(e); return }
@@ -400,6 +447,7 @@ export const PurchaseView = ({ navigate, preselectProduct }) => {
       perecivel: selected.perecivel,
       qty: parseFloat(qty),
       cost: parseFloat(cost),
+      price: parseFloat(price),
       expiry: selected.perecivel ? expiry : null,
     }])
     setSelected(null)
@@ -423,6 +471,7 @@ export const PurchaseView = ({ navigate, preselectProduct }) => {
           productId: Number(it.productId),
           quantity: it.qty,
           unitPurchasePrice: it.cost,
+          unitSalePrice: it.price,
           expiringDate: it.expiry || null,
         })),
       })
@@ -454,6 +503,8 @@ export const PurchaseView = ({ navigate, preselectProduct }) => {
       render: i => <span>{i.unit === 'KG' ? `${Number(i.qty).toFixed(3)} kg` : `${i.qty} un`}</span> },
     { header: 'Custo Unit.', key: 'cost', style: { textAlign: 'right' },
       render: i => <span>R$ {Number(i.cost).toFixed(2).replace('.', ',')}</span> },
+    { header: 'Preço Venda Unit.', key: 'price', style: { textAlign: 'right' },
+      render: i => <span>R$ {Number(i.price).toFixed(2).replace('.', ',')}</span> },
     { header: 'Validade', key: 'expiry',
       render: i => i.expiry
         ? <span style={{ color: '#b45309', fontWeight: 600 }}>{i.expiry}</span>
@@ -587,6 +638,38 @@ export const PurchaseView = ({ navigate, preselectProduct }) => {
                     />
                   </InputWithSuffix>
                   {errors.cost && <ErrorHint>{errors.cost}</ErrorHint>}
+                </Field>
+                <Field>
+                  <Label>Preço de Venda</Label>
+
+                  <InputWithSuffix>
+                    <PrefixLabel>R$</PrefixLabel>
+                    <InputBase
+                      type='text'
+                      inputMode='numeric'
+                      value={salePriceDisplay}
+                      onChange={handleSalePriceChange}
+                      placeholder='0,00'
+                      $error={!!errors.salePrice}
+                      style={{ borderRadius: '0 8px 8px 0', borderLeft: 'none' }}
+                    />
+                  </InputWithSuffix>
+
+                  {errors.price && <ErrorHint>{errors.price}</ErrorHint>}
+
+                  {/* ✅ 👉 COLOCA AQUI */}
+                  {margin !== null && (
+                    <p style={{
+                      fontSize: '11px',
+                      marginTop: '4px',
+                      color: margin > 0 ? '#166534' : '#ba1a1a',
+                      fontWeight: 600
+                    }}>
+                      {margin > 0
+                        ? `Margem de lucro: ${margin.toFixed(2)}%`
+                        : 'Sem lucro'}
+                    </p>
+                  )}
                 </Field>
               </Grid2>
 
