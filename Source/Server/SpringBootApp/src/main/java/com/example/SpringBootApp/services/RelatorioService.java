@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -93,7 +92,7 @@ public class RelatorioService {
         }
         reportDTO.setPaymentMethod(pm);
         reportDTO.setSalesmanName(venda.getUsuario().getNome());
-        reportDTO.setHasDiscount(venda.getTemDesconto());
+        reportDTO.setHasDiscount(venda.getHasDesconto());
 
         List<VendItemReportDTO> itemDTOs = venda.getItens().stream()
                 .filter(movimentacao -> movimentacao.getQuantidade().compareTo(BigDecimal.ZERO) < 0)

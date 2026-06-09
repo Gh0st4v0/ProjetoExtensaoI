@@ -31,7 +31,7 @@ public class Venda {
     private List<VendaPagamento> pagamentos;
 
     @Column(name = "desconto")
-    private Boolean temDesconto;
+    private Boolean hasDesconto;
 
     @ManyToOne
     @JoinColumn(name = "fk_usuario_id")

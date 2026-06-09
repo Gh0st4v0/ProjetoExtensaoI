@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,8 +26,8 @@ public class ConfiguracaoService {
         c.setTaxaDebito(dto.getTaxaDebito());
         c.setTaxaCredito(dto.getTaxaCredito());
         c.setAcrescimoCredito(dto.getAcrescimoCredito() != null ? dto.getAcrescimoCredito() : java.math.BigDecimal.ZERO);
-        c.setCreatedAt(LocalDateTime.now());
-        c.setUpdatedAt(LocalDateTime.now());
+        c.setCreatedAt(LocalDateTime.now(ZoneId.of("GMT-03:00")));
+        c.setUpdatedAt(LocalDateTime.now(ZoneId.of("GMT-03:00")));
         return configuracaoRepository.save(c);
     }
 
@@ -48,8 +49,8 @@ public class ConfiguracaoService {
         c.setTaxaDebito(DEFAULT_TAXA_DEBITO);
         c.setTaxaCredito(DEFAULT_TAXA_CREDITO);
         c.setAcrescimoCredito(java.math.BigDecimal.ZERO);
-        c.setCreatedAt(LocalDateTime.now());
-        c.setUpdatedAt(LocalDateTime.now());
+        c.setCreatedAt(LocalDateTime.now(ZoneId.of("GMT-03:00")));
+        c.setUpdatedAt(LocalDateTime.now(ZoneId.of("GMT-03:00")));
         return c;
     }
 }

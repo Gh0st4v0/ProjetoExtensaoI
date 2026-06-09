@@ -1,27 +1,29 @@
 package com.example.SpringBootApp.services;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import com.example.SpringBootApp.DTOs.VendCreateDTO;
-import com.example.SpringBootApp.DTOs.VendItemDTO;
+import com.example.SpringBootApp.DTOs.*;
 import com.example.SpringBootApp.exceptions.ResourceNotFoundException;
 import com.example.SpringBootApp.exceptions.BusinessException;
 import com.example.SpringBootApp.models.*;
-import com.example.SpringBootApp.repositories.MovimentacaoRepository;
-import com.example.SpringBootApp.repositories.ProdutoRepository;
-import com.example.SpringBootApp.repositories.CompraRepository;
-import com.example.SpringBootApp.repositories.VendaRepository;
-import com.example.SpringBootApp.repositories.UsuarioRepository;
-import com.example.SpringBootApp.DTOs.DescarteCreateDTO;
-import com.example.SpringBootApp.DTOs.DescarteItemDTO;
-import com.example.SpringBootApp.models.DescarteType;
-import java.util.HashSet;
-import java.util.Set;
+import com.example.SpringBootApp.repositories.*;
+import com.example.SpringBootApp.mappers.VendaMapper;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 
@@ -30,283 +32,387 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class VendaService {
 
-    private final com.example.SpringBootApp.repositories.VendaPagamentoRepository vendaPagamentoRepository;
-
+    private final VendaPagamentoRepository vendaPagamentoRepository;
     private final VendaRepository vendaRepository;
     private final MovimentacaoRepository movimentacaoRepository;
     private final UsuarioRepository usuarioRepository;
     private final ProdutoRepository produtoRepository;
     private final CompraRepository compraRepository;
-    private final com.example.SpringBootApp.repositories.ClienteRepository clienteRepository;
-    private final com.example.SpringBootApp.services.InventarioService inventarioService;
-    private final com.example.SpringBootApp.services.ConfiguracaoService configuracaoService;
-    private static final java.math.BigDecimal AUTO_DISCARD_THRESHOLD_KG = new java.math.BigDecimal("0.1000");
-    
+    private final ClienteRepository clienteRepository;
+    private final InventarioService inventarioService;
+    private final ConfiguracaoService configuracaoService;
+
+    private static final BigDecimal AUTO_DISCARD_THRESHOLD_KG = new BigDecimal("0.1000");
+
+    // ─── THE STORY OF A SALE (MAIN METHOD) ───────────────────────────────────────
+
+    @Transactional
     public Venda createSale(VendCreateDTO saleDTO) {
-        Usuario usuario = usuarioRepository.findById(saleDTO.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("Usuario not found"));
+        Usuario usuario = getUserFromDTOIfExists(saleDTO);
+        Venda venda = createNewVendaWithInitialAtributes(saleDTO, usuario);
 
-        Venda venda = new Venda();
-        // Always use server time for the sale timestamp to avoid relying on client-provided date-only values
-        venda.setDataVenda(java.time.LocalDateTime.now());
-        venda.setTemDesconto(saleDTO.getHasDiscount());
-        venda.setUsuario(usuario);
-        
+        if (clientIsPresentInDTO(saleDTO)) {
+            venda.setCliente(getClientFromDTOIfExists(saleDTO));
+        }
 
-        Venda savedSale = vendaRepository.save(venda);
+        Venda savedVenda = vendaRepository.save(venda);
 
-        List<Movimentacao> items = new ArrayList<>();
-        java.util.Set<Long> purchasesDiscarded = new java.util.HashSet<>();
+        List<Movimentacao> itemsVendidos = new ArrayList<>();
+        Set<Long> purchasesDiscarded = new HashSet<>();
         BigDecimal computedTotal = BigDecimal.ZERO;
 
-        if (saleDTO.getClienteId() != null) {
-            Cliente cliente = clienteRepository.findById(saleDTO.getClienteId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Cliente not found with id: " + saleDTO.getClienteId()));
-            savedSale.setCliente(cliente);
-        }
-
         for (VendItemDTO itemDTO : saleDTO.getItems()) {
-            Produto produto = produtoRepository.findById(itemDTO.getProductId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Produto not found with id: " + itemDTO.getProductId()));
-
-            BigDecimal requiredQty = itemDTO.getQuantity() != null ? itemDTO.getQuantity() : BigDecimal.ZERO;
-
-            if (produto.getUnidadeMedida() == UnitMeasurement.UN) {
-                if (requiredQty == null || requiredQty.stripTrailingZeros().scale() > 0) {
-                    throw new BusinessException("Quantidade deve ser inteira para produto com unidade UN id: " + produto.getId());
-                }
-            }
-
-            BigDecimal totalAvailable = movimentacaoRepository.sumQuantityByProdutoId(produto.getId());
-            if (totalAvailable == null) totalAvailable = BigDecimal.ZERO;
-            if (totalAvailable.compareTo(requiredQty) < 0) {
-                throw new BusinessException("Quantidade insuficiente em estoque para o produto id: " + produto.getId());
-            }
-
-            List<Compra> allCompras = compraRepository.findComprasWithStockForProduct(produto.getId());
-            // Backwards-compatible fallback for tests/older mocks that stubbed compraRepository.findAll()
-            if (allCompras == null || allCompras.isEmpty()) {
-                allCompras = compraRepository.findAll();
-            }
-
-            BigDecimal remaining = requiredQty;
-            for (Compra compra : allCompras) {
-                if (remaining.compareTo(BigDecimal.ZERO) <= 0) break;
-                BigDecimal available = movimentacaoRepository.sumQuantityByPurchaseAndProduct(compra.getId(), produto.getId());
-                if (available == null) {
-                    // Fallback for older tests/mocks that stub sumQuantityByPurchaseId(purchaseId) instead
-                    available = movimentacaoRepository.sumQuantityByPurchaseId(compra.getId());
-                    if (available == null) available = BigDecimal.ZERO;
-                }
-                if (available.compareTo(BigDecimal.ZERO) <= 0) continue;
-
-                List<Movimentacao> movs = movimentacaoRepository.findByCompraIdAndProdutoId(compra.getId(), produto.getId());
-                if (movs == null || movs.isEmpty()) continue;
-                Movimentacao stockItem = movs.get(0);
-
-                BigDecimal allocate = available.min(remaining);
-
-                Movimentacao movimentacao = new Movimentacao();
-                movimentacao.setProduto(produto);
-                movimentacao.setCompra(compra);
-                movimentacao.setVenda(savedSale);
-                movimentacao.setQuantidade(allocate.multiply(BigDecimal.valueOf(-1)));
-                movimentacao.setTipoMovimentacao(MovementType.VENDA);
-
-                BigDecimal salePrice = itemDTO.getPrecoUnitarioVenda() != null ? itemDTO.getPrecoUnitarioVenda()
-                        : ((stockItem != null && stockItem.getPrecoUnitarioVenda() != null) ? stockItem.getPrecoUnitarioVenda()
-                                : (produto.getPrecoVenda() != null ? produto.getPrecoVenda() : BigDecimal.ZERO));
-                movimentacao.setPrecoUnitarioVenda(salePrice);
-                movimentacao.setPrecoUnitarioCompra(stockItem.getPrecoUnitarioCompra());
-
-                items.add(movimentacaoRepository.save(movimentacao));
-
-                if (produto.getUnidadeMedida() == UnitMeasurement.KG) {
-                    BigDecimal leftover = movimentacaoRepository.sumQuantityByPurchaseId(compra.getId());
-                    if (leftover == null) leftover = BigDecimal.ZERO;
-                    if (leftover.compareTo(BigDecimal.ZERO) > 0 && leftover.compareTo(AUTO_DISCARD_THRESHOLD_KG) < 0
-                            && !purchasesDiscarded.contains(compra.getId())) {
-                        DescarteItemDTO discardItem = new DescarteItemDTO(compra.getId(), produto.getId(), leftover);
-                        DescarteCreateDTO discardDTO = new DescarteCreateDTO(null, DescarteType.PERDA_PESO,
-                                java.util.List.of(discardItem));
-                        inventarioService.createDiscard(discardDTO);
-                        purchasesDiscarded.add(compra.getId());
-                    }
-                }
-
-                computedTotal = computedTotal.add(salePrice.multiply(allocate));
-                remaining = remaining.subtract(allocate);
-            }
-
-            if (remaining.compareTo(BigDecimal.ZERO) > 0) {
-                throw new BusinessException("Quantidade insuficiente em estoque para o produto id: " + produto.getId());
-            }
+            BigDecimal totalItemCalculated = processStockAndCalculateTotalForItem(itemDTO, savedVenda, itemsVendidos, purchasesDiscarded);
+            computedTotal = computedTotal.add(totalItemCalculated);
         }
 
+        computedTotal = applyDiscountIfApplicable(saleDTO, computedTotal);
+
+        savedVenda.setValorTotal(computedTotal);
+        savedVenda.setItens(itemsVendidos);
+
+        persistPayments(saleDTO, savedVenda, computedTotal);
+
+        return savedVenda;
+    }
+
+    // ─── DELEGATED COMPLEXITY (PRIVATE COMPONENT METHODS) ────────────────────────
+
+    private BigDecimal processStockAndCalculateTotalForItem(VendItemDTO itemDTO, Venda savedVenda, List<Movimentacao> itemsVendidos, Set<Long> purchasesDiscarded) {
+        Produto produto = getProductFromItemDTOIfExists(itemDTO);
+        BigDecimal requiredQuantity = getRequiredQuantityFromItemDTO(itemDTO);
+
+        validateUnidadeMedidaQuantidade(produto, requiredQuantity);
+        validateGlobalStockAvailability(produto, requiredQuantity);
+
+        List<Compra> activeCompras = fetchActiveComprasForProduct(produto.getId());
+        BigDecimal remainingToAllocate = requiredQuantity;
+        BigDecimal itemTotalValue = BigDecimal.ZERO;
+
+        for (Compra compra : activeCompras) {
+            if (remainingToAllocate.compareTo(BigDecimal.ZERO) <= 0) break;
+
+            BigDecimal availableInBatch = fetchAvailableStockInBatch(compra.getId(), produto.getId());
+            if (availableInBatch.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+            Movimentacao stockItemReference = fetchStockItemReference(compra.getId(), produto.getId());
+            BigDecimal quantityToAllocate = availableInBatch.min(remainingToAllocate);
+
+            // Create and persist individual stock movement
+            Movimentacao movimentacao = createMovimentacaoVenda(produto, compra, savedVenda, quantityToAllocate, itemDTO, stockItemReference);
+            itemsVendidos.add(movimentacaoRepository.save(movimentacao));
+
+            // Optional auto-discard rule for weight products (KG)
+            handleAutoDiscardIfApplicable(produto, compra, purchasesDiscarded);
+
+            BigDecimal calculatedPrice = movimentacao.getPrecoUnitarioVenda();
+            itemTotalValue = itemTotalValue.add(calculatedPrice.multiply(quantityToAllocate));
+            remainingToAllocate = remainingToAllocate.subtract(quantityToAllocate);
+        }
+
+        if (remainingToAllocate.compareTo(BigDecimal.ZERO) > 0) {
+            throw new BusinessException("Quantidade insuficiente em estoque para o produto id: " + produto.getId());
+        }
+
+        return itemTotalValue;
+    }
+
+    private void validateGlobalStockAvailability(Produto produto, BigDecimal requiredQuantity) {
+        BigDecimal totalAvailable = movimentacaoRepository.sumQuantityByProdutoId(produto.getId());
+        if (totalAvailable == null) totalAvailable = BigDecimal.ZERO;
+        if (totalAvailable.compareTo(requiredQuantity) < 0) {
+            throw new BusinessException("Quantidade insuficiente em estoque para o produto id: " + produto.getId());
+        }
+    }
+
+    private List<Compra> fetchActiveComprasForProduct(Long produtoId) {
+        List<Compra> allCompras = compraRepository.findComprasWithStockForProduct(produtoId);
+        if (allCompras == null || allCompras.isEmpty()) {
+            return compraRepository.findAll(); // Backwards-compatible fallback for tests/older mocks
+        }
+        return allCompras;
+    }
+
+    private BigDecimal fetchAvailableStockInBatch(Long compraId, Long produtoId) {
+        BigDecimal available = movimentacaoRepository.sumQuantityByPurchaseAndProduct(compraId, produtoId);
+        if (available == null) {
+            available = movimentacaoRepository.sumQuantityByPurchaseId(compraId); // Fallback for older tests/mocks
+            if (available == null) available = BigDecimal.ZERO;
+        }
+        return available;
+    }
+
+    private Movimentacao fetchStockItemReference(Long compraId, Long produtoId) {
+        List<Movimentacao> movs = movimentacaoRepository.findByCompraIdAndProdutoId(compraId, produtoId);
+        if (movs == null || movs.isEmpty()) return null;
+        return movs.get(0);
+    }
+
+    private Movimentacao createMovimentacaoVenda(Produto produto, Compra compra, Venda venda, BigDecimal allocate, VendItemDTO itemDTO, Movimentacao stockItem) {
+        Movimentacao movimentacao = new Movimentacao();
+        movimentacao.setProduto(produto);
+        movimentacao.setCompra(compra);
+        movimentacao.setVenda(venda);
+        movimentacao.setQuantidade(allocate.multiply(BigDecimal.valueOf(-1)));
+        movimentacao.setTipoMovimentacao(MovementType.VENDA);
+
+        BigDecimal salePrice = itemDTO.getPrecoUnitarioVenda() != null ? itemDTO.getPrecoUnitarioVenda()
+                : ((stockItem != null && stockItem.getPrecoUnitarioVenda() != null) ? stockItem.getPrecoUnitarioVenda()
+                : (produto.getPrecoVenda() != null ? produto.getPrecoVenda() : BigDecimal.ZERO));
+
+        movimentacao.setPrecoUnitarioVenda(salePrice);
+        movimentacao.setPrecoUnitarioCompra(stockItem != null ? stockItem.getPrecoUnitarioCompra() : BigDecimal.ZERO);
+
+        return movimentacao;
+    }
+
+    private void handleAutoDiscardIfApplicable(Produto produto, Compra compra, Set<Long> purchasesDiscarded) {
+        if (produto.getUnidadeMedida() == UnitMeasurement.KG) {
+            BigDecimal leftover = movimentacaoRepository.sumQuantityByPurchaseId(compra.getId());
+            if (leftover == null) leftover = BigDecimal.ZERO;
+
+            if (leftover.compareTo(BigDecimal.ZERO) > 0 && leftover.compareTo(AUTO_DISCARD_THRESHOLD_KG) < 0
+                    && !purchasesDiscarded.contains(compra.getId())) {
+
+                DescarteItemDTO discardItem = new DescarteItemDTO(compra.getId(), produto.getId(), leftover);
+                DescarteCreateDTO discardDTO = new DescarteCreateDTO(null, DescarteType.PERDA_PESO, List.of(discardItem));
+
+                inventarioService.createDiscard(discardDTO);
+                purchasesDiscarded.add(compra.getId());
+            }
+        }
+    }
+
+    private BigDecimal applyDiscountIfApplicable(VendCreateDTO saleDTO, BigDecimal computedTotal) {
         if (saleDTO.getHasDiscount() != null && saleDTO.getHasDiscount()) {
-            computedTotal = computedTotal.multiply(new BigDecimal("0.95"));
+            return computedTotal.multiply(new BigDecimal("0.95"));
         }
-
-        savedSale.setValorTotal(computedTotal);
-        savedSale.setItens(items);
-
-        // persist payments (supports split payments and credit surcharge)
-        persistPayments(saleDTO, savedSale, computedTotal);
-
-        return savedSale;
+        return computedTotal;
     }
 
-    public org.springframework.data.domain.Page<com.example.SpringBootApp.DTOs.VendaResponseDTO> listSales(int page, int size) {
-        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, org.springframework.data.domain.Sort.by("dataVenda").descending());
-        org.springframework.data.domain.Page<Venda> vendas = vendaRepository.findAll(pageable);
-        return vendas.map(com.example.SpringBootApp.mappers.VendaMapper::toResponse);
+    // ─── ALREADY EXISTING HELPERS & CONTEXT DISCOVERY ───────────────────────────
+
+    private Produto getProductFromItemDTOIfExists(VendItemDTO itemDTO) {
+        return produtoRepository.findById(itemDTO.getProductId())
+                .orElseThrow(() -> new ResourceNotFoundException("Produto not found with id: " + itemDTO.getProductId()));
     }
 
-    public com.example.SpringBootApp.DTOs.VendaResponseDTO getSaleById(Long id) {
+    private Cliente getClientFromDTOIfExists(VendCreateDTO saleDTO) {
+        return clienteRepository.findById(saleDTO.getClienteId())
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente not found with id: " + saleDTO.getClienteId()));
+    }
+
+    private boolean clientIsPresentInDTO(VendCreateDTO saleDTO) {
+        return saleDTO.getClienteId() != null;
+    }
+
+    private Usuario getUserFromDTOIfExists(VendCreateDTO saleDTO) {
+        return usuarioRepository.findById(saleDTO.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario not found"));
+    }
+
+    private BigDecimal getRequiredQuantityFromItemDTO(VendItemDTO itemDTO) {
+        return itemDTO.getQuantity() != null ? itemDTO.getQuantity() : BigDecimal.ZERO;
+    }
+
+    private void validateUnidadeMedidaQuantidade(Produto produto, BigDecimal requiredQuantity) {
+        if (produto.getUnidadeMedida() == UnitMeasurement.UN) {
+            if (requiredQuantity.stripTrailingZeros().scale() > 0) {
+                throw new BusinessException("Quantidade deve ser inteira para produto com unidade UN id: " + produto.getId());
+            }
+        }
+    }
+
+    private Venda createNewVendaWithInitialAtributes(VendCreateDTO saleDTO, Usuario usuario) {
+        Venda venda = new Venda();
+        venda.setDataVenda(LocalDateTime.now(ZoneId.of("GMT-03:00")));
+        venda.setHasDesconto(saleDTO.getHasDiscount());
+        venda.setUsuario(usuario);
+        return venda;
+    }
+
+    // ─── QUERY OPERATIONS (PAGINATION AND SEARCH) ────────────────────────────────
+
+    public Page<VendaResponseDTO> listSales(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("dataVenda").descending());
+        Page<Venda> vendas = vendaRepository.findAll(pageable);
+        return vendas.map(VendaMapper::toResponse);
+    }
+
+    public VendaResponseDTO getSaleById(Long id) {
         Venda venda = vendaRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Venda not found"));
-        return com.example.SpringBootApp.mappers.VendaMapper.toResponse(venda);
+        return VendaMapper.toResponse(venda);
     }
 
-    public java.util.List<com.example.SpringBootApp.DTOs.VendaResponseDTO> getSalesByClientId(Long clienteId) {
+    public List<VendaResponseDTO> getSalesByClientId(Long clienteId) {
         return vendaRepository.findByClienteIdOrderByDataVendaDesc(clienteId)
                 .stream()
-                .map(com.example.SpringBootApp.mappers.VendaMapper::toResponse)
+                .map(VendaMapper::toResponse)
                 .toList();
     }
 
-    public org.springframework.data.domain.Page<com.example.SpringBootApp.DTOs.VendaResponseDTO> getSalesByClientId(
-            Long clienteId, int page, int size) {
+    public Page<VendaResponseDTO> getSalesByClientId(Long clienteId, int page, int size) {
         int cappedSize = Math.min(size, 200);
-        java.util.List<com.example.SpringBootApp.DTOs.VendaResponseDTO> all =
-            vendaRepository.findByClienteIdOrderByDataVendaDesc(clienteId)
+        List<VendaResponseDTO> all = vendaRepository.findByClienteIdOrderByDataVendaDesc(clienteId)
                 .stream()
-                .map(com.example.SpringBootApp.mappers.VendaMapper::toResponse)
+                .map(VendaMapper::toResponse)
                 .toList();
         int start = page * cappedSize;
-        java.util.List<com.example.SpringBootApp.DTOs.VendaResponseDTO> content = start >= all.size()
-            ? java.util.Collections.emptyList()
-            : all.subList(start, Math.min(start + cappedSize, all.size()));
-        return new org.springframework.data.domain.PageImpl<>(
-            content,
-            org.springframework.data.domain.PageRequest.of(page, cappedSize,
-                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "dataVenda")),
-            all.size());
+        List<VendaResponseDTO> content = start >= all.size()
+                ? Collections.emptyList()
+                : all.subList(start, Math.min(start + cappedSize, all.size()));
+        return new PageImpl<>(
+                content,
+                PageRequest.of(page, cappedSize, Sort.by(Sort.Direction.DESC, "dataVenda")),
+                all.size());
     }
 
-    private void persistPayments(com.example.SpringBootApp.DTOs.VendCreateDTO saleDTO, Venda savedSale, java.math.BigDecimal computedTotal) {
-        com.example.SpringBootApp.models.Configuracao config = null;
-        try {
-            config = configuracaoService.getConfiguracaoForDate(savedSale.getDataVenda());
-        } catch (Exception e) {
-            // best-effort fallback
-            try { config = configuracaoService.getLatestConfiguracao().orElse(null); } catch (Exception ex) { config = null; }
-        }
+    // ─── BILLING, SETTLEMENT & LEGACY METHODS ────────────────────────────────────
 
-        java.math.BigDecimal expectedTotal = computedTotal != null ? computedTotal.setScale(2, java.math.RoundingMode.HALF_UP) : java.math.BigDecimal.ZERO;
+    private void persistPayments(VendCreateDTO saleDTO, Venda savedSale, BigDecimal computedTotal) {
+        Configuracao config = configuracaoService.getConfiguracaoForDate(savedSale.getDataVenda());
+        BigDecimal expectedTotal = computedTotal != null ? computedTotal.setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
         applyPaymentsToSale(savedSale, saleDTO.getPayments(), saleDTO.getPaymentMethod(), expectedTotal, config);
     }
 
-    public void updateSalePayments(Long saleId, java.util.List<com.example.SpringBootApp.DTOs.VendPaymentDTO> payments) {
+    public void updateSalePayments(Long saleId, List<VendaPaymentDTO> payments) {
         Venda venda = vendaRepository.findById(saleId).orElseThrow(() -> new ResourceNotFoundException("Venda not found"));
-        java.util.List<VendaPagamento> existing = vendaPagamentoRepository != null ? vendaPagamentoRepository.findByVendaId(saleId) : java.util.List.of();
+        List<VendaPagamento> existing = vendaPagamentoRepository != null ? vendaPagamentoRepository.findByVendaId(saleId) : List.of();
         if (existing != null && !existing.isEmpty()) {
             vendaPagamentoRepository.deleteAll(existing);
         }
 
-        com.example.SpringBootApp.models.Configuracao config = null;
+        Configuracao config = null;
         try {
             config = configuracaoService.getConfiguracaoForDate(venda.getDataVenda());
         } catch (Exception e) {
             try { config = configuracaoService.getLatestConfiguracao().orElse(null); } catch (Exception ex) { config = null; }
         }
-        java.math.BigDecimal expectedTotal = venda.getValorTotal() != null ? venda.getValorTotal().setScale(2, java.math.RoundingMode.HALF_UP) : java.math.BigDecimal.ZERO;
+        BigDecimal expectedTotal = venda.getValorTotal() != null ? venda.getValorTotal().setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
         applyPaymentsToSale(venda, payments, null, expectedTotal, config);
         vendaRepository.save(venda);
     }
 
-    private void applyPaymentsToSale(Venda sale, java.util.List<com.example.SpringBootApp.DTOs.VendPaymentDTO> payments, com.example.SpringBootApp.models.PaymentMethod fallbackPm, java.math.BigDecimal expectedTotal, com.example.SpringBootApp.models.Configuracao config) {
-        java.util.List<VendaPagamento> created = new java.util.ArrayList<>();
+    private void applyPaymentsToSale(Venda sale, List<VendaPaymentDTO> payments, PaymentMethod fallbackPm, BigDecimal expectedTotal, Configuracao config) {
+        List<VendaPagamento> created = new ArrayList<>();
 
-        java.math.BigDecimal defaultCredit = new java.math.BigDecimal("5.00");
-        java.math.BigDecimal defaultDebit = java.math.BigDecimal.ZERO;
-        java.math.BigDecimal taxaCredito = config != null && config.getTaxaCredito() != null ? config.getTaxaCredito() : defaultCredit;
-        java.math.BigDecimal taxaDebito = config != null && config.getTaxaDebito() != null ? config.getTaxaDebito() : defaultDebit;
+        // 1. Definição do acréscimo de crédito padrão do sistema para o cliente (5%)
+        BigDecimal defaultAcrescimoCredito = new BigDecimal("5.00");
+        BigDecimal acrescimoCreditoPercent = (config != null && config.getAcrescimoCredito() != null)
+                ? config.getAcrescimoCredito()
+                : defaultAcrescimoCredito;
 
+        // ─── BLOCO 1: PAGAMENTO ÚNICO (Caso a lista venha vazia ou nula) ───────────────────
         if (payments == null || payments.isEmpty()) {
-            com.example.SpringBootApp.models.PaymentMethod pm = fallbackPm;
-            java.math.BigDecimal valor = expectedTotal;
-            java.math.BigDecimal percent = (pm == com.example.SpringBootApp.models.PaymentMethod.CREDITO) ? taxaCredito : (pm == com.example.SpringBootApp.models.PaymentMethod.DEBITO ? taxaDebito : java.math.BigDecimal.ZERO);
-            java.math.BigDecimal acrescimo = valor.multiply(percent).divide(new java.math.BigDecimal("100"), 4, java.math.RoundingMode.HALF_UP);
-            java.math.BigDecimal valorPago = valor.add(acrescimo);
+            PaymentMethod pm = fallbackPm;
+            BigDecimal valor = expectedTotal;
+
+            // Aplica o percentual de acréscimo configurado apenas se for CRÉDITO
+            BigDecimal percent = (pm == PaymentMethod.CREDITO) ? acrescimoCreditoPercent : BigDecimal.ZERO;
+            BigDecimal acrescimo = valor.multiply(percent).divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP);
+            BigDecimal valorPago = valor.add(acrescimo);
 
             VendaPagamento vp = new VendaPagamento();
             vp.setVenda(sale);
             vp.setMetodoPagamento(pm);
-            vp.setValor(valor);
-            vp.setAcrescimoPercent(percent);
-            vp.setAcrescimoValor(acrescimo);
-            vp.setValorPago(valorPago);
+            vp.setValor(valor.setScale(2, RoundingMode.HALF_UP));
+            vp.setAcrescimoPercent(percent.setScale(2, RoundingMode.HALF_UP));
+            vp.setAcrescimoValor(acrescimo.setScale(2, RoundingMode.HALF_UP));
+            vp.setValorPago(valorPago.setScale(2, RoundingMode.HALF_UP));
+            vp.setCriadoEm(LocalDateTime.now(ZoneId.of("America/Sao_Paulo")));
+
             created.add(vp);
-            if (vendaPagamentoRepository != null) vendaPagamentoRepository.save(vp);
-        } else {
-            java.math.BigDecimal sum = java.math.BigDecimal.ZERO;
-            for (com.example.SpringBootApp.DTOs.VendPaymentDTO p : payments) {
-                java.math.BigDecimal v = p.getValor() != null ? p.getValor() : java.math.BigDecimal.ZERO;
+            if (vendaPagamentoRepository != null) {
+                vendaPagamentoRepository.save(vp);
+            }
+        }
+        // ─── BLOCO 2: SPLIT PAYMENTS / LISTA DE PAGAMENTOS VINDOS DO FRONT ──────────────────
+        else {
+            // Soma os valores LÍQUIDOS enviados pelo front-end
+            BigDecimal sum = BigDecimal.ZERO;
+            for (VendaPaymentDTO p : payments) {
+                BigDecimal v = p.getValor() != null ? p.getValor() : BigDecimal.ZERO;
                 sum = sum.add(v);
             }
-            sum = sum.setScale(2, java.math.RoundingMode.HALF_UP);
+            sum = sum.setScale(2, RoundingMode.HALF_UP);
 
-            long expectedCents = expectedTotal.multiply(new java.math.BigDecimal("100")).setScale(0, java.math.RoundingMode.HALF_UP).longValue();
-            long sumCents = sum.multiply(new java.math.BigDecimal("100")).setScale(0, java.math.RoundingMode.HALF_UP).longValue();
+            long expectedCents = expectedTotal.multiply(new BigDecimal("100")).setScale(0, RoundingMode.HALF_UP).longValue();
+            long sumCents = sum.multiply(new BigDecimal("100")).setScale(0, RoundingMode.HALF_UP).longValue();
 
+            // Validação de segurança: a soma líquida não pode passar o valor dos produtos
             if (sumCents > expectedCents) {
                 throw new BusinessException("Total dos pagamentos excede o valor total da venda");
             }
 
+            // Ajuste automático de dízimas periódicas de centavos (ex: dividir 100 reais em 3x)
             long diffCents = expectedCents - sumCents;
             if (diffCents != 0 && !payments.isEmpty()) {
                 for (int i = payments.size() - 1; i >= 0; i--) {
-                    com.example.SpringBootApp.DTOs.VendPaymentDTO last = payments.get(i);
-                    if (last.getValor() == null) last.setValor(java.math.BigDecimal.ZERO);
-                    last.setValor(last.getValor().add(new java.math.BigDecimal(diffCents).divide(new java.math.BigDecimal("100")).setScale(2, java.math.RoundingMode.HALF_UP)));
+                    VendaPaymentDTO last = payments.get(i);
+                    if (last.getValor() == null) last.setValor(BigDecimal.ZERO);
+
+                    BigDecimal valorAjustado = last.getValor().add(
+                            new BigDecimal(diffCents).divide(new BigDecimal("100")).setScale(2, RoundingMode.HALF_UP)
+                    );
+                    last.setValor(valorAjustado);
+
+                    // Como alteramos o valor líquido da última linha para fechar a conta,
+                    // precisamos recalcular o acréscimo e o valor pago dela proporcionalmente
+                    if (last.getPaymentMethod() == PaymentMethod.CREDITO) {
+                        BigDecimal novoAcrescimo = valorAjustado.multiply(acrescimoCreditoPercent).divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP);
+                        last.setAcrescimoValor(novoAcrescimo);
+                        last.setValorPago(valorAjustado.add(novoAcrescimo));
+                    } else {
+                        last.setAcrescimoValor(BigDecimal.ZERO);
+                        last.setValorPago(valorAjustado);
+                    }
                     break;
                 }
             }
 
-            for (com.example.SpringBootApp.DTOs.VendPaymentDTO p : payments) {
-                com.example.SpringBootApp.models.PaymentMethod pm = p.getPaymentMethod();
-                java.math.BigDecimal valor = p.getValor() != null ? p.getValor().setScale(2, java.math.RoundingMode.HALF_UP) : java.math.BigDecimal.ZERO;
-                java.math.BigDecimal percent = (pm == com.example.SpringBootApp.models.PaymentMethod.CREDITO) ? taxaCredito : (pm == com.example.SpringBootApp.models.PaymentMethod.DEBITO ? taxaDebito : java.math.BigDecimal.ZERO);
-                java.math.BigDecimal acrescimo = valor.multiply(percent).divide(new java.math.BigDecimal("100"), 4, java.math.RoundingMode.HALF_UP);
-                java.math.BigDecimal valorPago = valor.add(acrescimo);
+            // Persistência direta das linhas validadas no banco de dados
+            for (VendaPaymentDTO p : payments) {
+                PaymentMethod pm = p.getPaymentMethod();
 
                 VendaPagamento vp = new VendaPagamento();
                 vp.setVenda(sale);
                 vp.setMetodoPagamento(pm);
-                vp.setValor(valor);
-                vp.setAcrescimoPercent(percent);
-                vp.setAcrescimoValor(acrescimo);
-                vp.setValorPago(valorPago);
+
+                // Atribui os valores líquidos e cheios mapeados de forma direta do DTO do front
+                vp.setValor(p.getValor() != null ? p.getValor().setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO);
+
+                // Determina o percentual correto baseado no consenso (Apenas crédito cobra acréscimo)
+                BigDecimal percentAplicado = (pm == PaymentMethod.CREDITO) ? acrescimoCreditoPercent : BigDecimal.ZERO;
+                vp.setAcrescimoPercent(percentAplicado.setScale(2, RoundingMode.HALF_UP));
+
+                // Recupera os valores de acréscimo em espécie e total pago enviados pelo front
+                vp.setAcrescimoValor(p.getAcrescimoValor() != null ? p.getAcrescimoValor().setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO);
+                vp.setValorPago(p.getValorPago() != null ? p.getValorPago().setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO);
+
+                vp.setCriadoEm(LocalDateTime.now(ZoneId.of("America/Sao_Paulo")));
+
                 created.add(vp);
-                if (vendaPagamentoRepository != null) vendaPagamentoRepository.save(vp);
+                if (vendaPagamentoRepository != null) {
+                    vendaPagamentoRepository.save(vp);
+                }
             }
         }
 
-        if (!created.isEmpty()) sale.setPagamentos(created);
+        if (!created.isEmpty()) {
+            sale.setPagamentos(created);
+        }
     }
 
-    public static java.util.List<java.math.BigDecimal> equalSplit(java.math.BigDecimal total, int parts) {
+    public static List<BigDecimal> equalSplit(BigDecimal total, int parts) {
         if (parts <= 0) throw new IllegalArgumentException("parts must be > 0");
-        long totalCents = total.multiply(new java.math.BigDecimal("100")).setScale(0, java.math.RoundingMode.HALF_UP).longValue();
+        long totalCents = total.multiply(new BigDecimal("100")).setScale(0, RoundingMode.HALF_UP).longValue();
         long base = totalCents / parts;
         long remainder = totalCents - base * parts;
-        java.util.List<java.math.BigDecimal> result = new java.util.ArrayList<>();
+        List<BigDecimal> result = new ArrayList<>();
         for (int i = 0; i < parts; i++) {
             long cents = base + (i == parts - 1 ? remainder : 0);
-            result.add(new java.math.BigDecimal(cents).divide(new java.math.BigDecimal("100")).setScale(2, java.math.RoundingMode.HALF_UP));
+            result.add(new BigDecimal(cents).divide(new BigDecimal("100")).setScale(2, RoundingMode.HALF_UP));
         }
         return result;
-    }}
-
-
-
+    }
+}

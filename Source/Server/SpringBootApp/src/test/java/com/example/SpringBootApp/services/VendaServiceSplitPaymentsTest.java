@@ -2,9 +2,10 @@ package com.example.SpringBootApp.services;
 
 import com.example.SpringBootApp.DTOs.VendCreateDTO;
 import com.example.SpringBootApp.DTOs.VendItemDTO;
-import com.example.SpringBootApp.DTOs.VendPaymentDTO;
+import com.example.SpringBootApp.DTOs.VendaPaymentDTO;
 import com.example.SpringBootApp.models.*;
 import com.example.SpringBootApp.repositories.*;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -14,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -46,6 +48,21 @@ class VendaServiceSplitPaymentsTest {
 
     @InjectMocks
     private VendaService vendaService;
+
+    @Mock
+    private com.example.SpringBootApp.services.ConfiguracaoService configuracaoService;
+
+    @BeforeEach
+    void setUp() {
+        Configuracao mockConfig = new Configuracao();
+        mockConfig.setAcrescimoCredito(new BigDecimal("5.00"));
+        mockConfig.setTaxaCredito(new BigDecimal("2.00"));
+        mockConfig.setTaxaDebito(BigDecimal.ZERO);
+
+        // any(LocalDateTime.class) blinda o teste contra diferenças de formatação ou fuso horário (GMT-03 / America/Sao_Paulo)
+        lenient().when(configuracaoService.getConfiguracaoForDate(any(LocalDateTime.class)))
+                .thenReturn(mockConfig);
+    }
 
     @Test
     void createSale_withSplitPayments_appliesCreditSurchargeAndPersistsPayments() {
@@ -82,8 +99,18 @@ class VendaServiceSplitPaymentsTest {
         saleDTO.setItems(List.of(item));
 
         // payments: PIX 30, CREDITO 70
-        VendPaymentDTO p1 = new VendPaymentDTO(PaymentMethod.PIX, new BigDecimal("30.00"), null, null);
-        VendPaymentDTO p2 = new VendPaymentDTO(PaymentMethod.CREDITO, new BigDecimal("70.00"), null, null);
+        VendaPaymentDTO p1 = new VendaPaymentDTO(
+                PaymentMethod.PIX,
+                new BigDecimal("30.00"),
+                new BigDecimal("0"),
+                new BigDecimal("0"),
+                new BigDecimal("30.00"));
+        VendaPaymentDTO p2 = new VendaPaymentDTO(
+                PaymentMethod.CREDITO,
+                new BigDecimal("70.00"),
+                new BigDecimal("5"),
+                new BigDecimal("3.50"),
+                new BigDecimal("73.50"));
         saleDTO.setPayments(List.of(p1, p2));
 
         when(vendaRepository.save(any(Venda.class))).thenAnswer(i -> { Venda v = i.getArgument(0); v.setId(900L); return v; });
@@ -101,9 +128,9 @@ class VendaServiceSplitPaymentsTest {
         // find credit payment
         VendaPagamento credit = savedPayments.stream().filter(p -> p.getMetodoPagamento() == PaymentMethod.CREDITO).findFirst().orElse(null);
         assertNotNull(credit);
-        assertEquals(new BigDecimal("70.0000"), credit.getValor().setScale(4));
-        assertEquals(new BigDecimal("3.5000"), credit.getAcrescimoValor());
-        assertEquals(new BigDecimal("73.5000"), credit.getValorPago());
+        assertEquals(new BigDecimal("70.00"), credit.getValor());
+        assertEquals(new BigDecimal("3.50"), credit.getAcrescimoValor());
+        assertEquals(new BigDecimal("73.50"), credit.getValorPago());
     }
 
 }

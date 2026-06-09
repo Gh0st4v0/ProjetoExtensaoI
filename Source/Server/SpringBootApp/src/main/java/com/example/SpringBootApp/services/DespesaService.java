@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 @RequiredArgsConstructor
@@ -27,8 +28,8 @@ public class DespesaService {
         d.setCategoria(dto.getCategoria());
         d.setValor(dto.getValor().setScale(2, java.math.RoundingMode.HALF_UP));
         d.setDataDespesa(dto.getDataDespesa() != null ? dto.getDataDespesa() : java.time.LocalDate.now());
-        d.setCreatedAt(java.time.LocalDateTime.now());
-        d.setUpdatedAt(java.time.LocalDateTime.now());
+        d.setCreatedAt(java.time.LocalDateTime.now(ZoneId.of("GMT-03:00")));
+        d.setUpdatedAt(java.time.LocalDateTime.now(ZoneId.of("GMT-03:00")));
 
         return despesaRepository.save(d);
     }
@@ -46,7 +47,7 @@ public class DespesaService {
         if (dto.getCategoria() != null) existing.setCategoria(dto.getCategoria());
         if (dto.getValor() != null && dto.getValor().compareTo(BigDecimal.ZERO) > 0) existing.setValor(dto.getValor().setScale(2, java.math.RoundingMode.HALF_UP));
         if (dto.getDataDespesa() != null) existing.setDataDespesa(dto.getDataDespesa());
-        existing.setUpdatedAt(java.time.LocalDateTime.now());
+        existing.setUpdatedAt(java.time.LocalDateTime.now(ZoneId.of("GMT-03:00")));
         return despesaRepository.save(existing);
     }
 

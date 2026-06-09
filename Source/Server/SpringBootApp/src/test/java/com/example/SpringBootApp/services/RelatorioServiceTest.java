@@ -55,7 +55,7 @@ class RelatorioServiceTest {
         Usuario u = new Usuario();
         u.setNome("Seller");
         v.setUsuario(u);
-        v.setTemDesconto(false);
+        v.setHasDesconto(false);
         v.setItens(List.of(m));
         m.setVenda(v);
 

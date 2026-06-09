@@ -2,6 +2,7 @@ package com.example.SpringBootApp.controllers;
 
 import com.example.SpringBootApp.DTOs.VendCreateDTO;
 import com.example.SpringBootApp.DTOs.VendReportDTO;
+import com.example.SpringBootApp.DTOs.VendaPaymentDTO;
 import com.example.SpringBootApp.models.Venda;
 import com.example.SpringBootApp.services.RelatorioService;
 import com.example.SpringBootApp.services.VendaService;
@@ -94,7 +95,7 @@ public class VendaController {
     }
 
     @PutMapping("/{id}/payments")
-    public ResponseEntity<?> updateSalePayments(@PathVariable Long id, @RequestBody List<com.example.SpringBootApp.DTOs.VendPaymentDTO> payments) {
+    public ResponseEntity<?> updateSalePayments(@PathVariable Long id, @RequestBody List<VendaPaymentDTO> payments) {
         VendaService.updateSalePayments(id, payments);
         return ResponseEntity.ok().build();
     }

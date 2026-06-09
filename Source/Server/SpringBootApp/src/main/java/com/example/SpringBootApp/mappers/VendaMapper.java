@@ -65,7 +65,7 @@ public class VendaMapper {
             dto.setSurchargeTotal(surcharge);
         }
 
-        dto.setHasDiscount(venda.getTemDesconto());
+        dto.setHasDiscount(venda.getHasDesconto());
         dto.setTotalValue(venda.getValorTotal());
 
         List<Movimentacao> movs = venda.getItens();
