@@ -69,7 +69,7 @@ public class ProdutoController {
         dto.put("name", p.getNome());
         dto.put("code", p.getCodigo());
         dto.put("unitMeasurement", p.getUnidadeMedida());
-        dto.put("perecivel", p.getPerecivel());
+        dto.put("perecivel", p.getIsPerecivel());
         dto.put("precoVenda", p.getPrecoVenda());
         dto.put("categoryId", p.getCategoria() != null ? p.getCategoria().getId() : null);
         dto.put("categoryName", p.getCategoria() != null ? p.getCategoria().getNome() : null);

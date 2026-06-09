@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   db:
     image: postgres:18
@@ -11,9 +9,15 @@ services:
       - POSTGRES_USER=${DB_USERNAME}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
-      - db-data:/var/lib/postgresql/data
+      # CORREÇÃO AQUI: Removido o "/data" do final do lado do container
+      - /home/ubuntu/app/db-data:/var/lib/postgresql
     ports:
       - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   backend:
     image: ${BACKEND_IMAGE}
@@ -21,26 +25,46 @@ services:
     env_file:
       - .env
     depends_on:
-      - db
-    ports:
-      - "${BACKEND_PORT:-8080}:8080"
+      db:
+        condition: service_healthy
 
-  migrate:
-    image: postgres:18
-    env_file:
-      - .env
-    volumes:
-      - ./migrations:/migrations:ro
+  # migrate:
+  #   image: postgres:18
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     - PGPASSWORD=${DB_PASSWORD}
+  #     - PGUSER=${DB_USERNAME}
+  #     - PGDATABASE=${DB_NAME}
+  #     - PGHOST=db
+  #   volumes:
+  #     - ./migrations:/migrations:ro
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #   entrypoint:
+  #     - /bin/sh
+  #     - -c
+  #     - |
+  #       for f in $$(ls /migrations/V*.sql | sort -V); do
+  #         echo "Applying $$f"
+  #         psql -f "$$f" || exit 1
+  #       done
+
+  frontend:
+    image: ${FRONTEND_IMAGE}
+    restart: unless-stopped
     depends_on:
-      - db
-    entrypoint: ["/bin/sh", "-c"]
-    command: |
-      until pg_isready -h db -p 5432 -U "$DB_USERNAME"; do sleep 1; done
-      for f in /migrations/*.sql; do
-        echo "Applying $f"
-        psql -h db -U "$DB_USERNAME" -d "$DB_NAME" -f "$f"
-      done
-      echo "Migrations completed"
+      - backend
 
-volumes:
-  db-data: {}
+  proxy:
+    image: 'jc21/nginx-proxy-manager:latest'
+    restart: always
+    ports:
+      - '80:80'
+      - '443:443'
+      - '8181:81'
+    volumes:
+      # ALTERADO: Pastas físicas na AWS. Seus certificados e login nunca mais somem no deploy
+      - /home/ubuntu/app/proxy-data:/data
+      - /home/ubuntu/app/proxy-letsencrypt:/etc/letsencrypt

@@ -1,7 +1,6 @@
 package com.example.SpringBootApp.DTOs;
 
 import com.example.SpringBootApp.models.PaymentMethod;
-import com.example.SpringBootApp.DTOs.VendPaymentDTO;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -37,7 +36,7 @@ public class VendCreateDTO {
     @NotEmpty(message = "Items list cannot be empty")
     private List<@Valid VendItemDTO> items;
 
-    private List<VendPaymentDTO> payments;
+    private List<VendaPaymentDTO> payments;
 
     public VendCreateDTO(LocalDate saleDate, PaymentMethod paymentMethod, Boolean hasDiscount, Long userId, Long clienteId, List<VendItemDTO> items) {
         this.saleDate = saleDate;

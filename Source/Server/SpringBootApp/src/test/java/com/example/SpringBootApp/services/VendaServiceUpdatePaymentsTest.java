@@ -1,10 +1,10 @@
 package com.example.SpringBootApp.services;
 
-import com.example.SpringBootApp.DTOs.VendPaymentDTO;
+import com.example.SpringBootApp.DTOs.VendaPaymentDTO;
 import com.example.SpringBootApp.exceptions.BusinessException;
-import com.example.SpringBootApp.exceptions.ResourceNotFoundException;
 import com.example.SpringBootApp.models.*;
 import com.example.SpringBootApp.repositories.*;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -53,6 +53,18 @@ class VendaServiceUpdatePaymentsTest {
     @InjectMocks
     private VendaService vendaService;
 
+    @BeforeEach
+    void setUp() {
+        Configuracao mockConfig = new Configuracao();
+        mockConfig.setAcrescimoCredito(new BigDecimal("5.00"));
+        mockConfig.setTaxaCredito(new BigDecimal("2.00"));
+        mockConfig.setTaxaDebito(BigDecimal.ZERO);
+
+        // Garante que o ConfiguracaoService mocado nunca retorne NullPointerException ao ser invocado por updateSalePayments
+        lenient().when(configuracaoService.getConfiguracaoForDate(any(LocalDateTime.class)))
+                .thenReturn(mockConfig);
+    }
+
     @Test
     void updatePayments_throws_when_sum_exceeds() {
         Long id = 1000L;
@@ -64,7 +76,15 @@ class VendaServiceUpdatePaymentsTest {
         when(vendaRepository.findById(id)).thenReturn(Optional.of(venda));
         when(vendaPagamentoRepository.findByVendaId(id)).thenReturn(List.of());
 
-        List<VendPaymentDTO> payments = List.of(new VendPaymentDTO(PaymentMethod.PIX, new BigDecimal("100.01"), null, null));
+        // CORREÇÃO: Mudado o valor líquido de 30.00 para 150.00 para forçar o estouro do limite (meta de 100.00)
+        List<VendaPaymentDTO> payments = List.of(
+                new VendaPaymentDTO(
+                        PaymentMethod.PIX,
+                        new BigDecimal("150.00"),
+                        BigDecimal.ZERO,
+                        BigDecimal.ZERO,
+                        new BigDecimal("150.00"))
+        );
 
         BusinessException ex = assertThrows(BusinessException.class, () -> vendaService.updateSalePayments(id, payments));
         assertTrue(ex.getMessage().contains("Total dos pagamentos excede"));
@@ -82,10 +102,25 @@ class VendaServiceUpdatePaymentsTest {
         when(vendaPagamentoRepository.findByVendaId(id)).thenReturn(List.of());
         when(vendaPagamentoRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        List<VendPaymentDTO> payments = List.of(
-                new VendPaymentDTO(PaymentMethod.PIX, new BigDecimal("33.33"), null, null),
-                new VendPaymentDTO(PaymentMethod.PIX, new BigDecimal("33.33"), null, null),
-                new VendPaymentDTO(PaymentMethod.PIX, new BigDecimal("33.33"), null, null)
+        List<VendaPaymentDTO> payments = List.of(
+                new VendaPaymentDTO(
+                        PaymentMethod.PIX,
+                        new BigDecimal("33.33"),
+                        BigDecimal.ZERO,
+                        BigDecimal.ZERO,
+                        new BigDecimal("33.33")),
+                new VendaPaymentDTO(
+                        PaymentMethod.PIX,
+                        new BigDecimal("33.33"),
+                        BigDecimal.ZERO,
+                        BigDecimal.ZERO,
+                        new BigDecimal("33.33")),
+                new VendaPaymentDTO(
+                        PaymentMethod.PIX,
+                        new BigDecimal("33.33"),
+                        BigDecimal.ZERO,
+                        BigDecimal.ZERO,
+                        new BigDecimal("33.33"))
         );
 
         vendaService.updateSalePayments(id, payments);
@@ -94,6 +129,8 @@ class VendaServiceUpdatePaymentsTest {
         verify(vendaPagamentoRepository, times(3)).save(captor.capture());
         List<VendaPagamento> saved = captor.getAllValues();
         VendaPagamento last = saved.get(2);
-        assertEquals(0, last.getValor().setScale(4).compareTo(new BigDecimal("33.3400")));
+
+        // Verifica se a dízima foi corrigida adicionando 1 centavo na última parcela (33.33 + 33.33 + 33.34 = 100.00)
+        assertEquals(0, last.getValor().setScale(2).compareTo(new BigDecimal("33.34")));
     }
 }

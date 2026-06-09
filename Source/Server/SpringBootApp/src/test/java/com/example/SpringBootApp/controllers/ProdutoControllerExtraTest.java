@@ -79,7 +79,7 @@ public class ProdutoControllerExtraTest {
         p.setNome("X");
         p.setCodigo("C1");
         p.setUnidadeMedida(UnitMeasurement.KG);
-        p.setPerecivel(false);
+        p.setIsPerecivel(false);
         p.setPrecoVenda(new BigDecimal("99.99"));
         Categoria c = new Categoria();
         c.setId(2L);

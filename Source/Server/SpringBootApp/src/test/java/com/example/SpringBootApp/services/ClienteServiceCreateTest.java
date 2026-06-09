@@ -14,6 +14,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -55,7 +56,7 @@ class ClienteServiceCreateTest {
 
         when(clienteRepository.save(any(Cliente.class))).thenReturn(saved);
 
-        Termo termo = new Termo(77L, "content", LocalDateTime.now());
+        Termo termo = new Termo(77L, "content", LocalDateTime.now(ZoneId.of("GMT-03:00")));
         when(termoService.getLatestTermo()).thenReturn(Optional.of(termo));
 
         // reflectively inject jdbcTemplate and termoService

@@ -6,7 +6,6 @@ import com.example.SpringBootApp.models.*;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -47,7 +46,7 @@ public class VendaMapperAdditionalTest {
         vp.setMetodoPagamento(PaymentMethod.CREDITO);
         vp.setVenda(v);
         v.setPagamentos(List.of(vp));
-        v.setTemDesconto(Boolean.TRUE);
+        v.setHasDesconto(Boolean.TRUE);
         v.setValorTotal(BigDecimal.valueOf(100));
 
         Produto p = new Produto();

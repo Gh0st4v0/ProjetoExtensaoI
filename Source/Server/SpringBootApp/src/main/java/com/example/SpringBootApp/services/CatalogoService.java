@@ -21,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -56,7 +55,7 @@ public class CatalogoService {
 		Produto.setNome(productDTO.getName());
 		Produto.setUnidadeMedida(productDTO.getUnitMeasurement());
 		Produto.setCodigo(code);
-		Produto.setPerecivel(productDTO.getPerecivel());
+		Produto.setIsPerecivel(productDTO.getPerecivel());
 		Produto.setPrecoVenda(productDTO.getPrecoVenda());
 		Produto.setCategoria(Categoria);
 		Produto.setMarca(Marca);
@@ -178,7 +177,7 @@ public class CatalogoService {
 		produto.setNome(productDTO.getName());
 		produto.setUnidadeMedida(productDTO.getUnitMeasurement());
 		produto.setCodigo(code);
-		produto.setPerecivel(productDTO.getPerecivel());
+		produto.setIsPerecivel(productDTO.getPerecivel());
 		produto.setPrecoVenda(productDTO.getPrecoVenda());
 		produto.setCategoria(categoria);
 		produto.setMarca(marca);

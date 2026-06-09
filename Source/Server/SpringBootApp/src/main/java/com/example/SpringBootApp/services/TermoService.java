@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Optional;
 
 @Service
@@ -19,7 +20,7 @@ public class TermoService {
     public Termo createTermo(TermoCreateDTO dto) {
         Termo t = new Termo();
         t.setConteudo(dto.getConteudo());
-        t.setCriadoEm(LocalDateTime.now());
+        t.setCriadoEm(LocalDateTime.now(ZoneId.of("GMT-03:00")));
         return termoRepository.save(t);
     }
 

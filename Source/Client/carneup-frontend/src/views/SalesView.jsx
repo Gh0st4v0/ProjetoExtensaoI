@@ -684,10 +684,17 @@ export const SalesView = ({ navigate }) => {
   const subtotal = cart.reduce((s, it) => s + it.qty * it.price, 0)
   const total = hasDiscount ? subtotal * 0.95 : subtotal
   const discount = subtotal - total
-  // surcharge calculations: sum of 5% over credit parts (frontend-visible only)
+
   const surchargeTotal = (splitPayments && paymentsList && paymentsList.length > 0)
-    ? paymentsList.reduce((s, p) => s + ((p.paymentMethod === 'CREDITO') ? (parseBRL(p.valor) * 0.05) : 0), 0)
+    ? paymentsList.reduce((s, p) => {
+        if (p.paymentMethod !== 'CREDITO') return s
+        const valorCheio = parseBRL(p.valor)
+        const valorBaseOriginal = valorCheio / 1.05
+        return s + (valorCheio - valorBaseOriginal)
+      }, 0)
     : (payment === 'CREDITO' ? total * 0.05 : 0)
+
+  // O total a pagar no Modal será o total limpo da venda + a soma das taxas geradas nas linhas
   const totalWithSurcharge = total + surchargeTotal
 
   // Client ops
@@ -767,45 +774,90 @@ export const SalesView = ({ navigate }) => {
     if (!cart.length || submitting) return
     const userId = Number(localStorage.getItem('userId'))
     if (!userId) { toast.error('Sessão expirada. Faça login novamente.'); return }
+    
     setSubmitting(true)
     try {
-      // build payments payload
+      // Build payments payload com as quatro chaves contratuais do DTO do Spring Boot
       let paymentsPayload = null
       if (splitPayments && paymentsList && paymentsList.length > 0) {
-        paymentsPayload = paymentsList.map(p => ({
-          paymentMethod: p.paymentMethod,
-          valor: parseBRL(p.valor)
-        }))
+        paymentsPayload = paymentsList.map(p => {
+          const valorBrutoInput = parseBRL(p.valor)
+          const isCredito = p.paymentMethod === 'CREDITO'
+          
+          // Se for crédito, retroalimenta os valores deduzindo a taxa matemática reversa (Valor / 1.05)
+          const valorLiquido = isCredito ? (valorBrutoInput / 1.05) : valorBrutoInput
+          const acrescimoValor = isCredito ? (valorBrutoInput - valorLiquido) : 0
+          const acrescimoPercent = isCredito ? 5.00 : 0
+
+          return {
+            paymentMethod: p.paymentMethod,
+            valor: Number(valorLiquido.toFixed(2)),
+            acrescimoPercent: Number(acrescimoPercent.toFixed(2)),
+            acrescimoValor: Number(acrescimoValor.toFixed(2)),
+            valorPago: Number(valorBrutoInput.toFixed(2))
+          }
+        })
       } else {
-        paymentsPayload = [{ paymentMethod: payment, valor: Number((total).toFixed(2)) }]
+        // Fluxo de pagamento único direto do PDV
+        const isCredito = payment === 'CREDITO'
+        const valorLiquido = total
+        const acrescimoValor = isCredito ? (total * 0.05) : 0
+        const acrescimoPercent = isCredito ? 5.00 : 0
+        const valorBrutoFinal = totalWithSurcharge
+
+        paymentsPayload = [{ 
+          paymentMethod: payment, 
+          valor: Number(valorLiquido.toFixed(2)),
+          acrescimoPercent: Number(acrescimoPercent.toFixed(2)),
+          acrescimoValor: Number(acrescimoValor.toFixed(2)),
+          valorPago: Number(valorBrutoFinal.toFixed(2))
+        }]
       }
 
-      // Client-side validation: ensure sum of payments does not exceed total
-      const assigned = paymentsPayload.reduce((s, p) => s + Number(p.valor || 0), 0)
-      if (Math.round(assigned * 100) > Math.round(total * 100)) {
+      // Validação baseada na soma dos valores brutos finais contra a meta calculada na tela
+      const assigned = paymentsPayload.reduce((s, p) => s + Number(p.valorPago || 0), 0)
+      const metaValidacao = totalWithSurcharge
+
+      if (Math.round(assigned * 100) > Math.round(metaValidacao * 100)) {
         toast.error('A soma dos pagamentos excede o total. Ajuste os valores.')
+        setSubmitting(false)
         return
       }
 
       const payload = {
         userId,
-        paymentMethod: payment, // legacy field kept for compatibility
+        paymentMethod: payment, // mantido para fins de retrocompatibilidade de API antiga
         payments: paymentsPayload,
         hasDiscount,
         clienteId: (!anonymous && selectedClient) ? selectedClient.id : null,
         items: cart.map(it => ({ productId: it.productId, quantity: it.qty, precoUnitarioVenda: it.price })),
       }
+      
       const { saleId } = await createSale(payload)
-      // Fetch full receipt
+      
       let saleData = null
       if (saleId) saleData = await getSale(saleId).catch(() => null)
+      
       setPaymentModal(false)
-      setReceipt({ saleId, saleData, cart: [...cart], total, payment, discount: hasDiscount ? discount : 0, client: !anonymous && selectedClient ? selectedClient : null, paymentsSent: paymentsPayload })
+      setReceipt({ 
+        saleId, 
+        saleData, 
+        cart: [...cart], 
+        total: totalWithSurcharge,
+        payment, 
+        discount: hasDiscount ? discount : 0, 
+        client: !anonymous && selectedClient ? selectedClient : null, 
+        paymentsSent: paymentsPayload 
+      })
+      
       setCart([]); setHasDiscount(false); setSelectedClient(null); setAnonymous(true)
     } catch (e) {
       const msg = e?.response?.data?.message || ''
-      if (msg.includes('insuficiente') || msg.includes('Insufficient')) toast.error('Estoque insuficiente. Faça uma entrada antes de vender.')
-      else toast.error(msg || 'Erro ao finalizar venda.')
+      if (msg.includes('insuficiente') || msg.includes('Insufficient')) {
+        toast.error('Estoque insuficiente. Faça uma entrada antes de vender.')
+      } else {
+        toast.error(msg || 'Erro ao finalizar venda.')
+      }
     } finally { setSubmitting(false) }
   }
 
@@ -827,14 +879,31 @@ export const SalesView = ({ navigate }) => {
 
   const equalSplit = (n) => {
     if (!n || n < 1) return
-    const per = Number((total / n).toFixed(2))
+    
+    // Dividimos o valor base limpo (sem juros) pelo número de parcelas
+    const basePorParcela = total / n
+
     const arr = Array.from({ length: n }).map((_, i) => {
-      let v = per
-      if (i === n - 1) {
-        const sum = per * (n - 1)
-        v = Number((total - sum).toFixed(2))
+      const method = PAYMENTS[i % PAYMENTS.length].id
+      
+      // Se a parcela for no crédito, ela ganha +5% em cima do valor base dela
+      let valorFinalParcela = basePorParcela
+      if (method === 'CREDITO') {
+        valorFinalParcela = basePorParcela * 1.05
       }
-      return { id: Date.now() + i, paymentMethod: PAYMENTS[i % PAYMENTS.length].id, valor: formatPriceDisplay(v) }
+
+      // Ajuste para a última parcela não perder centavos de dízima periódica
+      if (i === n - 1) {
+        const totalBaseAcumulado = basePorParcela * (n - 1)
+        const restoBase = total - totalBaseAcumulado
+        valorFinalParcela = method === 'CREDITO' ? restoBase * 1.05 : restoBase
+      }
+
+      return { 
+        id: Date.now() + i, 
+        paymentMethod: method, 
+        valor: formatPriceDisplay(Number(valorFinalParcela.toFixed(2))) // Agora vai salvar 105,00 no input!
+      }
     })
     setPaymentsList(arr)
     setSplitPayments(true)
@@ -1070,15 +1139,17 @@ export const SalesView = ({ navigate }) => {
         </Body>
       </PdvArea>
 
-      {/* ── MODAL PAGAMENTO ── */}
+{/* ── MODAL PAGAMENTO ── */}
       {paymentModal && (
         <Overlay onClick={() => !submitting && setPaymentModal(false)}>
           <PayModal onClick={e => e.stopPropagation()}>
             <PayModalHead>
               <div>
                 <h2>Forma de Pagamento</h2>
-                <p className='total'>{fmt(total)}</p>
+                {/* CORREÇÃO: Exibe o valor total com os acréscimos das taxas */}
+                <p className='total'>{fmt(totalWithSurcharge)}</p>
                 {hasDiscount && <p style={{fontSize:12,color:'#b45309',margin:'2px 0 0'}}>Desconto de {fmt(discount)} aplicado</p>}
+                {surchargeTotal > 0 && <p style={{fontSize:12,color:'#1d4ed8',margin:'2px 0 0'}}>Acréscimo de cartão incluso: +{fmt(surchargeTotal)}</p>}
               </div>
               <button onClick={() => setPaymentModal(false)} disabled={submitting}>
                 <span className='material-symbols-outlined'>close</span>
@@ -1119,11 +1190,30 @@ export const SalesView = ({ navigate }) => {
                       fontWeight:splitPayments?700:400,fontSize:13,cursor:'pointer'}}
                     onClick={() => {
                       if (!splitPayments) {
-                        setSplitPayments(true)
-                        setPaymentsList([{ id: Date.now(), paymentMethod: payment, valor: formatPriceDisplay(total) }])
+                        // CORREÇÃO: Antes de dividir, salvamos qual era o método selecionado
+                        const metodoAntesDoSplit = payment;
+
+                        // 1. Resetamos o pagamento único para DINHEIRO (assim limpamos qualquer taxa de 5% global)
+                        setPayment('DINHEIRO');
+
+                        // 2. Ativamos o split calculando o valor inicial estritamente em cima do 'total' limpo
+                        // Se o método anterior era crédito, a primeira linha do split já nasce como crédito com os 5% corretos (105,00)
+                        let valorInicial = total;
+                        if (metodoAntesDoSplit === 'CREDITO') {
+                          valorInicial = total * 1.05;
+                        }
+
+                        setSplitPayments(true);
+                        setPaymentsList([{ 
+                          id: Date.now(), 
+                          paymentMethod: metodoAntesDoSplit, 
+                          valor: formatPriceDisplay(Number(valorInicial.toFixed(2))) 
+                        }]);
                       } else {
-                        setSplitPayments(false)
-                        setPaymentsList([])
+                        // Se estiver cancelando a divisão, volta para o padrão limpo
+                        setSplitPayments(false);
+                        setPaymentsList([]);
+                        setPayment('DINHEIRO'); 
                       }
                     }}>
                     {splitPayments ? '✕ Cancelar divisão' : 'Dividir pagamento'}
@@ -1144,8 +1234,9 @@ export const SalesView = ({ navigate }) => {
                 {splitPayments && (
                   <PayModalInfo style={{marginTop:10}}>
                     <span className='material-symbols-outlined'>calculate</span>
-                    Atribuído: <strong>{fmt(paymentsList.reduce((s,p)=>s+parseBRL(p.valor),0))}</strong>
-                    &nbsp;— Restante: <strong>{fmt(Math.max(0, total - paymentsList.reduce((s,p)=>s+parseBRL(p.valor),0)))}</strong>
+                    {/* Como a taxa já está no input, a soma do Atribuído é a soma direta dos inputs */}
+                    Atribuído (com taxas): <strong>{fmt(paymentsList.reduce((s,p) => s + parseBRL(p.valor), 0))}</strong>
+                    &nbsp;— Restante: <strong>{fmt(Math.max(0, totalWithSurcharge - paymentsList.reduce((s,p) => s + parseBRL(p.valor), 0)))}</strong>
                   </PayModalInfo>
                 )}
               </div>
@@ -1153,42 +1244,71 @@ export const SalesView = ({ navigate }) => {
               {/* Linhas de split */}
               {splitPayments && (
                 <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                  {paymentsList.map((p) => (
-                    <SplitRow key={p.id}>
-                      <select value={p.paymentMethod} onChange={e => {
-                        const v = e.target.value
-                        setPaymentsList(prev => prev.map(it => it.id === p.id ? {...it, paymentMethod: v} : it))
-                      }}>
-                        {PAYMENTS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
-                      </select>
-                      <input type='text' inputMode='numeric' placeholder='0,00' value={p.valor}
-                        onChange={e => {
-                          const digits = String(e.target.value || '').replace(/\D/g, '')
-                          let cents = parseInt(digits || '0', 10)
-                          const otherCents = paymentsList.reduce((s, it) => it.id === p.id ? s : s + Math.round(parseBRL(it.valor) * 100), 0)
-                          const totalCents = Math.round(total * 100)
-                          if (otherCents + cents > totalCents) {
-                            cents = Math.max(0, totalCents - otherCents)
-                            toast.error('Valor ajustado para o restante disponível.')
-                          }
-                          const str = cents === 0 ? '' : (cents / 100).toFixed(2).replace('.', ',')
-                          setPaymentsList(prev => prev.map(it => it.id === p.id ? {...it, valor: str} : it))
-                        }}
-                      />
-                      {p.paymentMethod === 'CREDITO' && (
-                        <span style={{fontSize:11,color:'#1d4ed8',whiteSpace:'nowrap'}}>+{fmt(parseBRL(p.valor)*0.05)}</span>
-                      )}
-                      <button type='button'
-                        onClick={() => setPaymentsList(prev => prev.filter(it => it.id !== p.id))}
-                        style={{border:'none',background:'none',color:'#dc2626',cursor:'pointer',fontSize:12,whiteSpace:'nowrap'}}>
-                        Remover
-                      </button>
-                    </SplitRow>
-                  ))}
+                  {paymentsList.map((p) => {
+                    const valorInput = parseBRL(p.valor)
+                    // Calcula a taxa embutida na linha atual de forma precisa (Valor - (Valor / 1.05))
+                    const taxaEmbutidaNaLinha = p.paymentMethod === 'CREDITO' ? (valorInput - (valorInput / 1.05)) : 0
+
+                    return (
+                      <SplitRow key={p.id}>
+                        <select value={p.paymentMethod} onChange={e => {
+                          const v = e.target.value
+                          // Se mudar para crédito, reaplica os 5% sobre o valor atual; se tirar do crédito, remove os 5%
+                          setPaymentsList(prev => prev.map(it => {
+                            if (it.id !== p.id) return it
+                            let novoValor = parseBRL(it.valor)
+                            if (v === 'CREDITO' && it.paymentMethod !== 'CREDITO') novoValor = novoValor * 1.05
+                            if (v !== 'CREDITO' && it.paymentMethod === 'CREDITO') novoValor = novoValor / 1.05
+                            return {...it, paymentMethod: v, valor: formatPriceDisplay(Number(novoValor.toFixed(2)))}
+                          }))
+                        }}>
+                          {PAYMENTS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+                        </select>
+                        
+                        <input type='text' inputMode='numeric' placeholder='0,00' value={p.valor}
+                          onChange={e => {
+                            const digits = String(e.target.value || '').replace(/\D/g, '')
+                            let cents = parseInt(digits || '0', 10)
+                            
+                            // Soma quanto as OUTRAS linhas já cobriram do totalWithSurcharge
+                            const otherLinesTotal = paymentsList.reduce((s, it) => {
+                              if (it.id === p.id) return s
+                              return s + Math.round(parseBRL(it.valor) * 100)
+                            }, 0)
+
+                            const maxAllowedCents = Math.round(totalWithSurcharge * 100)
+                            
+                            if (otherLinesTotal + cents > maxAllowedCents) {
+                              cents = Math.max(0, maxAllowedCents - otherLinesTotal)
+                              toast.error('Valor ajustado para o restante disponível.')
+                            }
+
+                            const str = cents === 0 ? '' : (cents / 100).toFixed(2).replace('.', ',')
+                            setPaymentsList(prev => prev.map(it => it.id === p.id ? {...it, valor: str} : it))
+                          }}
+                        />
+                        
+                        {/* CORREÇÃO VISUAL: Se o input for 105,00, vai exibir exatamente "(Incluso +R$ 5,00)" */}
+                        {p.paymentMethod === 'CREDITO' && valorInput > 0 && (
+                          <span style={{fontSize:11,color:'#1d4ed8',whiteSpace:'nowrap', fontWeight:'bold'}}>
+                            (Incluso +{fmt(taxaEmbutidaNaLinha)})
+                          </span>
+                        )}
+                        
+                        <button type='button'
+                          onClick={() => setPaymentsList(prev => prev.filter(it => it.id !== p.id))}
+                          style={{border:'none',background:'none',color:'#dc2626',cursor:'pointer',fontSize:12,whiteSpace:'nowrap'}}>
+                          Remover
+                        </button>
+                      </SplitRow>
+                    )
+                  })}
+                  
                   <button type='button' onClick={() => {
-                    const assigned = paymentsList.reduce((s,p)=>s+parseBRL(p.valor),0)
-                    const remaining = Math.max(0, total - assigned)
+                    const assigned = paymentsList.reduce((s,p) => s + parseBRL(p.valor), 0)
+                    const remaining = Math.max(0, totalWithSurcharge - assigned)
                     if (remaining <= 0) { toast.error('Total já coberto.'); return }
+                    
                     setPaymentsList(prev => [...prev, { id: Date.now()+Math.random(), paymentMethod: 'DINHEIRO', valor: formatPriceDisplay(remaining) }])
                   }} style={{padding:'7px 14px',borderRadius:8,border:'1px dashed #e7e5e4',fontSize:13,cursor:'pointer',color:'#610005',fontWeight:600,background:'#fff8f8'}}>
                     + Adicionar forma

@@ -2,10 +2,13 @@ import axios from 'axios'
 import { getToken, removeToken } from './cookieUtils'
 
 const api = axios.create({
-	baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080',
-	headers: {
-		'Content-Type': 'application/json'
-	}
+    // Se houver variável usa ela; se não, usa a produção (resolve a AWS);
+    // Mas se o Vite detectar que está em modo de desenvolvimento local, podemos forçar o localhost.
+    baseURL: import.meta.env.VITE_API_URL ||
+             (import.meta.env.DEV ? 'http://localhost:8080' : 'https://api.carneup.com.br'),
+    headers: {
+       'Content-Type': 'application/json'
+    }
 })
 
 api.interceptors.request.use((config) => {

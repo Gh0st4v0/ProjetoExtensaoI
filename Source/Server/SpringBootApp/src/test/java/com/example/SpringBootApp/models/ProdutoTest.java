@@ -15,7 +15,7 @@ public class ProdutoTest {
         p.setNome("P1");
         p.setUnidadeMedida(UnitMeasurement.KG);
         p.setCodigo("ABC123");
-        p.setPerecivel(Boolean.TRUE);
+        p.setIsPerecivel(Boolean.TRUE);
         p.setPrecoVenda(new BigDecimal("10.00"));
         Categoria c = new Categoria();
         c.setId(1L);
@@ -52,7 +52,7 @@ public class ProdutoTest {
         b = createProdutoFull(); b.setNome("Other"); assertNotEquals(a,b);
         b = createProdutoFull(); b.setCodigo(null); assertNotEquals(a,b);
         b = createProdutoFull(); b.setUnidadeMedida(null); assertNotEquals(a,b);
-        b = createProdutoFull(); b.setPerecivel(null); assertNotEquals(a,b);
+        b = createProdutoFull(); b.setIsPerecivel(null); assertNotEquals(a,b);
         b = createProdutoFull(); b.setPrecoVenda(null); assertNotEquals(a,b);
         b = createProdutoFull(); b.setCategoria(null); assertNotEquals(a,b);
         b = createProdutoFull(); b.setMarca(null); assertNotEquals(a,b);

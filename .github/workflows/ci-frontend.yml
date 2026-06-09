@@ -68,21 +68,6 @@ jobs:
             echo "No frontend directory; skipping build"
           fi
 
-      # - name: Analise SonarCloud
-      #   env:
-      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      #   run: |
-      #     if [ -d "${{ env.FRONTEND_DIR }}" ]; then
-      #       cd "${{ env.FRONTEND_DIR }}"
-      #       test -n "$SONAR_TOKEN"
-      #       docker run --rm -e SONAR_HOST_URL="https://sonarcloud.io" -e SONAR_LOGIN="$SONAR_TOKEN" -v "$(pwd):/usr/src" sonarsource/sonar-scanner-cli \
-      #         -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY_FRONTEND }} \
-      #         -Dsonar.organization=${{ env.SONAR_ORGANIZATION }} \
-      #         -Dsonar.sources=/usr/src
-      #     else
-      #       echo "No frontend directory, skipping Sonar"
-      #     fi
-
       - name: Login to GitHub Container Registry
         if: github.event_name == 'push'
         uses: docker/login-action@v3
@@ -111,3 +96,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # CORREÇÃO AQUI: Passando a Secret do GitHub como argumento de build para o Docker
+          build-args: |
+            VITE_API_URL=${{ secrets.VITE_API_URL }}

@@ -4,6 +4,7 @@ import com.example.SpringBootApp.DTOs.VendCreateDTO;
 import com.example.SpringBootApp.DTOs.VendItemDTO;
 import com.example.SpringBootApp.models.*;
 import com.example.SpringBootApp.repositories.*;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -13,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -45,6 +47,21 @@ class VendaServiceAutoDiscardTest {
 
     @InjectMocks
     private VendaService vendaService;
+
+    @Mock
+    private com.example.SpringBootApp.services.ConfiguracaoService configuracaoService;
+
+    @BeforeEach
+    void setUp() {
+        Configuracao mockConfig = new Configuracao();
+        mockConfig.setAcrescimoCredito(new BigDecimal("5.00"));
+        mockConfig.setTaxaCredito(new BigDecimal("2.00"));
+        mockConfig.setTaxaDebito(BigDecimal.ZERO);
+
+        // any(LocalDateTime.class) blinda o teste contra diferenças de formatação ou fuso horário (GMT-03 / America/Sao_Paulo)
+        lenient().when(configuracaoService.getConfiguracaoForDate(any(LocalDateTime.class)))
+                .thenReturn(mockConfig);
+    }
 
     @Test
     void createSale_ShouldAutoDiscardSmallRemainderForKGProducts() {

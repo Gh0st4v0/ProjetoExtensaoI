@@ -8,6 +8,8 @@ import com.example.SpringBootApp.models.Cliente;
 import com.example.SpringBootApp.repositories.ClienteRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
 import com.example.SpringBootApp.models.Permissao;
+
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.Objects;
@@ -58,7 +60,7 @@ public class ClienteService {
         c.setNickname(dto.getNickname());
         c.setTelefone(dto.getTelefone());
         c.setAniversario(dto.getAniversario());
-        c.setDataCadastro(java.time.LocalDateTime.now());
+        c.setDataCadastro(java.time.LocalDateTime.now(ZoneId.of("GMT-03:00")));
         Cliente saved = clienteRepository.save(c);
 
         // persist consentimentos: TERMOS_SERVICO (required)

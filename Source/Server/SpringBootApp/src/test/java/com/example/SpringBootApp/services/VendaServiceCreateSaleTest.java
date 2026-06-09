@@ -5,15 +5,17 @@ import com.example.SpringBootApp.DTOs.VendItemDTO;
 import com.example.SpringBootApp.exceptions.BusinessException;
 import com.example.SpringBootApp.models.*;
 import com.example.SpringBootApp.repositories.*;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,8 +43,23 @@ class VendaServiceCreateSaleTest {
     @Mock
     private com.example.SpringBootApp.repositories.ClienteRepository clienteRepository;
 
+    @Mock
+    private com.example.SpringBootApp.services.ConfiguracaoService configuracaoService;
+
     @InjectMocks
     private VendaService vendaService;
+
+    @BeforeEach
+    void setUp() {
+        Configuracao mockConfig = new Configuracao();
+        mockConfig.setAcrescimoCredito(new BigDecimal("5.00"));
+        mockConfig.setTaxaCredito(new BigDecimal("2.00"));
+        mockConfig.setTaxaDebito(BigDecimal.ZERO);
+
+        // any(LocalDateTime.class) blinda o teste contra diferenças de formatação ou fuso horário (GMT-03 / America/Sao_Paulo)
+        lenient().when(configuracaoService.getConfiguracaoForDate(any(LocalDateTime.class)))
+                .thenReturn(mockConfig);
+    }
 
     @Test
     void createSale_ShouldCreateMovimentacao_WhenSufficientStockSingleLot() {
@@ -129,8 +146,6 @@ class VendaServiceCreateSaleTest {
         when(movimentacaoRepository.findByCompraIdAndProdutoId(purchaseA, productId)).thenReturn(List.of(stockA));
         when(movimentacaoRepository.findByCompraIdAndProdutoId(purchaseB, productId)).thenReturn(List.of(stockB));
 
-        // no direct findFirst stub for this flow; service should iterate purchases
-
         VendItemDTO item = new VendItemDTO(null, productId, quantity, null);
         VendCreateDTO saleDTO = new VendCreateDTO(LocalDate.now(), PaymentMethod.PIX, false, userId, null, List.of(item));
 
@@ -139,7 +154,6 @@ class VendaServiceCreateSaleTest {
 
         Venda saved = vendaService.createSale(saleDTO);
 
-        // two movimentacoes saved (one per lote)
         verify(movimentacaoRepository, atLeast(2)).save(any(Movimentacao.class));
         assertEquals(2L, saved.getId());
         assertNotNull(saved.getItens());

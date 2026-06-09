@@ -44,8 +44,17 @@ class InventarioServiceTest {
     @Test
     void createCompra_ShouldReturnCompra_WhenValidInput() {
         // Arrange
-        CompraItemDTO item1 = new CompraItemDTO(1L, new BigDecimal("10.5"), new BigDecimal("45.90"), LocalDate.of(2024, 2, 15));
-        CompraItemDTO item2 = new CompraItemDTO(2L, new BigDecimal("5.0"), new BigDecimal("32.50"), LocalDate.of(2024, 3, 1));
+        CompraItemDTO item1 = new CompraItemDTO(
+                1L,
+                new BigDecimal("10.5"),
+                new BigDecimal("45.90"),
+                new BigDecimal("59.90"),
+                LocalDate.of(2024, 2, 15));
+        CompraItemDTO item2 = new CompraItemDTO(
+                2L, new BigDecimal("5.0"),
+                new BigDecimal("32.50"),
+                new BigDecimal("59.90"),
+                LocalDate.of(2024, 3, 1));
         CompraCreateDTO compraDTO = new CompraCreateDTO(LocalDate.of(2024, 1, 15), List.of(item1, item2));
 
         Produto produto1 = new Produto();
@@ -53,14 +62,14 @@ class InventarioServiceTest {
         produto1.setNome("Picanha");
         produto1.setUnidadeMedida(UnitMeasurement.KG);
         produto1.setCodigo("000001");
-        produto1.setPerecivel(true);
+        produto1.setIsPerecivel(true);
         
         Produto produto2 = new Produto();
         produto2.setId(2L);
         produto2.setNome("Alcatra");
         produto2.setUnidadeMedida(UnitMeasurement.KG);
         produto2.setCodigo("000002");
-        produto2.setPerecivel(true);
+        produto2.setIsPerecivel(true);
 
         Compra savedCompra = new Compra();
         savedCompra.setId(1L);
@@ -108,15 +117,21 @@ class InventarioServiceTest {
     @Test
     void createCompra_ShouldUseCurrentDate_WhenDateIsNull() {
         // Arrange
-        CompraItemDTO item = new CompraItemDTO(1L, new BigDecimal("10.5"), new BigDecimal("45.90"), null);
-        CompraCreateDTO compraDTO = new CompraCreateDTO(null, List.of(item));
+        CompraItemDTO item = new CompraItemDTO(
+                1L,
+                new BigDecimal("10.5"),
+                new BigDecimal("45.90"),
+                new BigDecimal("59.90"),
+                null);
+
+                CompraCreateDTO compraDTO = new CompraCreateDTO(null, List.of(item));
 
         Produto produto = new Produto();
         produto.setId(1L);
         produto.setNome("Picanha");
         produto.setUnidadeMedida(UnitMeasurement.KG);
         produto.setCodigo("000001");
-        produto.setPerecivel(false);
+        produto.setIsPerecivel(false);
         
         Compra savedCompra = new Compra();
         savedCompra.setId(1L);
@@ -146,7 +161,12 @@ class InventarioServiceTest {
     @Test
     void createCompra_ShouldThrowException_WhenProdutoNotFound() {
         // Arrange
-        CompraItemDTO item = new CompraItemDTO(999L, new BigDecimal("10.5"), new BigDecimal("45.90"), null);
+        CompraItemDTO item = new CompraItemDTO(
+                999L,
+                new BigDecimal("10.5"),
+                new BigDecimal("45.90"),
+                new BigDecimal("59.90"),
+                null);
         CompraCreateDTO compraDTO = new CompraCreateDTO(LocalDate.now(), List.of(item));
 
         when(produtoRepository.findById(999L)).thenReturn(Optional.empty());
@@ -165,7 +185,12 @@ class InventarioServiceTest {
     void createCompra_ShouldCreateMovimentacoesWithCorrectData() {
         // Arrange
         LocalDate expiringDate = LocalDate.of(2024, 2, 15);
-        CompraItemDTO itemDTO = new CompraItemDTO(1L, new BigDecimal("10.5"), new BigDecimal("45.90"), expiringDate);
+        CompraItemDTO itemDTO = new CompraItemDTO(
+                1L,
+                new BigDecimal("10.5"),
+                new BigDecimal("45.90"),
+                new BigDecimal("80.90"),
+                expiringDate);
         CompraCreateDTO compraDTO = new CompraCreateDTO(LocalDate.now(), List.of(itemDTO));
 
         Produto produto = new Produto();
@@ -173,7 +198,7 @@ class InventarioServiceTest {
         produto.setNome("Picanha");
         produto.setUnidadeMedida(UnitMeasurement.KG);
         produto.setCodigo("000001");
-        produto.setPerecivel(true);
+        produto.setIsPerecivel(true);
         
         Compra savedCompra = new Compra();
         savedCompra.setId(1L);
@@ -192,7 +217,7 @@ class InventarioServiceTest {
             assertEquals(savedCompra, movimentacao.getCompra());
             assertNull(movimentacao.getVenda());
             assertEquals(MovementType.COMPRA, movimentacao.getTipoMovimentacao());
-            
+
             Movimentacao returnItem = new Movimentacao();
             returnItem.setId(1L);
             returnItem.setQuantidade(movimentacao.getQuantidade());
@@ -281,28 +306,34 @@ class InventarioServiceTest {
         // Act & Assert
         assertThrows(BusinessException.class, () -> inventarioService.updatePurchaseItem(1L, 1L, new BigDecimal("5"), null, null));
     }
-    @Test
+
+    @Test
     void updatePurchaseItem_ShouldThrow_WhenExpiryBeforeSaleDate() {
         // Arrange
         Produto produto = new Produto();
         produto.setId(1L);
-        produto.setPerecivel(true);
-        Movimentacao purchaseMov = new Movimentacao();
+        produto.setIsPerecivel(true);
+
+        Movimentacao purchaseMov = new Movimentacao();
         purchaseMov.setId(12L);
         purchaseMov.setQuantidade(new BigDecimal("10"));
         purchaseMov.setProduto(produto);
-        Venda venda = new Venda();
+
+        Venda venda = new Venda();
         venda.setId(1L);
         venda.setDataVenda(java.time.LocalDate.of(2024, 2, 10).atStartOfDay());
-        Movimentacao saleMov = new Movimentacao();
+
+        Movimentacao saleMov = new Movimentacao();
         saleMov.setId(13L);
         saleMov.setQuantidade(new BigDecimal("-2"));
         saleMov.setVenda(venda);
         saleMov.setProduto(produto);
-        when(movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(1L, 1L)).thenReturn(purchaseMov);
+
+        when(movimentacaoRepository.findFirstByCompraIdAndProdutoIdAndVendaIsNull(1L, 1L)).thenReturn(purchaseMov);
         when(movimentacaoRepository.findByCompraIdAndProdutoId(1L, 1L)).thenReturn(List.of(purchaseMov, saleMov));
         when(movimentacaoRepository.sumQuantityByProdutoId(1L)).thenReturn(new BigDecimal("8"));
-        // Act & Assert
+
+        // Act & Assert
         assertThrows(BusinessException.class, () -> inventarioService.updatePurchaseItem(1L, 1L, new BigDecimal("10"), null, LocalDate.of(2024, 2, 1)));
     }
 
