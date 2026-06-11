@@ -28,28 +28,28 @@ services:
       db:
         condition: service_healthy
 
-  # migrate:
-  #   image: postgres:18
-  #   env_file:
-  #     - .env
-  #   environment:
-  #     - PGPASSWORD=${DB_PASSWORD}
-  #     - PGUSER=${DB_USERNAME}
-  #     - PGDATABASE=${DB_NAME}
-  #     - PGHOST=db
-  #   volumes:
-  #     - ./migrations:/migrations:ro
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
-  #   entrypoint:
-  #     - /bin/sh
-  #     - -c
-  #     - |
-  #       for f in $$(ls /migrations/V*.sql | sort -V); do
-  #         echo "Applying $$f"
-  #         psql -f "$$f" || exit 1
-  #       done
+  migrate:
+    image: postgres:18
+    env_file:
+      - .env
+    environment:
+      - PGPASSWORD=${DB_PASSWORD}
+      - PGUSER=${DB_USERNAME}
+      - PGDATABASE=${DB_NAME}
+      - PGHOST=db
+    volumes:
+      - ./migrations:/migrations:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        for f in $$(ls /migrations/V*.sql | sort -V); do
+          echo "Applying $$f"
+          psql -f "$$f" || exit 1
+        done
 
   frontend:
     image: ${FRONTEND_IMAGE}
