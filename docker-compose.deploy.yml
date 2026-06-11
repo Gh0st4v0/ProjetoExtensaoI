@@ -63,7 +63,7 @@ services:
     ports:
       - '80:80'
       - '443:443'
-      - '8181:81'
+      - '8181:8181'
     volumes:
       # ALTERADO: Pastas físicas na AWS. Seus certificados e login nunca mais somem no deploy
       - /home/ubuntu/app/proxy-data:/data
