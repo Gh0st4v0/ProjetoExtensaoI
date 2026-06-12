@@ -46,18 +46,18 @@ jobs:
       - name: Copy to EC2
         uses: appleboy/scp-action@master
         with:
-          host: ${{ secrets.EC2_HOST }}
+          host: ${{ secrets.EC2_HOST_STAGE }}
           username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key: ${{ secrets.SSH_PRIVATE_KEY_STAGE }}
           source: deploy_artifacts.tar.gz
           target: ${{ github.event.inputs.deploy_path || '/home/ubuntu/app' }}
 
       - name: Execute Deploy
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.EC2_HOST }}
+          host: ${{ secrets.EC2_HOST_STAGE }}
           username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key: ${{ secrets.SSH_PRIVATE_KEY_STAGE }}
           script: |
             cd ${{ github.event.inputs.deploy_path || '/home/ubuntu/app' }}
             tar -xzf deploy_artifacts.tar.gz && rm deploy_artifacts.tar.gz
@@ -65,14 +65,18 @@ jobs:
             # Remove volumes antigos para não misturar dados
             docker compose -f docker-compose.deploy.yml down -v --remove-orphans || true
             
-            # 🔴 ADICIONADO AQUI: Baixa as imagens mais recentes do GHCR (evita o cache antigo na AWS)
+            # Baixa as imagens mais recentes do GHCR (evita o cache antigo na AWS)
             docker compose -f docker-compose.deploy.yml pull
             
             # Sobe o banco de dados
             docker compose -f docker-compose.deploy.yml up -d db
             
+            # ── 🌟 ADICIONADO AQUI: Executa a limpeza do histórico do Flyway ──
+            # Rodar o 'repair' remove registros falhos (como a V199 fantasma) da tabela flyway_schema_history
+            docker compose -f docker-compose.deploy.yml run --rm migrate repair
+            
             # Roda as migrações (agora ordenadas e perfeitas!)
-            docker compose -f docker-compose.deploy.yml run --rm migrate
+            docker compose -f docker-compose.deploy.yml run --rm migrate migrate
             
             # Sobe os apps finais apontando para a imagem correta da branch
             docker compose -f docker-compose.deploy.yml up -d

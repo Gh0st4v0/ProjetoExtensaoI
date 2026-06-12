@@ -1904,12 +1904,19 @@ export const ReportsView = ({ navigate, initialTab }) => {
               </EMField>
             </EMBody>
             <EMActions>
-              <EMDelete type='button' onClick={handleDeleteDescarte} disabled={deleteDescarteLoading}>Apagar</EMDelete>
-              <EMCancel type='button' onClick={() => setEditDescarte(null)}>Cancelar</EMCancel>
-              <EMSave type='submit' disabled={editDescarteSaving || !editDescarteForm.type}>
-                {editDescarteSaving ? 'Salvando...' : 'Salvar'}
-              </EMSave>
-            </EMActions>
+                {/* Validação: Só exibe o botão se o motivo NÃO for vencimento */}
+                {editDescarteForm.type !== 'VENCIMENTO' && (
+                  <EMDelete type='button' onClick={handleDeleteDescarte} disabled={deleteDescarteLoading}>
+                    Apagar
+                  </EMDelete>
+                )}
+                
+                <EMCancel type='button' onClick={() => setEditDescarte(null)}>Cancelar</EMCancel>
+                
+                <EMSave type='submit' disabled={editDescarteSaving || !editDescarteForm.type}>
+                  {editDescarteSaving ? 'Salvando...' : 'Salvar'}
+                </EMSave>
+              </EMActions>
           </form>
         </EditModal>
       </EditModalOverlay>
