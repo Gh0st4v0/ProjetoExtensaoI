@@ -1,7 +1,6 @@
 -- =============================================================================
 -- 1. EXTERMÍNIO DE DADOS ANTERIORES E FANTASMAS
 -- =============================================================================
--- Força a limpeza total caso algum script que quebrou no meio tenha deixado resíduos
 TRUNCATE TABLE 
     venda_pagamento, 
     movimentacao, 
@@ -19,9 +18,8 @@ TRUNCATE TABLE
 RESTART IDENTITY CASCADE;
 
 -- =============================================================================
--- 2. CADASTROS ESTÁTICOS (Corrigidos com base no DDL real da sua aplicação)
+-- 2. CADASTROS ESTÁTICOS 
 -- =============================================================================
--- Corrigido: acrescimo_credito com a grafia correta
 INSERT INTO configuracoes (lucro_esperado, taxa_debito, taxa_credito, acrescimo_credito, created_at, updated_at) 
 VALUES (35.00, 1.99, 4.99, 5.00, NOW(), NOW());
 
@@ -41,124 +39,141 @@ INSERT INTO marca (nome, created_at, updated_at) VALUES
 ('Friboi', NOW(), NOW()),
 ('Boutique da Casa', NOW(), NOW());
 
--- =============================================================================
--- 3. CADASTRO DE PRODUTOS DA CASA
--- =============================================================================
+-- CORREÇÃO: Nomes limpos sem o termo "A Vácuo"
 INSERT INTO produto (nome, unidade_medida, codigo, perecivel, preco_venda, fk_categoria_id, fk_marca_id, estoque_minimo, created_at, updated_at) VALUES 
-('Picanha Tradicional Vácuo', 'KG', 'BOV001', true, 69.90, 1, 4, 10, NOW(), NOW()),
-('Contra Filé Vácuo', 'KG', 'BOV002', true, 48.90, 1, 4, 8, NOW(), NOW()),
-('Bife de Chorizo Vácuo', 'KG', 'BOV003', true, 54.90, 1, 2, 6, NOW(), NOW()),
-('Bife Ancho Vácuo', 'KG', 'BOV004', true, 54.90, 1, 2, 6, NOW(), NOW()),
-('Alcatra com Maminha Vácuo', 'KG', 'BOV005', true, 44.90, 1, 1, 8, NOW(), NOW()),
-('Fraldinha para Churrasco Vácuo', 'KG', 'BOV006', true, 39.90, 1, 4, 7, NOW(), NOW()),
-('Filé de Salmão em Postas Vácuo', 'KG', 'PEI001', true, 79.90, 2, 5, 5, NOW(), NOW()),
+-- Cortes Bovinos (Por KG) - IDs 1 a 6
+('Picanha Tradicional', 'KG', 'BOV001', true, 69.90, 1, 4, 10, NOW(), NOW()),
+('Contra Filé', 'KG', 'BOV002', true, 48.90, 1, 4, 8, NOW(), NOW()),
+('Bife de Chorizo', 'KG', 'BOV003', true, 54.90, 1, 2, 6, NOW(), NOW()),
+('Bife Ancho', 'KG', 'BOV004', true, 54.90, 1, 2, 6, NOW(), NOW()),
+('Alcatra com Maminha', 'KG', 'BOV005', true, 44.90, 1, 1, 8, NOW(), NOW()),
+('Fraldinha para Churrasco', 'KG', 'BOV006', true, 39.90, 1, 4, 7, NOW(), NOW()),
+
+-- Aves e Peixes (Por KG) - IDs 7 a 9
+('Filé de Salmão em Postas', 'KG', 'PEI001', true, 79.90, 2, 5, 5, NOW(), NOW()),
 ('Tulipa de Frango Temperada', 'KG', 'FRA001', true, 21.90, 2, 3, 10, NOW(), NOW()),
-('Coração de Frango Temperado Vácuo', 'KG', 'FRA002', true, 26.90, 2, 3, 8, NOW(), NOW()),
+('Coração de Frango Temperado', 'KG', 'FRA002', true, 26.90, 2, 3, 8, NOW(), NOW()),
+
+-- Linguiças e Embutidos (Por KG) - IDs 10 e 11
 ('Linguiça Calabresa Defumada', 'KG', 'EMB001', true, 25.90, 3, 3, 12, NOW(), NOW()),
 ('Linguiça Toscana para Churrasco', 'KG', 'EMB002', true, 19.90, 3, 3, 15, NOW(), NOW()),
+
+-- Itens por Unidade (UN) - IDs 12 a 15
 ('Carvão Vegetal 5kg', 'UN', 'CAR005', false, 24.90, 4, 5, 20, NOW(), NOW()),
 ('Sal de Parrilla Tradicional 1kg', 'UN', 'SAL001', false, 11.90, 4, 5, 30, NOW(), NOW()),
 ('Pacote de Pão de Alho Tradicional', 'UN', 'PAO001', true, 13.90, 4, 5, 15, NOW(), NOW()),
 ('Pacote de Queijo Coalho para Churrasco', 'UN', 'QJO001', true, 16.50, 4, 5, 12, NOW(), NOW());
 
 -- =============================================================================
--- 4. INJEÇÃO DO HISTÓRICO TRANSAÇÃO POR TRANSAÇÃO
+-- 4. SIMULAÇÃO HISTÓRICA INTELIGENTE (90 DIAS)
 -- =============================================================================
 DO $$
 DECLARE
-    v_data_venda TIMESTAMP;
+    v_data_corrente TIMESTAMP;
+    v_compra_id INT;
     v_venda_id INT;
+    v_descarte_id INT;
     v_cliente_id INT;
     v_user_id INT;
     v_produto_record RECORD;
     v_quantidade DECIMAL;
     v_preco_unitario DECIMAL;
     v_subtotal_venda DECIMAL;
-    v_total_venda DECIMAL;
     v_forma_pagto TEXT;
     
-    v_nomes_clientes TEXT[] := ARRAY['Rodrigo Silva', 'Amanda Costa', 'Lucas Mendes', 'Camila Souza', 'Bruno Alves', 'Juliana Rocha', 'Felipe Santos', 'Beatriz Lima', 'Thiago Ferreira', 'Fernanda Oliveira'];
     v_formas_pagto TEXT[] := ARRAY['PIX', 'DINHEIRO', 'CREDITO', 'DEBITO'];
+    v_nomes_clientes TEXT[] := ARRAY['Rodrigo Silva', 'Amanda Costa', 'Lucas Mendes', 'Camila Souza', 'Bruno Alves', 'Juliana Rocha', 'Felipe Santos', 'Beatriz Lima', 'Thiago Ferreira', 'Fernanda Oliveira'];
 BEGIN
-    -- Captura o ID do usuário real para evitar falhas de restrição de integridade
     SELECT id FROM usuario LIMIT 1 INTO v_user_id;
-    
-    IF v_user_id IS NULL THEN
-        v_user_id := 1;
-    END IF;
+    IF v_user_id IS NULL THEN v_user_id := 1; END IF;
 
-    -- 4.1 GERAÇÃO DE CLIENTES (apelido, telefone, aniversario)
+    -- 4.1 GERAÇÃO DE CLIENTES DE FIDELIDADE
     FOR i IN 1..ARRAY_LENGTH(v_nomes_clientes, 1) LOOP
         INSERT INTO cliente (apelido, telefone, aniversario, data_cadastro, created_at, updated_at)
-        VALUES (
-            v_nomes_clientes[i],
-            '(11) 9' || (1000 + FLOOR(RANDOM() * 9000))::TEXT || '-' || (1000 + FLOOR(RANDOM() * 9000))::TEXT,
-            '1980-01-01'::DATE + (FLOOR(RANDOM() * 10000) * INTERVAL '1 day'),
-            (CURRENT_DATE - INTERVAL '65 days'),
-            NOW() - INTERVAL '65 days',
-            NOW() - INTERVAL '65 days'
-        );
+        VALUES (v_nomes_clientes[i], '(11) 9' || (1000 + FLOOR(RANDOM() * 9000))::TEXT || '-' || (1000 + FLOOR(RANDOM() * 9000))::TEXT, '1985-05-15'::DATE, CURRENT_DATE - INTERVAL '90 days', NOW() - INTERVAL '90 days', NOW() - INTERVAL '90 days');
     END LOOP;
 
-    -- 4.2 ENTRADAS DE ESTOQUE (Corrigido: removido campo 'data' inexistente de compra)
+    -- 4.2 COMPRA BRUTA INICIAL (Há 90 dias)
     FOR v_produto_record IN SELECT id, preco_venda FROM produto LOOP
         INSERT INTO compra (data_compra, created_at, updated_at) 
-        VALUES (CURRENT_DATE - INTERVAL '61 days', NOW() - INTERVAL '61 days', NOW() - INTERVAL '61 days')
-        RETURNING id INTO v_venda_id;
+        VALUES (CURRENT_DATE - INTERVAL '90 days', NOW() - INTERVAL '90 days', NOW() - INTERVAL '90 days')
+        RETURNING id INTO v_compra_id;
 
         INSERT INTO movimentacao (quantidade, preco_unitario_compra, preco_unitario_venda, data_validade, tipo_movimentacao, fk_produto_id, fk_compra_id, created_at, updated_at)
-        VALUES (500.00, v_produto_record.preco_venda * 0.65, v_produto_record.preco_venda, CURRENT_DATE + INTERVAL '90 days', 'COMPRA', v_produto_record.id, v_venda_id, NOW() - INTERVAL '61 days', NOW() - INTERVAL '61 days');
+        VALUES (300.00, v_produto_record.preco_venda * 0.65, v_produto_record.preco_venda, CURRENT_DATE + INTERVAL '60 days', 'COMPRA', v_produto_record.id, v_compra_id, NOW() - INTERVAL '90 days', NOW() - INTERVAL '90 days');
     END LOOP;
 
-    -- 4.3 LOOP TRANSAÇÕES DIÁRIAS (5 vendas por dia nos últimos 60 dias)
-    FOR v_dia IN REVERSE 60..1 LOOP
-        FOR v_venda_no IN 1..5 LOOP
-            
+    -- 4.3 HISTÓRICO DE DIAS ANTERIORES
+    FOR v_dia IN REVERSE 89..1 LOOP
+        FOR v_venda_no IN 1..(2 + FLOOR(RANDOM() * 4)) LOOP
             v_cliente_id := NULL;
-            IF RANDOM() > 0.4 THEN
-                SELECT id FROM cliente ORDER BY RANDOM() LIMIT 1 INTO v_cliente_id;
-            END IF;
+            IF RANDOM() > 0.5 THEN SELECT id FROM cliente ORDER BY RANDOM() LIMIT 1 INTO v_cliente_id; END IF;
 
-            v_data_venda := (CURRENT_DATE - (v_dia || ' days')::INTERVAL) + (INTERVAL '9 hours' + (RANDOM() * INTERVAL '11 hours'));
+            v_data_corrente := (CURRENT_DATE - (v_dia || ' days')::INTERVAL) + (INTERVAL '10 hours' + (RANDOM() * INTERVAL '9 hours'));
             v_forma_pagto := v_formas_pagto[1 + FLOOR(RANDOM() * ARRAY_LENGTH(v_formas_pagto, 1))];
             
             INSERT INTO venda (data_venda, valor_total, desconto, fk_usuario_id, fk_cliente_id, data, created_at, updated_at)
-            VALUES (v_data_venda, 0.00, 0.00, v_user_id, v_cliente_id, v_data_venda::DATE, v_data_venda, v_data_venda)
+            VALUES (v_data_corrente, 0.00, 0.00, v_user_id, v_cliente_id, v_data_corrente::DATE, v_data_corrente, v_data_corrente)
             RETURNING id INTO v_venda_id;
 
             v_subtotal_venda := 0.00;
 
-            -- Adiciona de 1 a 5 produtos por venda
-            FOR v_item IN 1..(1 + FLOOR(RANDOM() * 5)) LOOP
+            FOR v_item IN 1..(1 + FLOOR(RANDOM() * 3)) LOOP
                 SELECT id, unidade_medida, preco_venda FROM produto ORDER BY RANDOM() LIMIT 1 INTO v_produto_record;
                 
-                IF v_produto_record.unidade_medida = 'UN' THEN
-                    v_quantidade := 1 + FLOOR(RANDOM() * 2); 
-                ELSE
-                    v_quantidade := ROUND((0.500 + (RANDOM() * 2.000))::NUMERIC, 3); 
-                END IF;
-
+                IF v_produto_record.unidade_medida = 'UN' THEN v_quantidade := 1; ELSE v_quantidade := ROUND((0.600 + (RANDOM() * 1.500))::NUMERIC, 3); END IF;
                 v_preco_unitario := v_produto_record.preco_venda;
                 v_subtotal_venda := v_subtotal_venda + (v_quantidade * v_preco_unitario);
 
                 INSERT INTO movimentacao (quantidade, preco_unitario_compra, preco_unitario_venda, data_validade, tipo_movimentacao, fk_produto_id, fk_venda_id, created_at, updated_at)
-                VALUES (-v_quantidade, v_preco_unitario * 0.65, v_preco_unitario, v_data_venda::DATE + 60, 'VENDA', v_produto_record.id, v_venda_id, v_data_venda, v_data_venda);
+                VALUES (-v_quantidade, v_preco_unitario * 0.65, v_preco_unitario, v_data_corrente::DATE + 30, 'VENDA', v_produto_record.id, v_venda_id, v_data_corrente, v_data_corrente);
             END LOOP;
 
-            v_total_venda := v_subtotal_venda;
-
-            UPDATE venda SET valor_total = ROUND(v_total_venda::NUMERIC, 2) WHERE id = v_venda_id;
+            UPDATE venda SET valor_total = ROUND(v_subtotal_venda::NUMERIC, 2) WHERE id = v_venda_id;
 
             IF v_forma_pagto = 'CREDITO' THEN
                 INSERT INTO venda_pagamento (fk_venda_id, metodo_pagamento, valor, acrescimo_percent, acrescimo_valor, valor_pago, criado_em, created_at, updated_at)
-                VALUES (v_venda_id, 'CREDITO', ROUND(v_total_venda::NUMERIC, 2), 5.00, ROUND((v_total_venda * 0.05)::NUMERIC, 2), ROUND((v_total_venda * 1.05)::NUMERIC, 2), NOW(), v_data_venda, v_data_venda);
+                VALUES (v_venda_id, 'CREDITO', ROUND(v_subtotal_venda::NUMERIC, 2), 5.00, ROUND((v_subtotal_venda * 0.05)::NUMERIC, 2), ROUND((v_subtotal_venda * 1.05)::NUMERIC, 2), NOW(), v_data_corrente, v_data_corrente);
             ELSE
                 INSERT INTO venda_pagamento (fk_venda_id, metodo_pagamento, valor, acrescimo_percent, acrescimo_valor, valor_pago, criado_em, created_at, updated_at)
-                VALUES (v_venda_id, v_forma_pagto, ROUND(v_total_venda::NUMERIC, 2), 0.00, 0.00, ROUND(v_total_venda::NUMERIC, 2), NOW(), v_data_venda, v_data_venda);
+                VALUES (v_venda_id, v_forma_pagto, ROUND(v_subtotal_venda::NUMERIC, 2), 0.00, 0.00, ROUND(v_subtotal_venda::NUMERIC, 2), NOW(), v_data_corrente, v_data_corrente);
             END IF;
-
         END LOOP;
     END LOOP;
+
+    -- =========================================================================
+    -- SCENARIO DE APRESENTAÇÃO 1: PRODUTO QUE VENCE HOJE (SALMÃO) + DESCARTE
+    -- =========================================================================
+    -- 1. Cria uma entrada de estoque de Salmão que expira exatamente hoje
+    INSERT INTO compra (data_compra, created_at, updated_at) VALUES (CURRENT_DATE - INTERVAL '15 days', NOW(), NOW()) RETURNING id INTO v_compra_id;
+    INSERT INTO movimentacao (quantidade, preco_unitario_compra, preco_unitario_venda, data_validade, tipo_movimentacao, fk_produto_id, fk_compra_id, created_at, updated_at)
+    VALUES (15.500, 50.00, 79.90, CURRENT_DATE, 'COMPRA', 7, v_compra_id, NOW(), NOW());
+
+    -- 2. Cria o descarte por VENCIMENTO retirando as 15.5kg do estoque
+    INSERT INTO descarte (data_descarte, motivo, created_at, updated_at) VALUES (CURRENT_DATE, 'VENCIMENTO', NOW(), NOW()) RETURNING id INTO v_descarte_id;
+    INSERT INTO movimentacao (quantidade, preco_unitario_compra, preco_unitario_venda, data_validade, tipo_movimentacao, fk_produto_id, fk_descarte_id, created_at, updated_at)
+    VALUES (-15.500, 0.00, 0.00, CURRENT_DATE, 'DESCARTE', 7, v_descarte_id, NOW(), NOW());
+
+
+    -- =========================================================================
+    -- SCENARIO DE APRESENTAÇÃO 2: REGRA DE QUEBRA < 100G (PICANHA TRADICIONAL)
+    -- =========================================================================
+    -- 1. Cria um lote controlado de Picanha (ID 1) com 10,00 kg
+    INSERT INTO compra (data_compra, created_at, updated_at) VALUES (CURRENT_DATE - INTERVAL '2 days', NOW(), NOW()) RETURNING id INTO v_compra_id;
+    INSERT INTO movimentacao (id, quantidade, preco_unitario_compra, preco_unitario_venda, data_validade, tipo_movimentacao, fk_produto_id, fk_compra_id, created_at, updated_at)
+    VALUES (9999, 10.000, 45.00, 69.90, CURRENT_DATE + INTERVAL '30 days', 'COMPRA', 1, v_compra_id, NOW(), NOW());
+
+    -- 2. Realiza uma venda de 9,960 kg desse mesmo lote (ID 9999) -> Deixa sobrar exatamente 0,040 kg (40 gramas)
+    INSERT INTO venda (data_venda, valor_total, desconto, fk_usuario_id, fk_cliente_id, data, created_at, updated_at)
+    VALUES (NOW(), 9960 * 69.90, 0.00, v_user_id, NULL, CURRENT_DATE, NOW(), NOW()) RETURNING id INTO v_venda_id;
+    
+    INSERT INTO movimentacao (quantidade, preco_unitario_compra, preco_unitario_venda, data_validade, tipo_movimentacao, fk_produto_id, fk_venda_id, created_at, updated_at)
+    VALUES (-9.960, 45.00, 69.90, CURRENT_DATE + INTERVAL '30 days', 'VENDA', 1, v_venda_id, NOW(), NOW());
+
+    -- 3. O SISTEMA DETECTA RESÍDUO < 100G: Cria o descarte por PERDA_PESO de 0.040 kg para zerar o lote na balança
+    INSERT INTO descarte (data_descarte, motivo, created_at, updated_at) VALUES (CURRENT_DATE, 'PERDA_PESO', NOW(), NOW()) RETURNING id INTO v_descarte_id;
+    INSERT INTO movimentacao (quantidade, preco_unitario_compra, preco_unitario_venda, tipo_movimentacao, fk_produto_id, fk_descarte_id, created_at, updated_at)
+    VALUES (-0.040, 0.00, 0.00, 'DESCARTE', 1, v_descarte_id, NOW(), NOW());
 
 END $$;
 
