@@ -7,6 +7,7 @@ import api from '../services/apiClient'
 import { toast } from 'react-toastify'
 import { loadStoreConfig } from './ConfiguracaoView'
 import { toTitleCase, titleCaseHandler } from '../services/textUtils'
+import { useAttributes } from '../context/AttributesContext'
 
 // ── Animations ─────────────────────────────────────────────────────────────────
 const slideIn = keyframes`from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}`
@@ -475,13 +476,17 @@ const PAY_LABELS = { PIX:'PIX', DINHEIRO:'Dinheiro', CREDITO:'Crédito', DEBITO:
 // ── Component ──────────────────────────────────────────────────────────────────
 export const SalesView = ({ navigate }) => {
   // Products
+  // Products - Atualizado para carregar sob demanda
   const [products, setProducts] = useState([])
-  const [loadingP, setLoadingP] = useState(true)
+  const [loadingP, setLoadingP] = useState(false) // Começa como falso
   const [search, setSearch] = useState('')
   const [activeCat, setActiveCat] = useState('TODOS')
   const [selectedId, setSelectedId] = useState(null)
   const [inlineQty, setInlineQty] = useState('')
   const [inlinePrice, setInlinePrice] = useState('')
+  
+  // Referência para o controle de tempo do Debounce de produtos
+  const productDebounceRef = useRef(null)
 
   // Price helpers (mask like PurchaseView): format display and accept digits-only input
   const formatPriceDisplay = (value) => {
@@ -498,6 +503,9 @@ export const SalesView = ({ navigate }) => {
   }
   const handleInlinePriceChange = (e) => {
     const digits = String(e.target.value || '').replace(/\D/g, '')
+    
+    if (digits.length > 10) return
+
     const cents = parseInt(digits || '0', 10)
     setInlinePrice(cents === 0 ? '' : (cents / 100).toFixed(2).replace('.', ','))
   }
@@ -585,18 +593,52 @@ export const SalesView = ({ navigate }) => {
   const clientTimer = useRef(null)
 
   // Load products — busca TODAS as páginas para exibir catálogo completo no PDV
-  const loadProducts = useCallback(() => {
+  // Carrega produtos dinamicamente usando a paginação e busca da API
+  const loadProducts = useCallback((query, category) => {
     setLoadingP(true)
-    getAllProductsUnpaged()
-      .then(all => setProducts(all.map(p => ({
-        id: p.id, name: p.name || '', code: p.code || '',
-        brand: p.brandName || '', category: p.categoryName || '',
-        unit: p.unitMeasurement || 'UN', price: Number(p.precoVenda || 0),
-        stock: Number(p.stockQuantity ?? 0),
-      }))))
-      .catch(() => toast.error('Erro ao carregar produtos.'))
+    
+    // Se houver texto digitado, usa o searchProducts, senão usa o getAllProducts (Página 0)
+    const apiCall = (query && query.trim().length >= 2)
+      ? api.get(`/products/search?q=${encodeURIComponent(query.trim())}&page=0`)
+      : api.get(`/products?page=0`)
+
+    apiCall
+      .then(response => {
+        // Mapeia os dados paginados respeitando a estrutura que o PDV espera
+        const content = response.data.content || response.data || []
+        let mapped = content.map(p => ({
+          id: p.id, name: p.name || '', code: p.code || '',
+          brand: p.brandName || '', category: p.categoryName || '',
+          unit: p.unitMeasurement || 'UN', price: Number(p.precoVenda || 0),
+          stock: Number(p.stockQuantity ?? 0),
+        }))
+
+        // Se uma categoria específica estiver selecionada (e não for busca por texto), filtra
+        if (category && category !== 'TODOS') {
+          mapped = mapped.filter(p => p.category === category)
+        }
+
+        setProducts(mapped)
+      })
+      .catch(() => toast.error('Erro ao buscar produtos.'))
       .finally(() => setLoadingP(false))
   }, [])
+
+  // Dispara o carregamento inicial ao montar o componente
+  useEffect(() => { 
+    loadProducts('', 'TODOS') 
+  }, [loadProducts])
+
+  // Debounce para escutar a digitação do usuário e o clique nas abas de categoria
+  useEffect(() => {
+    if (productDebounceRef.current) clearTimeout(productDebounceRef.current)
+    
+    productDebounceRef.current = setTimeout(() => {
+      loadProducts(search, activeCat)
+    }, 400) // 400ms de espera para não inundar o servidor de requisições
+
+    return () => clearTimeout(productDebounceRef.current)
+  }, [search, activeCat, loadProducts])
 
   useEffect(() => { loadProducts() }, [loadProducts])
 
@@ -616,28 +658,22 @@ export const SalesView = ({ navigate }) => {
     return () => clearTimeout(clientTimer.current)
   }, [clientSearch, anonymous])
 
-  // Categories
+  // Resgata as categorias cadastradas direto do Contexto global
+  const { categories: contextCategories } = useAttributes()
+
   const categories = useMemo(() => {
-    const cats = [...new Set(products.map(p => p.category).filter(Boolean))].sort()
+    const cats = (contextCategories || []).map(c => c.categoryName).filter(Boolean)
     return ['TODOS', ...cats]
-  }, [products])
+  }, [contextCategories])
+
+  // Como a filtragem robusta agora acontece no banco, displayed apenas espelha o estado
+  const displayed = useMemo(() => products, [products])
 
   // Qty already reserved in cart per product (for display only; validation uses original stock)
   const cartQtyById = useMemo(
     () => cart.reduce((acc, it) => { acc[it.productId] = (acc[it.productId] || 0) + it.qty; return acc }, {}),
     [cart]
   )
-
-  // Filtered products
-  const displayed = useMemo(() => {
-    let list = products
-    if (activeCat !== 'TODOS') list = list.filter(p => p.category === activeCat)
-    const q = search.trim().toLowerCase()
-    if (q.length >= 1) list = list.filter(p =>
-      p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q)
-    )
-    return list
-  }, [products, activeCat, search])
 
   // Select product
   const selectProduct = (p) => {
@@ -650,6 +686,7 @@ export const SalesView = ({ navigate }) => {
     }
 
   // Add to cart
+  // Add to cart
   const addToCart = (p) => {
     const qty = parseFloat(String(inlineQty).replace(',', '.'))
     const minQty = p.unit === 'UN' ? 1 : 0.001
@@ -658,41 +695,90 @@ export const SalesView = ({ navigate }) => {
       return
     }
     if (p.unit === 'UN' && !Number.isInteger(qty)) { toast.warning('Quantidade inteira para UN.'); return }
+    
     const price = parseFloat(String(inlinePrice).replace(',', '.'))
     if (isNaN(price) || price < 0) { toast.warning('Preço inválido.'); return }
+    
     const cartQty = cart.filter(it => it.productId === p.id).reduce((s, it) => s + it.qty, 0)
     if (p.stock != null && !isNaN(p.stock) && qty + cartQty > p.stock + 0.0001) {
       const avail = Math.max(0, p.stock - cartQty)
       toast.warning(`Estoque insuficiente. Disponível: ${fmtStock(avail, p.unit)}`)
       return
     }
-    setCart(prev => [...prev, { key: Date.now(), productId: p.id, name: p.name, unit: p.unit, qty, price }])
+
+    // ── CORREÇÃO AQUI: Verifica se o produto com o MESMO preço já está no carrinho ──
+    setCart(prev => {
+      const existingItemIndex = prev.findIndex(it => it.productId === p.id && it.price === price)
+
+      if (existingItemIndex > -1) {
+        // Se já existe, clona a lista e atualiza apenas a quantidade daquele item
+        const newCart = [...prev]
+        newCart[existingItemIndex] = {
+          ...newCart[existingItemIndex],
+          qty: newCart[existingItemIndex].qty + qty
+        }
+        return newCart
+      } else {
+        // Se não existe, adiciona como um novo item normalmente
+        return [...prev, { key: Date.now(), productId: p.id, name: p.name, unit: p.unit, qty, price }]
+      }
+    })
+
     setSelectedId(null); setInlineQty(''); setInlinePrice('')
     searchRef.current?.focus()
   }
 
   // Cart ops
   const updateQty = (key, val) => {
-    const q = parseFloat(String(val).replace(',', '.'))
-    if (isNaN(q) || q <= 0) { removeItem(key); return }
-    setCart(prev => prev.map(it => it.key === key ? { ...it, qty: q } : it))
+    // 1. Se o campo estiver vazio, permite limpar para o usuário poder redigitar
+    if (val === '') {
+      setCart(prev => prev.map(it => it.key === key ? { ...it, qty: '' } : it))
+      return
+    }
+
+    // Normaliza para o padrão de ponto do JavaScript
+    const normalizedVal = String(val).replace(',', '.')
+
+    // Busca o item no carrinho atual para checar a unidade de medida (UN)
+    const item = cart.find(it => it.key === key)
+    if (!item) return
+
+    // 2. REGRA PARA "UN": Bloqueia qualquer ponto/vírgula ou se não for número inteiro
+    if (item.unit === 'UN') {
+      if (normalizedVal.includes('.') || !/^\d{0,7}$/.test(normalizedVal)) {
+        return // Bloqueia a digitação de decimais ou mais de 7 dígitos
+      }
+    } else {
+      // 3. REGRA PARA OUTRAS UNIDADES (KG, etc): Máximo 7 inteiros e estritamente até 3 decimais
+      // Esta regex barra a digitação de zeros extras após a 3ª casa (ex: 1.1230)
+      if (!/^\d{0,7}(\.\d{0,3})?$/.test(normalizedVal)) {
+        return 
+      }
+    }
+
+    // 4. Se passou nas validações, atualiza o estado mantendo a STRING digitada temporariamente
+    // Isso evita que o estado mude para number e o HTML permita os zeros extras à direita
+    setCart(prev => prev.map(it => it.key === key ? { ...it, qty: normalizedVal } : it))
   }
   const removeItem = (key) => setCart(prev => prev.filter(it => it.key !== key))
   const clearCart = () => { setCart([]); setSelectedId(null) }
 
   // Totals
-  const subtotal = cart.reduce((s, it) => s + it.qty * it.price, 0)
+  const subtotal = cart.reduce((s, it) => s + (parseFloat(it.qty) || 0) * it.price, 0)  
   const total = hasDiscount ? subtotal * 0.95 : subtotal
   const discount = subtotal - total
+
+  // Busca a taxa cadastrada no front ou assume 5 como fallback
+  const creditRate = (loadStoreConfig()?.creditSurcharge ?? 5) / 100;
 
   const surchargeTotal = (splitPayments && paymentsList && paymentsList.length > 0)
     ? paymentsList.reduce((s, p) => {
         if (p.paymentMethod !== 'CREDITO') return s
         const valorCheio = parseBRL(p.valor)
-        const valorBaseOriginal = valorCheio / 1.05
+        const valorBaseOriginal = valorCheio / (1 + creditRate) // Dinâmico
         return s + (valorCheio - valorBaseOriginal)
       }, 0)
-    : (payment === 'CREDITO' ? total * 0.05 : 0)
+    : (payment === 'CREDITO' ? total * creditRate : 0) // Dinâmico
 
   // O total a pagar no Modal será o total limpo da venda + a soma das taxas geradas nas linhas
   const totalWithSurcharge = total + surchargeTotal
@@ -775,6 +861,9 @@ export const SalesView = ({ navigate }) => {
     const userId = Number(localStorage.getItem('userId'))
     if (!userId) { toast.error('Sessão expirada. Faça login novamente.'); return }
     
+    // Busca a taxa configurada no front (ex: 5) e converte para decimal (0.05)
+    const creditRate = (loadStoreConfig()?.creditSurcharge ?? 5) / 100;
+    
     setSubmitting(true)
     try {
       // Build payments payload com as quatro chaves contratuais do DTO do Spring Boot
@@ -784,10 +873,10 @@ export const SalesView = ({ navigate }) => {
           const valorBrutoInput = parseBRL(p.valor)
           const isCredito = p.paymentMethod === 'CREDITO'
           
-          // Se for crédito, retroalimenta os valores deduzindo a taxa matemática reversa (Valor / 1.05)
-          const valorLiquido = isCredito ? (valorBrutoInput / 1.05) : valorBrutoInput
+          // Se for crédito, deduz a taxa matemática reversa baseada na configuração dinâmica
+          const valorLiquido = isCredito ? (valorBrutoInput / (1 + creditRate)) : valorBrutoInput
           const acrescimoValor = isCredito ? (valorBrutoInput - valorLiquido) : 0
-          const acrescimoPercent = isCredito ? 5.00 : 0
+          const acrescimoPercent = isCredito ? (creditRate * 100) : 0
 
           return {
             paymentMethod: p.paymentMethod,
@@ -801,8 +890,8 @@ export const SalesView = ({ navigate }) => {
         // Fluxo de pagamento único direto do PDV
         const isCredito = payment === 'CREDITO'
         const valorLiquido = total
-        const acrescimoValor = isCredito ? (total * 0.05) : 0
-        const acrescimoPercent = isCredito ? 5.00 : 0
+        const acrescimoValor = isCredito ? (total * creditRate) : 0
+        const acrescimoPercent = isCredito ? (creditRate * 100) : 0
         const valorBrutoFinal = totalWithSurcharge
 
         paymentsPayload = [{ 
@@ -830,7 +919,11 @@ export const SalesView = ({ navigate }) => {
         payments: paymentsPayload,
         hasDiscount,
         clienteId: (!anonymous && selectedClient) ? selectedClient.id : null,
-        items: cart.map(it => ({ productId: it.productId, quantity: it.qty, precoUnitarioVenda: it.price })),
+        items: cart.map(it => ({ 
+          productId: it.productId, 
+          quantity: parseFloat(String(it.qty).replace(',', '.')) || 0, 
+          precoUnitarioVenda: it.price 
+        })),
       }
       
       const { saleId } = await createSale(payload)
@@ -880,29 +973,32 @@ export const SalesView = ({ navigate }) => {
   const equalSplit = (n) => {
     if (!n || n < 1) return
     
+    // Busca a taxa configurada no front (ex: 5) e converte para decimal (0.05)
+    const creditRate = (loadStoreConfig()?.creditSurcharge ?? 5) / 100;
+    
     // Dividimos o valor base limpo (sem juros) pelo número de parcelas
     const basePorParcela = total / n
 
     const arr = Array.from({ length: n }).map((_, i) => {
       const method = PAYMENTS[i % PAYMENTS.length].id
       
-      // Se a parcela for no crédito, ela ganha +5% em cima do valor base dela
+      // Se a parcela for no crédito, ela ganha a porcentagem configurada em cima do valor base dela
       let valorFinalParcela = basePorParcela
       if (method === 'CREDITO') {
-        valorFinalParcela = basePorParcela * 1.05
+        valorFinalParcela = basePorParcela * (1 + creditRate)
       }
 
       // Ajuste para a última parcela não perder centavos de dízima periódica
       if (i === n - 1) {
         const totalBaseAcumulado = basePorParcela * (n - 1)
         const restoBase = total - totalBaseAcumulado
-        valorFinalParcela = method === 'CREDITO' ? restoBase * 1.05 : restoBase
+        valorFinalParcela = method === 'CREDITO' ? restoBase * (1 + creditRate) : restoBase
       }
 
       return { 
         id: Date.now() + i, 
         paymentMethod: method, 
-        valor: formatPriceDisplay(Number(valorFinalParcela.toFixed(2))) // Agora vai salvar 105,00 no input!
+        valor: formatPriceDisplay(Number(valorFinalParcela.toFixed(2)))
       }
     })
     setPaymentsList(arr)
@@ -980,7 +1076,19 @@ export const SalesView = ({ navigate }) => {
                       <ILabel>Qtd</ILabel>
                       <IInput ref={qtyRef} type='number' min='0'
                         step={p.unit === 'UN' ? '1' : '0.050'}
-                        value={inlineQty} onChange={e => setInlineQty(e.target.value)}
+                        value={inlineQty} 
+                        onChange={e => {
+                          const val = e.target.value;
+                          // Permite campo vazio para o usuário poder apagar tudo
+                          if (val === '') {
+                            setInlineQty('');
+                            return;
+                          }
+                          // Regex para NUMERIC(10,3): Máximo 7 dígitos inteiros e no máximo 3 decimais
+                          if (/^\d{0,7}(\.\d{0,3})?$/.test(val)) {
+                            setInlineQty(val);
+                          }
+                        }}
                         onFocus={e => e.target.select()}
                         onKeyDown={e => e.key === 'Enter' && addToCart(p)} />
                       <ILabel>Preço R$</ILabel>
@@ -1028,8 +1136,13 @@ export const SalesView = ({ navigate }) => {
                       <button onClick={() => updateQty(it.key, Math.max(0, it.qty - (it.unit==='UN'?1:0.05)).toFixed(it.unit==='UN'?0:3))}>
                         <span className='material-symbols-outlined'>remove</span>
                       </button>
-                      <QIn value={it.qty} type='number' min='0' step={it.unit==='UN'?'1':'0.050'}
-                        onChange={e => updateQty(it.key, e.target.value)} />
+                      <QIn 
+                        value={it.qty} 
+                        type='number' 
+                        min='0' 
+                        step={it.unit==='UN'?'1':'0.050'}
+                        onChange={e => updateQty(it.key, e.target.value)} 
+                      />
                       <button onClick={() => updateQty(it.key, it.qty + (it.unit==='UN'?1:0.05))}>
                         <span className='material-symbols-outlined'>add</span>
                       </button>
@@ -1173,7 +1286,7 @@ export const SalesView = ({ navigate }) => {
                   {payment === 'CREDITO' && (
                     <PayModalInfo style={{marginTop:10}}>
                       <span className='material-symbols-outlined'>info</span>
-                      Acréscimo de 5% no crédito: +{fmt(total * 0.05)} → Total: {fmt(total * 1.05)}
+                      Acréscimo de {((loadStoreConfig()?.creditSurcharge ?? 5)).toFixed(1)}% no crédito: +{fmt(total * ((loadStoreConfig()?.creditSurcharge ?? 5) / 100))} → Total: {fmt(total * (1 + (loadStoreConfig()?.creditSurcharge ?? 5) / 100))}
                     </PayModalInfo>
                   )}
                 </div>
@@ -1188,34 +1301,33 @@ export const SalesView = ({ navigate }) => {
                       background:splitPayments?'#fef2f2':'#fff',
                       color:splitPayments?'#610005':'#57534e',
                       fontWeight:splitPayments?700:400,fontSize:13,cursor:'pointer'}}
-                    onClick={() => {
-                      if (!splitPayments) {
-                        // CORREÇÃO: Antes de dividir, salvamos qual era o método selecionado
-                        const metodoAntesDoSplit = payment;
+                      onClick={() => {
+                        if (!splitPayments) {
+                          // Resguarda o método selecionado antes do split
+                          const metodoAntesDoSplit = payment;
 
-                        // 1. Resetamos o pagamento único para DINHEIRO (assim limpamos qualquer taxa de 5% global)
-                        setPayment('DINHEIRO');
+                          // 1. Reseta o pagamento único padrão para DINHEIRO (limpa taxas globais)
+                          setPayment('DINHEIRO');
 
-                        // 2. Ativamos o split calculando o valor inicial estritamente em cima do 'total' limpo
-                        // Se o método anterior era crédito, a primeira linha do split já nasce como crédito com os 5% corretos (105,00)
-                        let valorInicial = total;
-                        if (metodoAntesDoSplit === 'CREDITO') {
-                          valorInicial = total * 1.05;
+                          // 2. Calcula o valor inicial usando a taxa dinâmica configurada
+                          const creditRate = (loadStoreConfig()?.creditSurcharge ?? 5) / 100;
+                          let valorInicial = total;
+                          if (metodoAntesDoSplit === 'CREDITO') {
+                            valorInicial = total * (1 + creditRate);
+                          }
+
+                          setSplitPayments(true);
+                          setPaymentsList([{ 
+                            id: Date.now(), 
+                            paymentMethod: metodoAntesDoSplit, 
+                            valor: formatPriceDisplay(Number(valorInicial.toFixed(2))) 
+                          }]);
+                        } else {
+                          setSplitPayments(false);
+                          setPaymentsList([]);
+                          setPayment('DINHEIRO'); 
                         }
-
-                        setSplitPayments(true);
-                        setPaymentsList([{ 
-                          id: Date.now(), 
-                          paymentMethod: metodoAntesDoSplit, 
-                          valor: formatPriceDisplay(Number(valorInicial.toFixed(2))) 
-                        }]);
-                      } else {
-                        // Se estiver cancelando a divisão, volta para o padrão limpo
-                        setSplitPayments(false);
-                        setPaymentsList([]);
-                        setPayment('DINHEIRO'); 
-                      }
-                    }}>
+                      }}>
                     {splitPayments ? '✕ Cancelar divisão' : 'Dividir pagamento'}
                   </button>
 
@@ -1247,18 +1359,21 @@ export const SalesView = ({ navigate }) => {
                   {paymentsList.map((p) => {
                     const valorInput = parseBRL(p.valor)
                     // Calcula a taxa embutida na linha atual de forma precisa (Valor - (Valor / 1.05))
-                    const taxaEmbutidaNaLinha = p.paymentMethod === 'CREDITO' ? (valorInput - (valorInput / 1.05)) : 0
-
+                    const taxaEmbutidaNaLinha = p.paymentMethod === 'CREDITO' ? (valorInput - (valorInput / (1 + creditRate))) : 0
                     return (
                       <SplitRow key={p.id}>
                         <select value={p.paymentMethod} onChange={e => {
                           const v = e.target.value
-                          // Se mudar para crédito, reaplica os 5% sobre o valor atual; se tirar do crédito, remove os 5%
+                          const creditRate = (loadStoreConfig()?.creditSurcharge ?? 5) / 100;
+
                           setPaymentsList(prev => prev.map(it => {
                             if (it.id !== p.id) return it
                             let novoValor = parseBRL(it.valor)
-                            if (v === 'CREDITO' && it.paymentMethod !== 'CREDITO') novoValor = novoValor * 1.05
-                            if (v !== 'CREDITO' && it.paymentMethod === 'CREDITO') novoValor = novoValor / 1.05
+                            
+                            // Se mudar para crédito, aplica a taxa dinâmica; se tirar, deduz ela.
+                            if (v === 'CREDITO' && it.paymentMethod !== 'CREDITO') novoValor = novoValor * (1 + creditRate)
+                            if (v !== 'CREDITO' && it.paymentMethod === 'CREDITO') novoValor = novoValor / (1 + creditRate)
+                            
                             return {...it, paymentMethod: v, valor: formatPriceDisplay(Number(novoValor.toFixed(2)))}
                           }))
                         }}>
@@ -1483,23 +1598,58 @@ export const SalesView = ({ navigate }) => {
               </TTotalRow>
 
               {/* Payments breakdown (prefer server-provided payments) */}
-              {saleData?.payments && saleData.payments.length > 0 ? (
-                saleData.payments.map((p, i) => (
+              {/* Payments breakdown (agrupando métodos repetidos) */}
+              {(() => {
+                // 1. Identifica qual fonte de dados de pagamento está disponível e normaliza a estrutura
+                const rawPayments = saleData?.payments && saleData.payments.length > 0
+                  ? saleData.payments.map(p => ({
+                      method: p.paymentMethod,
+                      valor: Number(p.valorPago != null ? p.valorPago : p.valor),
+                      taxa: Number(p.acrescimoValor || 0)
+                    }))
+                  : receipt.paymentsSent && receipt.paymentsSent.length > 0
+                  ? receipt.paymentsSent.map(p => ({
+                      method: p.paymentMethod,
+                      valor: Number(p.valor != null ? p.valor : p.valorPago || 0),
+                      taxa: p.paymentMethod === 'CREDITO' ? Number(p.valor != null ? p.valor : p.valorPago || 0) * 0.05 : 0
+                    }))
+                  : null;
+
+                // 2. Se for o fluxo de pagamento único direto do PDV (sem split)
+                if (!rawPayments) {
+                  return (
+                    <TRow>
+                      <span>{PAY_LABELS[receipt.payment] || receipt.payment}</span>
+                      <span>{fmt(totalWithSurcharge)}</span>
+                    </TRow>
+                  );
+                }
+
+                // 3. Agrupa os pagamentos repetidos somando os valores acumulados e as respectivas taxas
+                const groupedPayments = rawPayments.reduce((acc, current) => {
+                  const existing = acc.find(p => p.method === current.method);
+                  if (existing) {
+                    existing.valor += current.valor;
+                    existing.taxa += current.taxa;
+                  } else {
+                    acc.push({ ...current });
+                  }
+                  return acc;
+                }, []);
+
+                // 4. Renderiza as linhas consolidadas sem duplicação no cupom de 80mm
+                return groupedPayments.map((p, i) => (
                   <div key={i}>
-                    <TRow><span>{PAY_LABELS[p.paymentMethod] || p.paymentMethod}</span><span>{fmt(Number(p.valorPago != null ? p.valorPago : p.valor))}</span></TRow>
-                    {Number(p.acrescimoValor || 0) > 0 && <TSubRow>Taxa financeira: +{fmt(Number(p.acrescimoValor || 0))}</TSubRow>}
+                    <TRow>
+                      <span>{PAY_LABELS[p.method] || p.method}</span>
+                      <span>{fmt(p.valor)}</span>
+                    </TRow>
+                    {p.taxa > 0 && (
+                      <TSubRow>Taxa financeira consolidada: +{fmt(p.taxa)}</TSubRow>
+                    )}
                   </div>
-                ))
-              ) : receipt.paymentsSent && receipt.paymentsSent.length > 0 ? (
-                receipt.paymentsSent.map((p, i) => (
-                  <div key={i}>
-                    <TRow><span>{PAY_LABELS[p.paymentMethod] || p.paymentMethod}</span><span>{fmt(Number(p.valor != null ? p.valor : p.valorPago || 0))}</span></TRow>
-                    {(p.paymentMethod === 'CREDITO') && <TSubRow>Taxa financeira: +{fmt(Number(p.valor != null ? p.valor : p.valorPago || 0) * 0.05)}</TSubRow>}
-                  </div>
-                ))
-              ) : (
-                <TRow><span>PAGAMENTO</span><span>{PAY_LABELS[receipt.payment] || receipt.payment}</span></TRow>
-              )}
+                ));
+              })()}
 
               {receipt.client && <TRow><span>CLIENTE</span><span>{receipt.client.nickname}</span></TRow>}
               <TDash />

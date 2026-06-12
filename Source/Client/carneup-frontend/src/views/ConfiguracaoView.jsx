@@ -224,6 +224,7 @@ const DEFAULT_CONFIG = {
   footerMsg:         'Obrigado pela preferência!',
   expiryDays:        7,
   clienteInativoDias: 30,
+  creditSurcharge:   5
 }
 
 const TABS = [
@@ -596,6 +597,19 @@ export const ConfiguracaoView = ({ navigate }) => {
                         onChange={e => setForm(f => ({ ...f, clienteInativoDias: Number(e.target.value) }))}
                       />
                     </Field>
+                    <Field>
+                      <Label>Acréscimo no Crédito (PDV %)</Label>
+                      <Input
+                        type='number'
+                        min='0'
+                        max='100'
+                        step='0.1'
+                        value={form.creditSurcharge ?? 5}
+                        onChange={e => setForm(f => ({ ...f, creditSurcharge: parseFloat(e.target.value) || 0 }))}
+                      />
+                    </Field>
+                    <Grid $cols='1fr 1fr 1fr'>
+                  </Grid>
                   </Grid>
 
                   <InfoRow>
