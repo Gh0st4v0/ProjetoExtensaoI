@@ -78,7 +78,6 @@ jobs:
       #       -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
 
       - name: Login no GitHub Container Registry
-        if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -86,7 +85,6 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Gerar metadados da imagem
-        if: github.event_name == 'push'
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -97,7 +95,6 @@ jobs:
             type=sha,prefix=sha-
 
       - name: Build e push da imagem Docker
-        if: github.event_name == 'push'
         uses: docker/build-push-action@v5
         with:
           context: ${{ env.BACKEND_DIR }}
