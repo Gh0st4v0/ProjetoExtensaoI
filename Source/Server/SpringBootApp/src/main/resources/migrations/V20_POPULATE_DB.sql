@@ -65,7 +65,7 @@ INSERT INTO produto (nome, unidade_medida, codigo, perecivel, preco_venda, fk_ca
 ('Pacote de Queijo Coalho para Churrasco', 'UN', 'QJO001', true, 16.50, 4, 5, 12, NOW(), NOW());
 
 -- =============================================================================
--- 4. SIMULAÇÃO HISTÓRICA INTELIGENTE (90 DIAS)
+-- 4. SIMULAÇÃO HISTÓRICA INTELIGENTE (90 DIAS) - VERSÃO CORRIGIDA SEM COLUNA "DATA"
 -- =============================================================================
 DO $$
 DECLARE
@@ -112,8 +112,9 @@ BEGIN
             v_data_corrente := (CURRENT_DATE - (v_dia || ' days')::INTERVAL) + (INTERVAL '10 hours' + (RANDOM() * INTERVAL '9 hours'));
             v_forma_pagto := v_formas_pagto[1 + FLOOR(RANDOM() * ARRAY_LENGTH(v_formas_pagto, 1))];
             
-            INSERT INTO venda (data_venda, valor_total, desconto, fk_usuario_id, fk_cliente_id, data, created_at, updated_at)
-            VALUES (v_data_corrente, 0.00, 0.00, v_user_id, v_cliente_id, v_data_corrente::DATE, v_data_corrente, v_data_corrente)
+            -- CORREÇÃO AQUI: Removida a coluna "data" que causava o erro na esteira
+            INSERT INTO venda (data_venda, valor_total, desconto, fk_usuario_id, fk_cliente_id, created_at, updated_at)
+            VALUES (v_data_corrente, 0.00, 0.00, v_user_id, v_cliente_id, v_data_corrente, v_data_corrente)
             RETURNING id INTO v_venda_id;
 
             v_subtotal_venda := 0.00;
@@ -144,33 +145,27 @@ BEGIN
     -- =========================================================================
     -- SCENARIO DE APRESENTAÇÃO 1: PRODUTO QUE VENCE HOJE (SALMÃO) + DESCARTE
     -- =========================================================================
-    -- 1. Cria uma entrada de estoque de Salmão que expira exatamente hoje
     INSERT INTO compra (data_compra, created_at, updated_at) VALUES (CURRENT_DATE - INTERVAL '15 days', NOW(), NOW()) RETURNING id INTO v_compra_id;
     INSERT INTO movimentacao (quantidade, preco_unitario_compra, preco_unitario_venda, data_validade, tipo_movimentacao, fk_produto_id, fk_compra_id, created_at, updated_at)
     VALUES (15.500, 50.00, 79.90, CURRENT_DATE, 'COMPRA', 7, v_compra_id, NOW(), NOW());
 
-    -- 2. Cria o descarte por VENCIMENTO retirando as 15.5kg do estoque
     INSERT INTO descarte (data_descarte, motivo, created_at, updated_at) VALUES (CURRENT_DATE, 'VENCIMENTO', NOW(), NOW()) RETURNING id INTO v_descarte_id;
     INSERT INTO movimentacao (quantidade, preco_unitario_compra, preco_unitario_venda, data_validade, tipo_movimentacao, fk_produto_id, fk_descarte_id, created_at, updated_at)
     VALUES (-15.500, 0.00, 0.00, CURRENT_DATE, 'DESCARTE', 7, v_descarte_id, NOW(), NOW());
 
-
     -- =========================================================================
     -- SCENARIO DE APRESENTAÇÃO 2: REGRA DE QUEBRA < 100G (PICANHA TRADICIONAL)
     -- =========================================================================
-    -- 1. Cria um lote controlado de Picanha (ID 1) com 10,00 kg
     INSERT INTO compra (data_compra, created_at, updated_at) VALUES (CURRENT_DATE - INTERVAL '2 days', NOW(), NOW()) RETURNING id INTO v_compra_id;
-    INSERT INTO movimentacao (id, quantidade, preco_unitario_compra, preco_unitario_venda, data_validade, tipo_movimentacao, fk_produto_id, fk_compra_id, created_at, updated_at)
-    VALUES (9999, 10.000, 45.00, 69.90, CURRENT_DATE + INTERVAL '30 days', 'COMPRA', 1, v_compra_id, NOW(), NOW());
+    INSERT INTO movimentacao (quantidade, preco_unitario_compra, preco_unitario_venda, data_validade, tipo_movimentacao, fk_produto_id, fk_compra_id, created_at, updated_at)
+    VALUES (10.000, 45.00, 69.90, CURRENT_DATE + INTERVAL '30 days', 'COMPRA', 1, v_compra_id, NOW(), NOW());
 
-    -- 2. Realiza uma venda de 9,960 kg desse mesmo lote (ID 9999) -> Deixa sobrar exatamente 0,040 kg (40 gramas)
-    INSERT INTO venda (data_venda, valor_total, desconto, fk_usuario_id, fk_cliente_id, data, created_at, updated_at)
-    VALUES (NOW(), 9960 * 69.90, 0.00, v_user_id, NULL, CURRENT_DATE, NOW(), NOW()) RETURNING id INTO v_venda_id;
+    INSERT INTO venda (data_venda, valor_total, desconto, fk_usuario_id, fk_cliente_id, created_at, updated_at)
+    VALUES (NOW(), 9.960 * 69.90, 0.00, v_user_id, NULL, NOW(), NOW()) RETURNING id INTO v_venda_id;
     
     INSERT INTO movimentacao (quantidade, preco_unitario_compra, preco_unitario_venda, data_validade, tipo_movimentacao, fk_produto_id, fk_venda_id, created_at, updated_at)
     VALUES (-9.960, 45.00, 69.90, CURRENT_DATE + INTERVAL '30 days', 'VENDA', 1, v_venda_id, NOW(), NOW());
 
-    -- 3. O SISTEMA DETECTA RESÍDUO < 100G: Cria o descarte por PERDA_PESO de 0.040 kg para zerar o lote na balança
     INSERT INTO descarte (data_descarte, motivo, created_at, updated_at) VALUES (CURRENT_DATE, 'PERDA_PESO', NOW(), NOW()) RETURNING id INTO v_descarte_id;
     INSERT INTO movimentacao (quantidade, preco_unitario_compra, preco_unitario_venda, tipo_movimentacao, fk_produto_id, fk_descarte_id, created_at, updated_at)
     VALUES (-0.040, 0.00, 0.00, 'DESCARTE', 1, v_descarte_id, NOW(), NOW());
