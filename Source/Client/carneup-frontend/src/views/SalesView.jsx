@@ -476,11 +476,17 @@ const PAY_LABELS = { PIX:'PIX', DINHEIRO:'Dinheiro', CREDITO:'Crédito', DEBITO:
 // ── Component ──────────────────────────────────────────────────────────────────
 export const SalesView = ({ navigate }) => {
   // Products
-  // Products - Atualizado para carregar sob demanda
   const [products, setProducts] = useState([])
-  const [loadingP, setLoadingP] = useState(false) // Começa como falso
+  const [loadingP, setLoadingP] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [search, setSearch] = useState('')
   const [activeCat, setActiveCat] = useState('TODOS')
+
+  // 👇 ESTAS SÃO AS 3 LINHAS QUE ESTAVAM FALTANDO 👇
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
+  const [totalProducts, setTotalProducts] = useState(0)
+
   const [selectedId, setSelectedId] = useState(null)
   const [inlineQty, setInlineQty] = useState('')
   const [inlinePrice, setInlinePrice] = useState('')
@@ -594,18 +600,30 @@ export const SalesView = ({ navigate }) => {
 
   // Load products — busca TODAS as páginas para exibir catálogo completo no PDV
   // Carrega produtos dinamicamente usando a paginação e busca da API
-  const loadProducts = useCallback((query, category) => {
-    setLoadingP(true)
+  // Load products — transferindo a responsabilidade do filtro para o Backend
+  // Load products — Agora com suporte a paginação (append)
+  const loadProducts = useCallback((query, category, pageNum = 0) => {
+    if (pageNum === 0) setLoadingP(true)
+    else setLoadingMore(true) // Carregamento silencioso no fim da lista
     
-    // Se houver texto digitado, usa o searchProducts, senão usa o getAllProducts (Página 0)
-    const apiCall = (query && query.trim().length >= 2)
-      ? api.get(`/products/search?q=${encodeURIComponent(query.trim())}&page=0`)
-      : api.get(`/products?page=0`)
+    const hasTextQuery = query && query.trim().length >= 2;
+    const hasCategoryQuery = category && category !== 'TODOS';
+    
+    let searchTerm = '';
+    if (hasTextQuery) searchTerm = query.trim();
+    else if (hasCategoryQuery) searchTerm = category;
+
+    const apiCall = searchTerm
+      ? api.get(`/products/search?q=${encodeURIComponent(searchTerm)}&page=${pageNum}`)
+      : api.get(`/products?page=${pageNum}`)
 
     apiCall
       .then(response => {
-        // Mapeia os dados paginados respeitando a estrutura que o PDV espera
+        // O Spring Boot devolve as propriedades de paginação no response.data
         const content = response.data.content || response.data || []
+        const totalElements = response.data.totalElements || content.length
+        const totalPages = response.data.totalPages || 1
+
         let mapped = content.map(p => ({
           id: p.id, name: p.name || '', code: p.code || '',
           brand: p.brandName || '', category: p.categoryName || '',
@@ -613,18 +631,25 @@ export const SalesView = ({ navigate }) => {
           stock: Number(p.stockQuantity ?? 0),
         }))
 
-        // Se uma categoria específica estiver selecionada (e não for busca por texto), filtra
-        if (category && category !== 'TODOS') {
+        if (hasTextQuery && hasCategoryQuery) {
           mapped = mapped.filter(p => p.category === category)
         }
 
-        setProducts(mapped)
+        // Se for página 0, reseta a lista. Se for página > 0, junta com o que já tem
+        setProducts(prev => pageNum === 0 ? mapped : [...prev, ...mapped])
+        
+        // Atualiza os controles de visualização
+        setTotalProducts(totalElements)
+        setHasMore(pageNum < totalPages - 1)
       })
       .catch(() => toast.error('Erro ao buscar produtos.'))
-      .finally(() => setLoadingP(false))
+      .finally(() => {
+        setLoadingP(false)
+        setLoadingMore(false)
+      })
   }, [])
 
-  // Dispara o carregamento inicial ao montar o componente
+  /// Dispara o carregamento inicial (página 0, sem filtros) ao montar o componente
   useEffect(() => { 
     loadProducts('', 'TODOS') 
   }, [loadProducts])
@@ -635,12 +660,39 @@ export const SalesView = ({ navigate }) => {
     
     productDebounceRef.current = setTimeout(() => {
       loadProducts(search, activeCat)
-    }, 400) // 400ms de espera para não inundar o servidor de requisições
+    }, 400) // 400ms de espera
+
+    return () => clearTimeout(productDebounceRef.current)
+  }, [search, activeCat, loadProducts])// Dispara o carregamento inicial ao montar o componente
+  useEffect(() => { 
+    loadProducts('', 'TODOS', 0) 
+  }, [loadProducts])
+
+  // Debounce para escutar a digitação do usuário e o clique nas abas
+  useEffect(() => {
+    if (productDebounceRef.current) clearTimeout(productDebounceRef.current)
+    
+    productDebounceRef.current = setTimeout(() => {
+      setPage(0) // Sempre que pesquisar algo novo, volta pra página 0
+      loadProducts(search, activeCat, 0)
+    }, 400)
 
     return () => clearTimeout(productDebounceRef.current)
   }, [search, activeCat, loadProducts])
 
   useEffect(() => { loadProducts() }, [loadProducts])
+
+  const handleScroll = (e) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.target
+    // Se a rolagem chegar a 50px do final, tem mais páginas e não está carregando nada no momento
+    if (scrollHeight - scrollTop <= clientHeight + 50) {
+      if (hasMore && !loadingP && !loadingMore) {
+        const nextPage = page + 1
+        setPage(nextPage)
+        loadProducts(search, activeCat, nextPage)
+      }
+    }
+  }
 
   // Focus search on mount
   useEffect(() => { searchRef.current?.focus() }, [])
@@ -668,7 +720,6 @@ export const SalesView = ({ navigate }) => {
 
   // Como a filtragem robusta agora acontece no banco, displayed apenas espelha o estado
   const displayed = useMemo(() => products, [products])
-
   // Qty already reserved in cart per product (for display only; validation uses original stock)
   const cartQtyById = useMemo(
     () => cart.reduce((acc, it) => { acc[it.productId] = (acc[it.productId] || 0) + it.qty; return acc }, {}),
@@ -1047,9 +1098,9 @@ export const SalesView = ({ navigate }) => {
               ))}
             </CatTabs>
 
-            {!loadingP && <PCount>{displayed.length} produto{displayed.length !== 1 ? 's' : ''}</PCount>}
+            {!loadingP && <PCount>{totalProducts} produto{totalProducts !== 1 ? 's' : ''}</PCount>}
 
-            <PList>
+            <PList onScroll={handleScroll}>
               {loadingP && <EmptyP><span className='material-symbols-outlined'>hourglass_empty</span>Carregando produtos...</EmptyP>}
               {!loadingP && displayed.length === 0 && <EmptyP><span className='material-symbols-outlined'>search_off</span>Nenhum produto encontrado.</EmptyP>}
               {displayed.map(p => (
