@@ -167,11 +167,6 @@ INSERT INTO termos VALUES (1, 'Autorizo o uso dos meus dados para fins de cadast
 
 --
 -- Data for Name: usuario; Type: TABLE DATA; Schema: public; Owner: -
---
-
-INSERT INTO usuario VALUES ('admin', '$2a$10$/nUikUfoL5YQZmWuB1JaleESGBejs/iafY3dXqhaPHML2NTAXzsC.', 'ADM', 'admin@carneup.com', '2026-05-19 23:27:53.873154', '2026-05-31 22:26:08.442353', '2026-05-31 22:26:08.44277');
-INSERT INTO usuario VALUES ('João Vendedor', '$2a$10$/nUikUfoL5YQZmWuB1JaleESGBejs/iafY3dXqhaPHML2NTAXzsC.', 'USUARIO', 'joao@carneup.com', '2026-05-31 22:36:51.533884', '2026-05-31 22:36:51.533884', '2026-05-31 22:36:51.533884');
-
 
 --
 -- Data for Name: consentimentos; Type: TABLE DATA; Schema: public; Owner: -
