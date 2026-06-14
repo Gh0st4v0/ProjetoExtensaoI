@@ -46,18 +46,18 @@ jobs:
       - name: Copy to EC2
         uses: appleboy/scp-action@master
         with:
-          host: ${{ secrets.EC2_HOST_STAGE }}
+          host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY_STAGE }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: deploy_artifacts.tar.gz
           target: ${{ github.event.inputs.deploy_path || '/home/ubuntu/app' }}
 
       - name: Execute Deploy
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.EC2_HOST_STAGE }}
+          host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY_STAGE }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ${{ github.event.inputs.deploy_path || '/home/ubuntu/app' }}
             tar -xzf deploy_artifacts.tar.gz && rm deploy_artifacts.tar.gz
