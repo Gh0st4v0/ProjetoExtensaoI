@@ -516,6 +516,11 @@ export const SalesView = ({ navigate }) => {
     setInlinePrice(cents === 0 ? '' : (cents / 100).toFixed(2).replace('.', ','))
   }
 
+  // Força o arredondamento .5 para cima (simula o HALF_UP do Java)
+  const roundHalfUp = (num) => {
+    return Math.round((Number(num) + Number.EPSILON) * 100) / 100;
+  }
+
   // Cart
   const [cart, setCart] = useState([])
 
@@ -815,21 +820,35 @@ export const SalesView = ({ navigate }) => {
   const clearCart = () => { setCart([]); setSelectedId(null) }
 
   // Totals
-  const subtotal = cart.reduce((s, it) => s + (parseFloat(it.qty) || 0) * it.price, 0)  
-  const total = hasDiscount ? subtotal * 0.95 : subtotal
+  const rawSubtotal = cart.reduce((s, it) => s + (parseFloat(it.qty) || 0) * it.price, 0);
+  const subtotal = roundHalfUp(rawSubtotal);
+  const total = roundHalfUp(hasDiscount ? subtotal * 0.95 : subtotal);
   const discount = subtotal - total
 
-  // Busca a taxa cadastrada no front ou assume 5 como fallback
-  const creditRate = (loadStoreConfig()?.creditSurcharge ?? 5) / 100;
+  // 👇 1. NOVO: Estado e busca da taxa dinâmica direto da API
+  const [creditSurcharge, setCreditSurcharge] = useState(() => loadStoreConfig()?.creditSurcharge ?? 5)
+
+  useEffect(() => {
+    api.get('/configuracoes/latest')
+      .then(res => {
+        if (res.data && res.data.acrescimoCredito != null) {
+          setCreditSurcharge(Number(res.data.acrescimoCredito))
+        }
+      })
+      .catch(err => console.error('Erro ao buscar taxa de crédito:', err))
+  }, [])
+
+  const creditRate = creditSurcharge / 100;
 
   const surchargeTotal = (splitPayments && paymentsList && paymentsList.length > 0)
     ? paymentsList.reduce((s, p) => {
         if (p.paymentMethod !== 'CREDITO') return s
         const valorCheio = parseBRL(p.valor)
         const valorBaseOriginal = valorCheio / (1 + creditRate) // Dinâmico
-        return s + (valorCheio - valorBaseOriginal)
+        const taxaDaLinha = roundHalfUp(valorCheio - valorBaseOriginal)
+        return s + taxaDaLinha
       }, 0)
-    : (payment === 'CREDITO' ? total * creditRate : 0) // Dinâmico
+    : roundHalfUp(payment === 'CREDITO' ? total * creditRate : 0) // Dinâmico
 
   // O total a pagar no Modal será o total limpo da venda + a soma das taxas geradas nas linhas
   const totalWithSurcharge = total + surchargeTotal
@@ -912,8 +931,7 @@ export const SalesView = ({ navigate }) => {
     const userId = Number(localStorage.getItem('userId'))
     if (!userId) { toast.error('Sessão expirada. Faça login novamente.'); return }
     
-    // Busca a taxa configurada no front (ex: 5) e converte para decimal (0.05)
-    const creditRate = (loadStoreConfig()?.creditSurcharge ?? 5) / 100;
+    const creditRate = creditSurcharge / 100;
     
     setSubmitting(true)
     try {
@@ -931,10 +949,10 @@ export const SalesView = ({ navigate }) => {
 
           return {
             paymentMethod: p.paymentMethod,
-            valor: Number(valorLiquido.toFixed(2)),
-            acrescimoPercent: Number(acrescimoPercent.toFixed(2)),
-            acrescimoValor: Number(acrescimoValor.toFixed(2)),
-            valorPago: Number(valorBrutoInput.toFixed(2))
+            valor: roundHalfUp(valorLiquido),
+            acrescimoPercent: roundHalfUp(acrescimoPercent),
+            acrescimoValor: roundHalfUp(acrescimoValor),
+            valorPago: roundHalfUp(valorBrutoInput)
           }
         })
       } else {
@@ -947,10 +965,10 @@ export const SalesView = ({ navigate }) => {
 
         paymentsPayload = [{ 
           paymentMethod: payment, 
-          valor: Number(valorLiquido.toFixed(2)),
-          acrescimoPercent: Number(acrescimoPercent.toFixed(2)),
-          acrescimoValor: Number(acrescimoValor.toFixed(2)),
-          valorPago: Number(valorBrutoFinal.toFixed(2))
+          valor: roundHalfUp(valorLiquido),
+          acrescimoPercent: roundHalfUp(acrescimoPercent),
+          acrescimoValor: roundHalfUp(acrescimoValor),
+          valorPago: roundHalfUp(valorBrutoFinal)
         }]
       }
 
@@ -1024,32 +1042,34 @@ export const SalesView = ({ navigate }) => {
   const equalSplit = (n) => {
     if (!n || n < 1) return
     
-    // Busca a taxa configurada no front (ex: 5) e converte para decimal (0.05)
-    const creditRate = (loadStoreConfig()?.creditSurcharge ?? 5) / 100;
+    const creditRate = creditSurcharge / 100;
     
-    // Dividimos o valor base limpo (sem juros) pelo número de parcelas
-    const basePorParcela = total / n
+    // Trabalhar com inteiros (centavos) para evitar perda de dizima na divisão base
+    const totalCents = Math.round(total * 100)
+    const basePorParcelaCents = Math.floor(totalCents / n)
+    const restoCents = totalCents % n
 
     const arr = Array.from({ length: n }).map((_, i) => {
       const method = PAYMENTS[i % PAYMENTS.length].id
       
-      // Se a parcela for no crédito, ela ganha a porcentagem configurada em cima do valor base dela
-      let valorFinalParcela = basePorParcela
-      if (method === 'CREDITO') {
-        valorFinalParcela = basePorParcela * (1 + creditRate)
+      // A última parcela absorve os centavos que sobraram do resto da divisão
+      let parcelaBaseCents = basePorParcelaCents
+      if (i === n - 1) {
+        parcelaBaseCents += restoCents
       }
 
-      // Ajuste para a última parcela não perder centavos de dízima periódica
-      if (i === n - 1) {
-        const totalBaseAcumulado = basePorParcela * (n - 1)
-        const restoBase = total - totalBaseAcumulado
-        valorFinalParcela = method === 'CREDITO' ? restoBase * (1 + creditRate) : restoBase
+      const parcelaBaseReais = parcelaBaseCents / 100
+
+      // Se for crédito, aplica a taxa sobre a base EXATA daquela parcela
+      let valorFinalParcela = parcelaBaseReais
+      if (method === 'CREDITO') {
+        valorFinalParcela = roundHalfUp(parcelaBaseReais * (1 + creditRate))
       }
 
       return { 
         id: Date.now() + i, 
         paymentMethod: method, 
-        valor: formatPriceDisplay(Number(valorFinalParcela.toFixed(2)))
+        valor: formatPriceDisplay(valorFinalParcela)
       }
     })
     setPaymentsList(arr)
@@ -1337,7 +1357,7 @@ export const SalesView = ({ navigate }) => {
                   {payment === 'CREDITO' && (
                     <PayModalInfo style={{marginTop:10}}>
                       <span className='material-symbols-outlined'>info</span>
-                      Acréscimo de {((loadStoreConfig()?.creditSurcharge ?? 5)).toFixed(1)}% no crédito: +{fmt(total * ((loadStoreConfig()?.creditSurcharge ?? 5) / 100))} → Total: {fmt(total * (1 + (loadStoreConfig()?.creditSurcharge ?? 5) / 100))}
+                      Acréscimo de {creditSurcharge.toFixed(1)}% no crédito: +{fmt(total * (creditSurcharge / 100))} → Total: {fmt(total * (1 + (creditSurcharge / 100)))}
                     </PayModalInfo>
                   )}
                 </div>
@@ -1361,7 +1381,7 @@ export const SalesView = ({ navigate }) => {
                           setPayment('DINHEIRO');
 
                           // 2. Calcula o valor inicial usando a taxa dinâmica configurada
-                          const creditRate = (loadStoreConfig()?.creditSurcharge ?? 5) / 100;
+                          const creditRate = creditSurcharge / 100;
                           let valorInicial = total;
                           if (metodoAntesDoSplit === 'CREDITO') {
                             valorInicial = total * (1 + creditRate);
@@ -1415,17 +1435,21 @@ export const SalesView = ({ navigate }) => {
                       <SplitRow key={p.id}>
                         <select value={p.paymentMethod} onChange={e => {
                           const v = e.target.value
-                          const creditRate = (loadStoreConfig()?.creditSurcharge ?? 5) / 100;
+                          const creditRate = creditSurcharge / 100;
 
                           setPaymentsList(prev => prev.map(it => {
                             if (it.id !== p.id) return it
                             let novoValor = parseBRL(it.valor)
                             
-                            // Se mudar para crédito, aplica a taxa dinâmica; se tirar, deduz ela.
-                            if (v === 'CREDITO' && it.paymentMethod !== 'CREDITO') novoValor = novoValor * (1 + creditRate)
-                            if (v !== 'CREDITO' && it.paymentMethod === 'CREDITO') novoValor = novoValor / (1 + creditRate)
+                            // Se mudar para crédito, aplica a taxa dinâmica; se tirar, deduz ela (SEMPRE arredondando).
+                            if (v === 'CREDITO' && it.paymentMethod !== 'CREDITO') {
+                              novoValor = roundHalfUp(novoValor * (1 + creditRate))
+                            }
+                            if (v !== 'CREDITO' && it.paymentMethod === 'CREDITO') {
+                              novoValor = roundHalfUp(novoValor / (1 + creditRate))
+                            }
                             
-                            return {...it, paymentMethod: v, valor: formatPriceDisplay(Number(novoValor.toFixed(2)))}
+                            return {...it, paymentMethod: v, valor: formatPriceDisplay(novoValor)}
                           }))
                         }}>
                           {PAYMENTS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
@@ -1662,8 +1686,7 @@ export const SalesView = ({ navigate }) => {
                   ? receipt.paymentsSent.map(p => ({
                       method: p.paymentMethod,
                       valor: Number(p.valor != null ? p.valor : p.valorPago || 0),
-                      taxa: p.paymentMethod === 'CREDITO' ? Number(p.valor != null ? p.valor : p.valorPago || 0) * 0.05 : 0
-                    }))
+                      taxa: p.paymentMethod === 'CREDITO' ? Number(p.valor != null ? p.valor : p.valorPago || 0) * (creditSurcharge / 100) : 0                    }))
                   : null;
 
                 // 2. Se for o fluxo de pagamento único direto do PDV (sem split)

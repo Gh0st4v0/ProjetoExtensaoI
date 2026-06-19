@@ -44,8 +44,6 @@ public class VendaService {
 
     private static final BigDecimal AUTO_DISCARD_THRESHOLD_KG = new BigDecimal("0.1000");
 
-    // ─── THE STORY OF A SALE (MAIN METHOD) ───────────────────────────────────────
-
     @Transactional
     public Venda createSale(VendCreateDTO saleDTO) {
         Usuario usuario = getUserFromDTOIfExists(saleDTO);
