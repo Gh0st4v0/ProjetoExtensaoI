@@ -1,7 +1,6 @@
 import styled, { keyframes } from 'styled-components'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Sidebar } from '../components/Sidebar'
-import productsApi, { getAllProductsUnpaged } from '../services/productsApi'
 import { createSale, getSale, searchClients, createClient, getAllClients } from '../services/salesApi'
 import api from '../services/apiClient'
 import { toast } from 'react-toastify'
@@ -490,6 +489,9 @@ export const SalesView = ({ navigate }) => {
   const [selectedId, setSelectedId] = useState(null)
   const [inlineQty, setInlineQty] = useState('')
   const [inlinePrice, setInlinePrice] = useState('')
+
+  const [catalog, setCatalog] = useState([]) 
+  const [isCatalogLoaded, setIsCatalogLoaded] = useState(false)
   
   // Referência para o controle de tempo do Debounce de produtos
   const productDebounceRef = useRef(null)
@@ -654,42 +656,148 @@ export const SalesView = ({ navigate }) => {
       })
   }, [])
 
-  /// Dispara o carregamento inicial (página 0, sem filtros) ao montar o componente
-  useEffect(() => { 
-    loadProducts('', 'TODOS') 
-  }, [loadProducts])
+  // ── FUNÇÃO DE SINCRONIZAÇÃO HÍBRIDA ──
+  const syncCatalog = useCallback(async (isFirstLoad = false) => {
+    try {
+      if (isFirstLoad) setLoadingP(true);
+      // Se estamos sincronizando de novo (após uma venda), desligamos a memória 
+      // temporariamente para o sistema não tentar filtrar dados defasados.
+      setIsCatalogLoaded(false); 
 
-  // Debounce para escutar a digitação do usuário e o clique nas abas de categoria
+      // 1. Busca APENAS a primeira página (Prioridade Máxima)
+      const res0 = await api.get('/products?page=0');
+      const data0 = res0.data;
+      const totalPages = data0.totalPages || 1;
+      
+      const mapProduct = p => ({
+        id: p.id, name: p.name || '', code: p.code || '',
+        brand: p.brandName || '', category: p.categoryName || '',
+        unit: p.unitMeasurement || 'UN', price: Number(p.precoVenda || 0),
+        stock: Number(p.stockQuantity ?? 0),
+      });
+
+      let fullCatalog = (data0.content || data0 || []).map(mapProduct);
+
+      // Renderiza a primeira página IMEDIATAMENTE para liberar a tela
+      setProducts(fullCatalog);
+      setTotalProducts(data0.totalElements || fullCatalog.length);
+      if (isFirstLoad) setLoadingP(false); 
+
+      // 2. Busca o restante em background (Sequencialmente para não engasgar a rede)
+      if (totalPages > 1) {
+        for (let i = 1; i < totalPages; i++) {
+          const res = await api.get(`/products?page=${i}`);
+          const pageItems = (res.data.content || res.data || []).map(mapProduct);
+          fullCatalog = [...fullCatalog, ...pageItems];
+          
+          // DICA: Se você quiser que a lista de produtos vá "crescendo" 
+          // visualmente na frente do usuário enquanto baixa, ative esta linha:
+          // setProducts([...fullCatalog]); 
+        }
+      }
+
+      // 3. Salva o catálogo atualizado e religa o motor de filtro instantâneo
+      setCatalog(fullCatalog);
+      setIsCatalogLoaded(true);
+
+    } catch (error) {
+      console.error('Erro ao sincronizar catálogo:', error);
+      if (isFirstLoad) setLoadingP(false);
+      toast.error('Erro ao carregar ou atualizar produtos.');
+    }
+  }, []);
+
+  // Chama no carregamento inicial da tela
   useEffect(() => {
+    syncCatalog(true);
+  }, [syncCatalog]);
+
+  // ── CARREGAMENTO INICIAL E BACKGROUND FETCH (Página por Página) ──
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadEverything = async () => {
+      try {
+        setLoadingP(true);
+        
+        // 1. Busca apenas a primeira página para mostrar na tela o mais rápido possível
+        const res0 = await api.get('/products?page=0');
+        const data0 = res0.data;
+        const content0 = data0.content || data0 || [];
+        const totalPages = data0.totalPages || 1;
+        const totalElements = data0.totalElements || content0.length;
+
+        const mapProduct = p => ({
+          id: p.id, name: p.name || '', code: p.code || '',
+          brand: p.brandName || '', category: p.categoryName || '',
+          unit: p.unitMeasurement || 'UN', price: Number(p.precoVenda || 0),
+          stock: Number(p.stockQuantity ?? 0),
+        });
+
+        const mapped0 = content0.map(mapProduct);
+
+        if (!isMounted) return;
+
+        // Renderiza a página 0 para o tio já ir vendo a tela
+        setProducts(mapped0);
+        setTotalProducts(totalElements);
+        setLoadingP(false);
+
+        let fullCatalog = [...mapped0];
+
+        // 2. Se houverem mais páginas, o Front-end pede todas as outras de uma vez (em background)
+        if (totalPages > 1) {
+          const requests = [];
+          for (let i = 1; i < totalPages; i++) {
+            requests.push(api.get(`/products?page=${i}`));
+          }
+
+          // Dispara todas as requisições pendentes simultaneamente
+          const responses = await Promise.all(requests);
+          
+          responses.forEach(res => {
+             const pageContent = res.data.content || res.data || [];
+             fullCatalog = [...fullCatalog, ...pageContent.map(mapProduct)];
+          });
+        }
+
+        if (!isMounted) return;
+
+        // 3. Salva o catálogo montado no estado e vira a chave da memória RAM!
+        setCatalog(fullCatalog);
+        setIsCatalogLoaded(true);
+
+      } catch (error) {
+        console.error('Erro ao buscar o catálogo paginado:', error);
+        if (isMounted) setLoadingP(false);
+        toast.error('Erro ao carregar o catálogo de produtos.');
+      }
+    };
+
+    loadEverything();
+
+    return () => { isMounted = false; };
+  }, []);
+
+ // Debounce para escutar a digitação e abas (SOMENTE enquanto o catálogo não baixa)
+  useEffect(() => {
+    if (isCatalogLoaded) return; // Se já baixou tudo, ignora a API!
+
     if (productDebounceRef.current) clearTimeout(productDebounceRef.current)
     
     productDebounceRef.current = setTimeout(() => {
-      loadProducts(search, activeCat)
-    }, 400) // 400ms de espera
-
-    return () => clearTimeout(productDebounceRef.current)
-  }, [search, activeCat, loadProducts])// Dispara o carregamento inicial ao montar o componente
-  useEffect(() => { 
-    loadProducts('', 'TODOS', 0) 
-  }, [loadProducts])
-
-  // Debounce para escutar a digitação do usuário e o clique nas abas
-  useEffect(() => {
-    if (productDebounceRef.current) clearTimeout(productDebounceRef.current)
-    
-    productDebounceRef.current = setTimeout(() => {
-      setPage(0) // Sempre que pesquisar algo novo, volta pra página 0
+      setPage(0) 
       loadProducts(search, activeCat, 0)
     }, 400)
 
     return () => clearTimeout(productDebounceRef.current)
-  }, [search, activeCat, loadProducts])
+  }, [search, activeCat, loadProducts, isCatalogLoaded])
 
-  useEffect(() => { loadProducts() }, [loadProducts])
-
+  // Desativa o infinite scroll se já temos todos os dados
   const handleScroll = (e) => {
+    if (isCatalogLoaded) return; // ⬅️ Adicione esta linha no topo da função
+
     const { scrollTop, clientHeight, scrollHeight } = e.target
-    // Se a rolagem chegar a 50px do final, tem mais páginas e não está carregando nada no momento
     if (scrollHeight - scrollTop <= clientHeight + 50) {
       if (hasMore && !loadingP && !loadingMore) {
         const nextPage = page + 1
@@ -723,8 +831,27 @@ export const SalesView = ({ navigate }) => {
     return ['TODOS', ...cats]
   }, [contextCategories])
 
-  // Como a filtragem robusta agora acontece no banco, displayed apenas espelha o estado
-  const displayed = useMemo(() => products, [products])
+  const displayed = useMemo(() => {
+    // Se o catálogo em background já baixou, filtramos TUDO no Front-end (Instantâneo)
+    if (isCatalogLoaded) {
+      return catalog.filter(p => {
+        // Filtro de Categoria
+        const matchCat = activeCat === 'TODOS' || p.category === activeCat;
+        
+        // Filtro de Texto (Pesquisa)
+        const matchSearch = !search || 
+          p.name.toLowerCase().includes(search.toLowerCase()) || 
+          p.code.toLowerCase().includes(search.toLowerCase()) || 
+          p.brand.toLowerCase().includes(search.toLowerCase());
+          
+        return matchCat && matchSearch;
+      });
+    }
+    
+    // Se ainda está baixando o background, mostra o que veio paginado da API
+    return products;
+  }, [isCatalogLoaded, catalog, products, activeCat, search])
+
   // Qty already reserved in cart per product (for display only; validation uses original stock)
   const cartQtyById = useMemo(
     () => cart.reduce((acc, it) => { acc[it.productId] = (acc[it.productId] || 0) + it.qty; return acc }, {}),
@@ -1036,7 +1163,7 @@ export const SalesView = ({ navigate }) => {
     setInlinePrice('')
     setSearch('')
     searchRef.current?.focus()
-    loadProducts()
+    syncCatalog(false)
   }
 
   const equalSplit = (n) => {
@@ -1118,7 +1245,7 @@ export const SalesView = ({ navigate }) => {
               ))}
             </CatTabs>
 
-            {!loadingP && <PCount>{totalProducts} produto{totalProducts !== 1 ? 's' : ''}</PCount>}
+            {!loadingP && <PCount>{isCatalogLoaded ? displayed.length : totalProducts} produto{(isCatalogLoaded ? displayed.length : totalProducts) !== 1 ? 's' : ''}</PCount>}
 
             <PList onScroll={handleScroll}>
               {loadingP && <EmptyP><span className='material-symbols-outlined'>hourglass_empty</span>Carregando produtos...</EmptyP>}
