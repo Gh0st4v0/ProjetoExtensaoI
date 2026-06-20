@@ -2,13 +2,9 @@ import axios from 'axios'
 import { getToken, removeToken } from './cookieUtils'
 
 const api = axios.create({
-    // Se houver variável usa ela; se não, usa a produção (resolve a AWS);
-    // Mas se o Vite detectar que está em modo de desenvolvimento local, podemos forçar o localhost.
-    baseURL: import.meta.env.VITE_API_URL ||
-             (import.meta.env.DEV ? 'http://localhost:8080' : 'https://api.carneup.com.br'),
-    headers: {
-       'Content-Type': 'application/json'
-    }
+    // Em dev local, bate no backend. Em prod/stage, bate no próprio domínio do front na rota /api
+    baseURL: import.meta.env.DEV ? 'http://localhost:8080' : '/api', 
+    headers: { 'Content-Type': 'application/json' }
 })
 
 api.interceptors.request.use((config) => {
