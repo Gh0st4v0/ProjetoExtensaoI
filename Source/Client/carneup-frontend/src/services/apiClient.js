@@ -1,10 +1,32 @@
 import axios from 'axios'
 import { getToken, removeToken } from './cookieUtils'
 
+// Função inteligente que descobre com quem falar baseada na URL atual
+const getBaseUrl = () => {
+    // 1. Se você passou alguma variável estrita na hora do build, respeita ela
+    if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+    
+    // 2. Modo de desenvolvimento na sua máquina local (npm run dev)
+    if (import.meta.env.DEV) return 'http://localhost:8080';
+
+    // 3. ✨ A MÁGICA DO RUNTIME ✨
+    // O navegador lê onde o site está hospedado (ex: "stage.carneup.com.br")
+    const hostname = window.location.hostname || '';
+
+    // Se a palavra "stage" estiver na URL do frontend, joga pro backend de stage
+    if (hostname.includes('stage')) {
+        return 'https://api.stage.carneup.com.br';
+    }
+
+    // 4. Fallback padrão de Produção
+    return 'https://api.carneup.com.br';
+}
+
 const api = axios.create({
-    // Em dev local, bate no backend. Em prod/stage, bate no próprio domínio do front na rota /api
-    baseURL: import.meta.env.DEV ? 'http://localhost:8080' : '/api', 
-    headers: { 'Content-Type': 'application/json' }
+    baseURL: getBaseUrl(),
+    headers: {
+       'Content-Type': 'application/json'
+    }
 })
 
 api.interceptors.request.use((config) => {
