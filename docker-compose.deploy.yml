@@ -9,7 +9,6 @@ services:
       - POSTGRES_USER=${DB_USERNAME}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
-      # CORREÇÃO AQUI: Removido o "/data" do final do lado do container
       - /home/ubuntu/app/db-data:/var/lib/postgresql
     ports:
       - "${DB_PORT:-5432}:5432"
@@ -65,6 +64,5 @@ services:
       - '443:443'
       - '8181:81'
     volumes:
-      # ALTERADO: Pastas físicas na AWS. Seus certificados e login nunca mais somem no deploy
       - /home/ubuntu/app/proxy-data:/data
       - /home/ubuntu/app/proxy-letsencrypt:/etc/letsencrypt

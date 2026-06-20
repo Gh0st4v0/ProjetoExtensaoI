@@ -1,9 +1,6 @@
 package com.example.SpringBootApp.services;
 
-import com.example.SpringBootApp.DTOs.ProdutoComCompraEmEstoqueDTO;
-import com.example.SpringBootApp.DTOs.CompraCreateDTO;
-import com.example.SpringBootApp.DTOs.CompraEmEstoqueDTO;
-import com.example.SpringBootApp.DTOs.CompraItemDTO;
+import com.example.SpringBootApp.DTOs.*;
 import com.example.SpringBootApp.exceptions.BusinessException;
 import com.example.SpringBootApp.exceptions.ResourceNotFoundException;
 import com.example.SpringBootApp.models.*;
@@ -11,6 +8,7 @@ import com.example.SpringBootApp.repositories.CompraRepository;
 import com.example.SpringBootApp.repositories.MovimentacaoRepository;
 import com.example.SpringBootApp.repositories.ProdutoRepository;
 import com.example.SpringBootApp.repositories.DecarteRepository;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -510,7 +508,6 @@ public class InventarioService {
 
         return savedDescarte;
     }
-
 }
 
 

@@ -299,7 +299,7 @@ export const PurchaseView = ({ navigate, preselectProduct }) => {
     !isNaN(parsedPrice) &&
     parsedCost > 0
   ) {
-    margin = ((parsedPrice - parsedCost) / parsedCost) * 100
+    margin = ((parsedPrice - parsedCost) / parsedPrice) * 100
   }
 
   // min expiry date — only allow selecting from tomorrow

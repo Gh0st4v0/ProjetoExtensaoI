@@ -224,6 +224,7 @@ const DEFAULT_CONFIG = {
   footerMsg:         'Obrigado pela preferência!',
   expiryDays:        7,
   clienteInativoDias: 30,
+  creditSurcharge:   5
 }
 
 const TABS = [
@@ -320,6 +321,7 @@ export const ConfiguracaoView = ({ navigate }) => {
     lucroEsperado: '20.00',
     taxaDebito:    '2.50',
     taxaCredito:   '3.50',
+    acrescimoCredito: '5.00'
   })
   const [financeLoading,    setFinanceLoading]    = useState(false)
   const [savingFinance,     setSavingFinance]      = useState(false)
@@ -335,9 +337,10 @@ export const ConfiguracaoView = ({ navigate }) => {
         const d = r.data
         if (d) {
           setFinanceConfig({
-            lucroEsperado: d.lucroEsperado != null ? String(d.lucroEsperado) : '',
-            taxaDebito:    d.taxaDebito    != null ? String(d.taxaDebito)    : '',
-            taxaCredito:   d.taxaCredito   != null ? String(d.taxaCredito)   : '',
+            lucroEsperado:    d.lucroEsperado    != null ? String(d.lucroEsperado) : '',
+            taxaDebito:       d.taxaDebito       != null ? String(d.taxaDebito)    : '',
+            taxaCredito:      d.taxaCredito      != null ? String(d.taxaCredito)   : '',
+            acrescimoCredito: d.acrescimoCredito != null ? String(d.acrescimoCredito) : '5.00',
           })
           setFinanceCreatedAt(d.createdAt || d.criadoEm || d.created_at || null)
         }
@@ -355,6 +358,7 @@ export const ConfiguracaoView = ({ navigate }) => {
         lucroEsperado: financeConfig.lucroEsperado === '' ? null : Number(financeConfig.lucroEsperado),
         taxaDebito:    financeConfig.taxaDebito    === '' ? null : Number(financeConfig.taxaDebito),
         taxaCredito:   financeConfig.taxaCredito   === '' ? null : Number(financeConfig.taxaCredito),
+        acrescimoCredito: financeConfig.acrescimoCredito === '' ? null : Number(financeConfig.acrescimoCredito),
       })
       const latest = await api.get('/configuracoes/latest').then(r => r.data).catch(() => null)
       if (latest) {
@@ -596,6 +600,23 @@ export const ConfiguracaoView = ({ navigate }) => {
                         onChange={e => setForm(f => ({ ...f, clienteInativoDias: Number(e.target.value) }))}
                       />
                     </Field>
+                    <Field>
+                      <Label>Acréscimo no Crédito (PDV %)</Label>
+                      <Input
+                        type='number'
+                        min='0'
+                        step='0.01'
+                        value={financeConfig.acrescimoCredito}
+                        onChange={e => setFinanceConfig(f => ({ ...f, acrescimoCredito: e.target.value }))}
+                        onBlur={e => setFinanceConfig(f => ({
+                          ...f,
+                          acrescimoCredito: e.target.value === '' ? '' : Number(e.target.value).toFixed(2),
+                        }))}
+                        placeholder='5.00'
+                      />
+                    </Field>
+                    <Grid $cols='1fr 1fr 1fr'>
+                  </Grid>
                   </Grid>
 
                   <InfoRow>

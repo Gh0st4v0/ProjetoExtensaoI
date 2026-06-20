@@ -1,11 +1,29 @@
 import axios from 'axios'
 import { getToken, removeToken } from './cookieUtils'
 
+// Função inteligente que descobre com quem falar baseada na URL atual
+const getBaseUrl = () => {
+    // 1. Se você passou alguma variável estrita na hora do build, respeita ela
+    if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+    
+    // 2. Modo de desenvolvimento na sua máquina local (npm run dev)
+    if (import.meta.env.DEV) return 'http://localhost:8080';
+
+    // 3. ✨ A MÁGICA DO RUNTIME ✨
+    // O navegador lê onde o site está hospedado (ex: "stage.carneup.com.br")
+    const hostname = window.location.hostname || '';
+
+    // Se a palavra "stage" estiver na URL do frontend, joga pro backend de stage
+    if (hostname.includes('stage')) {
+        return 'https://stage.api.carneup.com.br';
+    }
+
+    // 4. Fallback padrão de Produção
+    return 'https://api.carneup.com.br';
+}
+
 const api = axios.create({
-    // Se houver variável usa ela; se não, usa a produção (resolve a AWS);
-    // Mas se o Vite detectar que está em modo de desenvolvimento local, podemos forçar o localhost.
-    baseURL: import.meta.env.VITE_API_URL ||
-             (import.meta.env.DEV ? 'http://localhost:8080' : 'https://api.carneup.com.br'),
+    baseURL: getBaseUrl(),
     headers: {
        'Content-Type': 'application/json'
     }
