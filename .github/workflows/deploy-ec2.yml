@@ -65,7 +65,7 @@ jobs:
         with:
           host: ${{ inputs.environment == 'stage' && secrets.EC2_HOST_STAGE || secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
-          key: ${{ inputs.environment == 'stage' && secrets.EC2_PRIVATE_KEY_STAGE || secrets.SSH_PRIVATE_KEY }}
+          key: ${{ inputs.environment == 'stage' && secrets.SSH_PRIVATE_KEY_STAGE || secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ${{ github.event.inputs.deploy_path || '/home/ubuntu/app' }}
             tar -xzf deploy_artifacts.tar.gz && rm deploy_artifacts.tar.gz
