@@ -15,7 +15,7 @@ const getBaseUrl = () => {
 
     // Se a palavra "stage" estiver na URL do frontend, joga pro backend de stage
     if (hostname.includes('stage')) {
-        return 'https://api.stage.carneup.com.br';
+        return 'https://stage.api.carneup.com.br';
     }
 
     // 4. Fallback padrão de Produção
