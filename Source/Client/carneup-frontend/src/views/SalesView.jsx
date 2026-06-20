@@ -622,7 +622,7 @@ export const SalesView = ({ navigate }) => {
 
     const apiCall = searchTerm
       ? api.get(`/products/search?q=${encodeURIComponent(searchTerm)}&page=${pageNum}`)
-      : api.get(`/products?page=${pageNum}`)
+      : api.get(`/products/positive?page=${pageNum}`)
 
     apiCall
       .then(response => {
@@ -665,7 +665,7 @@ export const SalesView = ({ navigate }) => {
       setIsCatalogLoaded(false); 
 
       // 1. Busca APENAS a primeira página (Prioridade Máxima)
-      const res0 = await api.get('/products?page=0');
+      const res0 = await api.get('/products/positive?page=0');
       const data0 = res0.data;
       const totalPages = data0.totalPages || 1;
       
@@ -686,7 +686,7 @@ export const SalesView = ({ navigate }) => {
       // 2. Busca o restante em background (Sequencialmente para não engasgar a rede)
       if (totalPages > 1) {
         for (let i = 1; i < totalPages; i++) {
-          const res = await api.get(`/products?page=${i}`);
+          const res = await api.get(`/products/positive?page=${i}`);
           const pageItems = (res.data.content || res.data || []).map(mapProduct);
           fullCatalog = [...fullCatalog, ...pageItems];
           
@@ -721,7 +721,7 @@ export const SalesView = ({ navigate }) => {
         setLoadingP(true);
         
         // 1. Busca apenas a primeira página para mostrar na tela o mais rápido possível
-        const res0 = await api.get('/products?page=0');
+        const res0 = await api.get('/products/positive?page=0');
         const data0 = res0.data;
         const content0 = data0.content || data0 || [];
         const totalPages = data0.totalPages || 1;
@@ -749,7 +749,7 @@ export const SalesView = ({ navigate }) => {
         if (totalPages > 1) {
           const requests = [];
           for (let i = 1; i < totalPages; i++) {
-            requests.push(api.get(`/products?page=${i}`));
+            requests.push(api.get(`/products/positive?page=${i}`));
           }
 
           // Dispara todas as requisições pendentes simultaneamente

@@ -64,22 +64,19 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
             """)
     Page<ProdutoQuantidadeEstoqueDTO> findAllWithStock(Pageable pageable);
 
-    @Query("""
-            SELECT new com.example.SpringBootApp.DTOs.ProdutoQuantidadeEstoqueDTO(
-                p.id,
-                p.nome,
-                p.codigo,
-                COALESCE(p.marca.nome, ''),
-                COALESCE(p.categoria.nome, ''),
-                p.unidadeMedida,
-                p.precoVenda,
-                (SELECT COALESCE(SUM(m.quantidade), 0) FROM Movimentacao m WHERE m.produto = p),
-                p.isPerecivel,
-                p.estoqueMinimo
-            )
-            FROM Produto p
-            ORDER BY p.nome ASC
-            """)
-    List<ProdutoQuantidadeEstoqueDTO> findAllWithStock();
+    @Query("SELECT new com.example.SpringBootApp.DTOs.ProdutoQuantidadeEstoqueDTO(" +
+            "p.id, " +
+            "p.nome, " +
+            "p.codigo, " +
+            "COALESCE(p.marca.nome, ''), " +
+            "COALESCE(p.categoria.nome, ''), " +
+            "p.unidadeMedida, " +
+            "p.precoVenda, " +
+            "(SELECT COALESCE(SUM(m.quantidade), 0) FROM Movimentacao m WHERE m.produto = p), " +
+            "p.isPerecivel, " +
+            "p.estoqueMinimo) " +
+            "FROM Produto p " +
+            "WHERE (SELECT COALESCE(SUM(m.quantidade), 0) FROM Movimentacao m WHERE m.produto = p) > 0")
+    Page<ProdutoQuantidadeEstoqueDTO> findAllWithPositiveStock(Pageable pageable);
 }
 

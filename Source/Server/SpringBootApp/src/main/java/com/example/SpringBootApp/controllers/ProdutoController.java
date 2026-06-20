@@ -41,6 +41,12 @@ public class ProdutoController {
         return ResponseEntity.created(URI.create("/products/" + Produto.getId())).build();
     }
 
+    @GetMapping("/positive")
+    public ResponseEntity<Page<ProdutoQuantidadeEstoqueDTO>> getAllProductsWithPositiveStock(@RequestParam(value = "page", defaultValue = "0") int page) {
+        Page<ProdutoQuantidadeEstoqueDTO> products = CatalogoService.getAllProductsWithPositiveStock(page);
+        return ResponseEntity.ok(products);
+    }
+
     @GetMapping("/purchases")
     public ResponseEntity<List<ProdutoComCompraEmEstoqueDTO>> getProductsWithPurchasesInStock() {
         List<ProdutoComCompraEmEstoqueDTO> products = InventarioService.getProductsWithPurchaseInStock();

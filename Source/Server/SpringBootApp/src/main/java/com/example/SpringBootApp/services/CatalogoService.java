@@ -306,6 +306,11 @@ public class CatalogoService {
 		produto.setPrecoVenda(novoPreco);
 		return ProdutoRepository.save(produto);
 	}
+
+    public Page<ProdutoQuantidadeEstoqueDTO> getAllProductsWithPositiveStock(int page) {
+		Pageable pageable = PageRequest.of(page, 10, Sort.by("nome").ascending());
+		return ProdutoRepository.findAllWithPositiveStock(pageable);
+    }
 }
 
 
